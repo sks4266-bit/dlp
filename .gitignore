@@ -1,0 +1,12 @@
+# Cloudflare Wrangler
+.wrangler/
+**/.wrangler/
+
+# Node
+node_modules/
+dist/
+build/
+
+# Env
+.env
+.env.*
