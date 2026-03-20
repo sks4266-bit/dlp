@@ -1,0 +1,9 @@
+-- 운영진(ADMIN) 수동 등록 가이드
+-- 1) 먼저 users 테이블에서 해당 사용자 id를 확인하세요.
+--    예) SELECT id, name, username FROM users WHERE username = 'adminid';
+--
+-- 2) 아래 INSERT를 실행합니다.
+--    role은 'ADMIN' 고정입니다.
+--
+-- INSERT INTO user_global_roles (user_id, role, created_at)
+-- VALUES ('<USER_ID_HERE>', 'ADMIN', strftime('%s','now')*1000);
