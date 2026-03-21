@@ -452,7 +452,12 @@ export default function McheyneCalendarPage() {
                 <div style={{ fontWeight: 950, fontSize: 13 }}>체크</div>
                 <div style={{ marginTop: 8, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   {([1, 2, 3, 4] as const).map((i) => {
-                    const k = (i === 1 ? 'done1' : i === 2 ? 'done2' : i === 3 ? 'done3' : 'done4') as const;
+                    const k = 
+                     (i === 1 ? 'done1' : i === 2 ? 'done2' : i === 3 ? 'done3' : 'done4') as
+                      | 'done1'
+                      | 'done2'
+                      | 'done3'
+                      | 'done4';
                     const checked = (selRow as any)?.[k] ? true : false;
                     return (
                       <label
