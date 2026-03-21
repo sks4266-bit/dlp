@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../components/layout/TopBar';
 import { apiFetch } from '../lib/api';
@@ -568,7 +569,7 @@ function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () =
   );
 }
 
-const card: React.CSSProperties = {
+const card: CSSProperties = {
   padding: 14,
   borderRadius: 14,
   border: '1px solid var(--border)',
@@ -576,7 +577,7 @@ const card: React.CSSProperties = {
   color: 'var(--text)'
 };
 
-const select: React.CSSProperties = {
+const select: CSSProperties = {
   height: 40,
   padding: '0 10px',
   borderRadius: 12,
@@ -586,20 +587,20 @@ const select: React.CSSProperties = {
   fontWeight: 900
 };
 
-const gridHeader: React.CSSProperties = {
+const gridHeader: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(7, 1fr)',
   gap: 6
 };
 
-const grid: React.CSSProperties = {
+const grid: CSSProperties = {
   marginTop: 8,
   display: 'grid',
   gridTemplateColumns: 'repeat(7, 1fr)',
   gap: 6
 };
 
-const cell: React.CSSProperties = {
+const cell: CSSProperties = {
   height: 56,
   borderRadius: 14,
   border: '1px solid var(--border)',
@@ -610,7 +611,7 @@ const cell: React.CSSProperties = {
   flexDirection: 'column'
 };
 
-const ghostBtnWide: React.CSSProperties = {
+const ghostBtnWide: CSSProperties = {
   width: '100%',
   height: 44,
   padding: '0 12px',
@@ -621,7 +622,7 @@ const ghostBtnWide: React.CSSProperties = {
   fontWeight: 950
 };
 
-const tinyNavBtn: React.CSSProperties = {
+const tinyNavBtn: CSSProperties = {
   height: 40,
   padding: '0 10px',
   borderRadius: 12,
@@ -631,7 +632,7 @@ const tinyNavBtn: React.CSSProperties = {
   fontWeight: 950
 };
 
-const todayPill: React.CSSProperties = {
+const todayPill: CSSProperties = {
   fontSize: 11,
   fontWeight: 950,
   padding: '2px 8px',
@@ -641,7 +642,7 @@ const todayPill: React.CSSProperties = {
   color: 'var(--text)'
 };
 
-const todayShortcutBtn: React.CSSProperties = {
+const todayShortcutBtn: CSSProperties = {
   marginTop: 6,
   height: 22,
   padding: '0 10px',
@@ -654,7 +655,7 @@ const todayShortcutBtn: React.CSSProperties = {
   cursor: 'pointer'
 };
 
-const toastWrap: React.CSSProperties = {
+const toastWrap: CSSProperties = {
   position: 'fixed',
   left: 0,
   right: 0,
@@ -665,7 +666,7 @@ const toastWrap: React.CSSProperties = {
   zIndex: 2000
 };
 
-const toastBox: React.CSSProperties = {
+const toastBox: CSSProperties = {
   maxWidth: 520,
   margin: '0 12px',
   padding: '10px 14px',
@@ -677,17 +678,17 @@ const toastBox: React.CSSProperties = {
   boxShadow: '0 12px 30px rgba(0,0,0,0.18)'
 };
 
-const toastOk: React.CSSProperties = {
+const toastOk: CSSProperties = {
   border: '1px solid rgba(0, 200, 120, 0.35)',
   background: 'rgba(0, 200, 120, 0.14)'
 };
 
-const toastWarn: React.CSSProperties = {
+const toastWarn: CSSProperties = {
   border: '1px solid rgba(255, 160, 0, 0.35)',
   background: 'rgba(255, 160, 0, 0.14)'
 };
 
-const errorBox: React.CSSProperties = {
+const errorBox: CSSProperties = {
   padding: 12,
   borderRadius: 14,
   border: '1px solid var(--danger-border)',
