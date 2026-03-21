@@ -12,15 +12,22 @@ type Props = {
   items: UrgentTickerItem[];
   intervalMs?: number; // default 3000
   resumeDelayMs?: number; // default 5000
-  heightPx?: number; // default 44
+
+  /**
+   * class 기반 유지 위해 높이는 프리셋만 지원
+   * - 44(default): urgentTickerH44
+   * - 52: urgentTickerH52
+   */
+  heightPx?: 44 | 52;
+
   onItemClick?: (id: string) => void;
 };
 
 /**
  * [긴급기도 티커 UX]
- * - 3초마다 자동으로 위로 롤링(루프)
- * - 사용자가 드래그/터치하면 즉시 정지
- * - 놓으면 스냅(+다음/이전 전환) 후 5초 뒤 자동 재개
+ * - intervalMs마다 자동 위로 롤링(루프)
+ * - 드래그/터치하면 정지
+ * - 놓으면 스냅(+다음/이전 전환) 후 resumeDelayMs 뒤 자동 재개
  */
 export default function UrgentPrayerTicker({
   items,
@@ -30,14 +37,26 @@ export default function UrgentPrayerTicker({
   onItemClick
 }: Props) {
   const safeItems = useMemo(() => (items?.length ? items : []), [items]);
+
   const [index, setIndex] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+
   const startYRef = useRef<number | null>(null);
   const resumeTimerRef = useRef<number | null>(null);
 
   const count = safeItems.length;
+  const current = count ? safeItems[index] : null;
+
+  const heightClass = heightPx === 52 ? 'urgentTickerH52' : 'urgentTickerH44';
+  const rollClass = [
+    'urgentTickerRoll',
+    isDragging ? 'isDragging' : '',
+    count > 1 ? 'isGrabbable' : ''
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   useEffect(() => {
     if (count <= 1) return;
@@ -62,10 +81,13 @@ export default function UrgentPrayerTicker({
 
   function onPointerDown(e: React.PointerEvent) {
     if (count <= 1) return;
+
     setIsPaused(true);
     setIsDragging(true);
+
     startYRef.current = e.clientY;
     setDragOffset(0);
+
     try {
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     } catch {
@@ -100,126 +122,60 @@ export default function UrgentPrayerTicker({
     scheduleResume();
   }
 
-  const current = count ? safeItems[index] : null;
-
   return (
-    <section
-      aria-label="긴급기도제목"
-      style={{
-        borderRadius: 14,
-        border: '1px solid rgba(255,0,0,0.18)',
-        background: 'rgba(255,0,0,0.04)',
-        overflow: 'hidden'
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
-        <Badge />
+    <section aria-label="긴급기도제목" className={['urgentTicker', heightClass].join(' ')}>
+      <div className="urgentTickerTop">
+        <div className="urgentTickerBadge">긴급기도</div>
 
         <div
-          style={{ position: 'relative', height: heightPx, flex: 1, overflow: 'hidden', touchAction: 'pan-y' }}
+          className="urgentTickerViewport"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
         >
           {count === 0 ? (
-            <TickerRow heightPx={heightPx} dim>
-              현재 긴급기도제목이 없습니다.
-            </TickerRow>
+            <div className={['urgentTickerRow', 'isDim'].join(' ')}>
+              <span className="urgentTickerEllipsis">현재 긴급기도제목이 없습니다.</span>
+            </div>
           ) : (
             <div
-              style={{
-                transform: `translateY(${dragOffset}px)`,
-                transition: isDragging ? 'none' : 'transform 180ms ease',
-                willChange: 'transform',
-                cursor: count > 1 ? 'grab' : 'default'
-              }}
+              className={rollClass}
+              style={{ transform: `translateY(${dragOffset}px)` }}
             >
               <button
                 type="button"
+                className="urgentTickerBtn"
                 onClick={() => current && onItemClick?.(current.id)}
-                style={{
-                  appearance: 'none',
-                  border: 'none',
-                  background: 'transparent',
-                  padding: 0,
-                  margin: 0,
-                  width: '100%',
-                  textAlign: 'left'
-                }}
               >
-                <TickerRow heightPx={heightPx}>
-                  <span style={{ fontWeight: 900 }}>{current?.authorName}</span>
-                  <span style={{ margin: '0 8px', color: 'var(--muted)' }}>·</span>
-                  <span style={{ color: 'var(--text)' }}>{current?.content}</span>
-                </TickerRow>
+                <div className="urgentTickerRow">
+                  <span className="urgentTickerAuthor">{current?.authorName}</span>
+                  <span className="urgentTickerDot">·</span>
+                  <span className="urgentTickerEllipsis">{current?.content}</span>
+                </div>
               </button>
 
               {/* 다음 줄 미리 렌더 → 드래그 시 자연스러움 */}
-              {count > 1 && (
-                <TickerRow heightPx={heightPx} dim>
-                  <span style={{ fontWeight: 900 }}>{safeItems[(index + 1) % count]?.authorName}</span>
-                  <span style={{ margin: '0 8px', color: 'var(--muted)' }}>·</span>
-                  <span>{safeItems[(index + 1) % count]?.content}</span>
-                </TickerRow>
-              )}
+              {count > 1 ? (
+                <div className={['urgentTickerRow', 'isDim'].join(' ')}>
+                  <span className="urgentTickerAuthor">{safeItems[(index + 1) % count]?.authorName}</span>
+                  <span className="urgentTickerDot">·</span>
+                  <span className="urgentTickerEllipsis">{safeItems[(index + 1) % count]?.content}</span>
+                </div>
+              ) : null}
             </div>
           )}
         </div>
 
-        <Chevron />
+        <div className="urgentTickerChevron" aria-hidden="true">
+          ›
+        </div>
       </div>
 
-      <div style={{ fontSize: 11, padding: '0 12px 10px', color: 'var(--muted)' }}>
+      <div className="urgentTickerMeta">
         {count > 0 ? `유효 24시간 · ${count}건` : '유효 24시간'}
         {isPaused || isDragging ? ' · 일시정지' : ''}
       </div>
     </section>
-  );
-}
-
-function Badge() {
-  return (
-    <div
-      style={{
-        minWidth: 56,
-        height: 24,
-        borderRadius: 999,
-        background: 'rgba(255,0,0,0.12)',
-        color: 'rgb(180,0,0)',
-        fontSize: 12,
-        fontWeight: 900,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}
-    >
-      긴급기도
-    </div>
-  );
-}
-
-function Chevron() {
-  return (
-    <div style={{ color: 'var(--muted)', fontSize: 18, fontWeight: 900, userSelect: 'none' }}>›</div>
-  );
-}
-
-function TickerRow({ heightPx, children, dim }: { heightPx: number; children: any; dim?: boolean }) {
-  return (
-    <div
-      style={{
-        height: heightPx,
-        display: 'flex',
-        alignItems: 'center',
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        fontSize: 14,
-        color: dim ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.92)'
-      }}
-    >
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{children}</span>
-    </div>
   );
 }

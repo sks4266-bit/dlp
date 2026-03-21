@@ -1,12 +1,8 @@
-import { Link, useNavigate } from 'react-router-dom';
+import type { ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
+import Button from '../../ui/Button';
 
-/**
- * 모바일 상단바(최소형)
- * - 좌측: (옵션) 뒤로
- * - 가운데: 타이틀
- * - 우측: 로그인/내정보/로그아웃 (+ ADMIN)
- */
 export default function TopBar({
   title,
   backTo,
@@ -15,7 +11,7 @@ export default function TopBar({
 }: {
   title: string;
   backTo?: string;
-  right?: any;
+  right?: ReactNode;
   /** 로그인/내정보/로그아웃 버튼 숨김 (로그인/회원가입 화면용) */
   hideAuthActions?: boolean;
 }) {
@@ -23,90 +19,65 @@ export default function TopBar({
   const { me, loading, logout } = useAuth();
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-        {backTo && (
-          <button type="button" onClick={() => nav(backTo)} aria-label="뒤로" style={backBtn}>
+    <header className="topBar">
+      <div className="topBarLeft">
+        {backTo ? (
+          <Button
+            variant="ghost"
+            className="topBarBackBtn"
+            onClick={() => nav(backTo)}
+            aria-label="뒤로"
+            title="뒤로"
+          >
             ‹
-          </button>
+          </Button>
+        ) : (
+          <div className="topBarBackSpacer" />
         )}
-        <div style={{ fontSize: 22, fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+
+        <div className="topBarTitle" title={title}>
+          {title}
+        </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        {right}
+      <div className="topBarRight">
+        {right ? <div className="topBarRightSlot">{right}</div> : null}
 
-        {!hideAuthActions && (
+        {!hideAuthActions ? (
           <>
-            {!me && !loading && (
-              <button type="button" onClick={() => nav('/login')} style={ghostBtn}>
+            {!me && !loading ? (
+              <Button variant="secondary" onClick={() => nav('/login')}>
                 로그인
-              </button>
-            )}
+              </Button>
+            ) : null}
 
-            {me && (
+            {me ? (
               <>
-                {me.isAdmin && (
-                  <Link to="/admin" style={ghostLink} aria-label="ADMIN 대시보드">
+                {me.isAdmin ? (
+                  <Button variant="ghost" onClick={() => nav('/admin')} aria-label="ADMIN 대시보드">
                     ADMIN
-                  </Link>
-                )}
-                <Link to="/me" style={ghostLink} aria-label="내정보">
+                  </Button>
+                ) : null}
+
+                <Button variant="ghost" onClick={() => nav('/me')} aria-label="내정보">
                   내정보
-                </Link>
-                <button
-                  type="button"
+                </Button>
+
+                <Button
+                  variant="ghost"
                   onClick={() => {
                     logout();
                     nav('/');
                   }}
-                  style={ghostBtn}
                   aria-label="로그아웃"
                 >
                   로그아웃
-                </button>
+                </Button>
               </>
-            )}
+            ) : null}
           </>
-        )}
+        ) : null}
       </div>
-    </div>
+    </header>
   );
 }
-
-const backBtn: React.CSSProperties = {
-  width: 40,
-  height: 40,
-  borderRadius: 12,
-  border: '1px solid var(--border)',
-  background: 'var(--card)',
-  color: 'var(--text)',
-  fontSize: 18,
-  fontWeight: 900
-};
-
-const ghostBtn: React.CSSProperties = {
-  height: 40,
-  padding: '0 12px',
-  borderRadius: 12,
-  border: '1px solid var(--border)',
-  background: 'var(--card)',
-  color: 'var(--text)',
-  fontWeight: 900,
-  fontSize: 13
-};
-
-const ghostLink: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  height: 40,
-  padding: '0 12px',
-  borderRadius: 12,
-  border: '1px solid var(--border)',
-  background: 'var(--card)',
-  fontWeight: 900,
-  fontSize: 13,
-  color: 'var(--text)',
-  textDecoration: 'none'
-};
