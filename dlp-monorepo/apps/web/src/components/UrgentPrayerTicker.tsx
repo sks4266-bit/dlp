@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 
 export type UrgentTickerItem = {
   id: string;
@@ -10,25 +10,14 @@ export type UrgentTickerItem = {
 
 type Props = {
   items: UrgentTickerItem[];
-  intervalMs?: number; // default 3000
-  resumeDelayMs?: number; // default 5000
-
-  /**
-   * class 기반 유지 위해 높이는 프리셋만 지원
-   * - 44(default): urgentTickerH44
-   * - 52: urgentTickerH52
-   */
+  intervalMs?: number;
+  resumeDelayMs?: number;
   heightPx?: 44 | 52;
-
   onItemClick?: (id: string) => void;
 };
 
-/**
- * [긴급기도 티커 UX]
- * - intervalMs마다 자동 위로 롤링(루프)
- * - 드래그/터치하면 정지
- * - 놓으면 스냅(+다음/이전 전환) 후 resumeDelayMs 뒤 자동 재개
- */
+const TRANSITION_MS = 280;
+
 export default function UrgentPrayerTicker({
   items,
   intervalMs = 3000,
@@ -36,71 +25,148 @@ export default function UrgentPrayerTicker({
   heightPx = 44,
   onItemClick
 }: Props) {
-  const safeItems = useMemo(() => (items?.length ? items : []), [items]);
+  const safeItems = useMemo(() => (Array.isArray(items) ? items : []), [items]);
 
   const [index, setIndex] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [animDirection, setAnimDirection] = useState<1 | -1>(1);
+  const [animOffset, setAnimOffset] = useState(0);
+  const [animTransitionOn, setAnimTransitionOn] = useState(false);
+
   const startYRef = useRef<number | null>(null);
   const resumeTimerRef = useRef<number | null>(null);
+  const finishTimerRef = useRef<number | null>(null);
 
   const count = safeItems.length;
-  const current = count ? safeItems[index] : null;
 
-  const heightClass = heightPx === 52 ? 'urgentTickerH52' : 'urgentTickerH44';
-  const rollClass = [
-    'urgentTickerRoll',
-    isDragging ? 'isDragging' : '',
-    count > 1 ? 'isGrabbable' : ''
-  ]
-    .filter(Boolean)
-    .join(' ');
+  const currentIndex = count ? ((index % count) + count) % count : 0;
+  const nextIndex = count ? (currentIndex + 1) % count : 0;
+  const prevIndex = count ? (currentIndex - 1 + count) % count : 0;
+
+  const current = count ? safeItems[currentIndex] : null;
+  const next = count ? safeItems[nextIndex] : null;
+  const prev = count ? safeItems[prevIndex] : null;
 
   useEffect(() => {
-    if (count <= 1) return;
-    if (isPaused || isDragging) return;
+    if (count === 0) {
+      setIndex(0);
+      return;
+    }
 
-    const t = window.setInterval(() => {
-      setIndex((prev) => (prev + 1) % count);
-    }, intervalMs);
-
-    return () => window.clearInterval(t);
-  }, [count, intervalMs, isPaused, isDragging]);
-
-  useEffect(() => {
-    if (count === 0) setIndex(0);
-    else setIndex((prev) => prev % count);
+    setIndex((prevValue) => {
+      const normalized = ((prevValue % count) + count) % count;
+      return normalized;
+    });
   }, [count]);
 
-  function scheduleResume() {
-    if (resumeTimerRef.current) window.clearTimeout(resumeTimerRef.current);
-    resumeTimerRef.current = window.setTimeout(() => setIsPaused(false), resumeDelayMs);
+  useEffect(() => {
+    if (count <= 1) return;
+    if (isPaused || isDragging || isAnimating) return;
+
+    const timer = window.setInterval(() => {
+      animateStep(1);
+    }, intervalMs);
+
+    return () => window.clearInterval(timer);
+  }, [count, intervalMs, isPaused, isDragging, isAnimating, currentIndex]);
+
+  useEffect(() => {
+    return () => {
+      if (resumeTimerRef.current) window.clearTimeout(resumeTimerRef.current);
+      if (finishTimerRef.current) window.clearTimeout(finishTimerRef.current);
+    };
+  }, []);
+
+  function clearResumeTimer() {
+    if (resumeTimerRef.current) {
+      window.clearTimeout(resumeTimerRef.current);
+      resumeTimerRef.current = null;
+    }
   }
 
-  function onPointerDown(e: React.PointerEvent) {
-    if (count <= 1) return;
+  function clearFinishTimer() {
+    if (finishTimerRef.current) {
+      window.clearTimeout(finishTimerRef.current);
+      finishTimerRef.current = null;
+    }
+  }
 
+  function scheduleResume() {
+    clearResumeTimer();
+    resumeTimerRef.current = window.setTimeout(() => {
+      setIsPaused(false);
+    }, resumeDelayMs);
+  }
+
+  function animateStep(direction: 1 | -1, startOffset?: number) {
+    if (count <= 1) return;
+    if (isAnimating) return;
+
+    clearFinishTimer();
+
+    setIsAnimating(true);
+    setAnimDirection(direction);
+    setAnimTransitionOn(false);
+
+    const initialOffset =
+      typeof startOffset === 'number'
+        ? startOffset
+        : direction === 1
+          ? 0
+          : -heightPx;
+
+    const targetOffset = direction === 1 ? -heightPx : 0;
+
+    setAnimOffset(initialOffset);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setAnimTransitionOn(true);
+        setAnimOffset(targetOffset);
+      });
+    });
+
+    finishTimerRef.current = window.setTimeout(() => {
+      setIndex((prevValue) => {
+        if (count <= 0) return 0;
+        return direction === 1
+          ? (prevValue + 1) % count
+          : (prevValue - 1 + count) % count;
+      });
+
+      setIsAnimating(false);
+      setAnimTransitionOn(false);
+      setAnimOffset(0);
+      setDragOffset(0);
+    }, TRANSITION_MS + 24);
+  }
+
+  function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    if (count <= 1 || isAnimating) return;
+
+    clearResumeTimer();
     setIsPaused(true);
     setIsDragging(true);
-
     startYRef.current = e.clientY;
     setDragOffset(0);
 
     try {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      e.currentTarget.setPointerCapture(e.pointerId);
     } catch {
       // ignore
     }
   }
 
-  function onPointerMove(e: React.PointerEvent) {
+  function onPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
     if (!isDragging) return;
     if (startYRef.current == null) return;
 
     const delta = e.clientY - startYRef.current;
-    const clamped = Math.max(-heightPx * 1.2, Math.min(heightPx * 1.2, delta));
+    const clamped = Math.max(-heightPx, Math.min(heightPx, delta));
     setDragOffset(clamped);
   }
 
@@ -113,68 +179,416 @@ export default function UrgentPrayerTicker({
     setIsDragging(false);
     startYRef.current = null;
 
-    if (Math.abs(delta) > threshold) {
-      if (delta < 0) setIndex((prev) => (prev + 1) % count); // 위로 드래그 → 다음
-      else setIndex((prev) => (prev - 1 + count) % count); // 아래로 드래그 → 이전
+    if (Math.abs(delta) > threshold && count > 1) {
+      if (delta < 0) {
+        animateStep(1, Math.max(-heightPx, Math.min(0, delta)));
+      } else {
+        animateStep(-1, Math.max(-heightPx, Math.min(0, -heightPx + delta)));
+      }
+    } else {
+      setDragOffset(0);
     }
 
-    setDragOffset(0);
     scheduleResume();
   }
 
+  function handleClick() {
+    if (!current || isDragging || isAnimating) return;
+    onItemClick?.(current.id);
+  }
+
+  const trackRows =
+    count === 0
+      ? []
+      : isAnimating
+        ? animDirection === 1
+          ? [current, next]
+          : [prev, current]
+        : isDragging
+          ? dragOffset < 0
+            ? [current, next]
+            : [prev, current]
+          : [current, next];
+
+  const translateY =
+    count === 0
+      ? 0
+      : isAnimating
+        ? animOffset
+        : isDragging
+          ? dragOffset < 0
+            ? dragOffset
+            : -heightPx + dragOffset
+          : 0;
+
+  const itemCountText = count > 0 ? `유효 24시간 · ${count}건` : '유효 24시간';
+  const pauseText = isPaused || isDragging ? ' · 일시정지' : '';
+
   return (
-    <section aria-label="긴급기도제목" className={['urgentTicker', heightClass].join(' ')}>
-      <div className="urgentTickerTop">
-        <div className="urgentTickerBadge">긴급기도</div>
+    <section
+      aria-label="긴급기도 티커"
+      className={[
+        'urgentTickerMegaphone',
+        heightPx === 52 ? 'isTall' : 'isNormal',
+        isPaused || isDragging ? 'isPaused' : '',
+        count > 0 ? 'hasItems' : 'isEmpty'
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <style>
+        {`
+          .urgentTickerMegaphone {
+            position: relative;
+            width: 100%;
+            padding: 12px 12px 10px;
+            border-radius: 18px;
+            background:
+              linear-gradient(180deg, rgba(255,247,242,0.96), rgba(255,241,234,0.82));
+            border: 1px solid rgba(243,180,156,0.36);
+            box-shadow:
+              0 10px 24px rgba(204,151,126,0.14),
+              inset 0 1px 0 rgba(255,255,255,0.42);
+            overflow: hidden;
+          }
 
-        <div
-          className="urgentTickerViewport"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-        >
-          {count === 0 ? (
-            <div className={['urgentTickerRow', 'isDim'].join(' ')}>
-              <span className="urgentTickerEllipsis">현재 긴급기도제목이 없습니다.</span>
-            </div>
-          ) : (
-            <div
-              className={rollClass}
-              style={{ transform: `translateY(${dragOffset}px)` }}
+          .urgentTickerMegaphone::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+              radial-gradient(circle at 18% 22%, rgba(255,255,255,0.56), transparent 32%),
+              linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.20) 32%, transparent 58%);
+            pointer-events: none;
+          }
+
+          .urgentTickerHeader {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+          }
+
+          .urgentTickerLead {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex: 0 0 auto;
+          }
+
+          .urgentTickerHorn {
+            position: relative;
+            width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.54);
+            border: 1px solid rgba(255,255,255,0.58);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.48);
+            color: #c87355;
+          }
+
+          .urgentTickerHornSvg {
+            width: 19px;
+            height: 19px;
+            position: relative;
+            z-index: 2;
+          }
+
+          .urgentTickerWaves {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+          }
+
+          .urgentTickerWave {
+            position: absolute;
+            right: -1px;
+            top: 50%;
+            width: 12px;
+            height: 12px;
+            border-radius: 999px;
+            border: 2px solid rgba(232, 138, 101, 0.44);
+            transform: translateY(-50%) scale(0.55);
+            opacity: 0;
+            animation: urgentTickerWavePulse 1.7s ease-out infinite;
+          }
+
+          .urgentTickerWave.wave2 {
+            animation-delay: 0.38s;
+          }
+
+          .urgentTickerWave.wave3 {
+            animation-delay: 0.76s;
+          }
+
+          .urgentTickerMegaphone.isPaused .urgentTickerWave,
+          .urgentTickerMegaphone.isPaused .urgentTickerAlertDot {
+            animation-play-state: paused;
+          }
+
+          .urgentTickerBadge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 28px;
+            padding: 0 10px;
+            border-radius: 999px;
+            background: rgba(243,180,156,0.18);
+            border: 1px solid rgba(243,180,156,0.26);
+            color: #a05f48;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            white-space: nowrap;
+          }
+
+          .urgentTickerAlertDot {
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: #e37b54;
+            box-shadow: 0 0 0 rgba(227,123,84,0.55);
+            animation: urgentTickerAlertBlink 1.4s ease-in-out infinite;
+          }
+
+          .urgentTickerBody {
+            min-width: 0;
+            flex: 1;
+          }
+
+          .urgentTickerViewport {
+            position: relative;
+            min-width: 0;
+            overflow: hidden;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.52);
+            border: 1px solid rgba(255,255,255,0.52);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.46);
+            touch-action: pan-x;
+            user-select: none;
+            -webkit-user-select: none;
+          }
+
+          .urgentTickerTap {
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            text-align: left;
+            cursor: pointer;
+            color: inherit;
+          }
+
+          .urgentTickerTap:disabled {
+            cursor: default;
+          }
+
+          .urgentTickerTrack {
+            will-change: transform;
+          }
+
+          .urgentTickerTrack.withTransition {
+            transition: transform ${TRANSITION_MS}ms cubic-bezier(0.22, 1, 0.36, 1);
+          }
+
+          .urgentTickerRow {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+            padding: 0 14px;
+          }
+
+          .urgentTickerMegaphone.isNormal .urgentTickerRow {
+            height: 44px;
+          }
+
+          .urgentTickerMegaphone.isTall .urgentTickerRow {
+            height: 52px;
+          }
+
+          .urgentTickerRow.isGhost {
+            opacity: 0.62;
+          }
+
+          .urgentTickerAuthor {
+            color: #2b7f72;
+            font-size: 13px;
+            font-weight: 800;
+            flex: 0 0 auto;
+            max-width: 84px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .urgentTickerDot {
+            color: rgba(130, 108, 98, 0.72);
+            flex: 0 0 auto;
+            font-weight: 900;
+          }
+
+          .urgentTickerText {
+            min-width: 0;
+            color: #5a4f4a;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.4;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .urgentTickerText.isEmptyText {
+            color: #8f776d;
+            font-weight: 700;
+          }
+
+          .urgentTickerChevron {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            color: #b38272;
+            font-size: 20px;
+            font-weight: 900;
+            flex: 0 0 auto;
+          }
+
+          .urgentTickerMeta {
+            position: relative;
+            margin-top: 8px;
+            color: #9a7f74;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.35;
+          }
+
+          .urgentTickerMetaStrong {
+            color: #8d6c61;
+          }
+
+          @keyframes urgentTickerWavePulse {
+            0% {
+              opacity: 0;
+              transform: translateY(-50%) scale(0.55);
+            }
+            20% {
+              opacity: 0.58;
+            }
+            100% {
+              opacity: 0;
+              transform: translateY(-50%) scale(1.9);
+            }
+          }
+
+          @keyframes urgentTickerAlertBlink {
+            0%, 100% {
+              transform: scale(1);
+              box-shadow: 0 0 0 0 rgba(227,123,84,0.50);
+            }
+            45% {
+              transform: scale(1.08);
+              box-shadow: 0 0 0 7px rgba(227,123,84,0.00);
+            }
+          }
+        `}
+      </style>
+
+      <div className="urgentTickerHeader">
+        <div className="urgentTickerLead">
+          <div className="urgentTickerHorn" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              className="urgentTickerHornSvg"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <button
-                type="button"
-                className="urgentTickerBtn"
-                onClick={() => current && onItemClick?.(current.id)}
-              >
-                <div className="urgentTickerRow">
-                  <span className="urgentTickerAuthor">{current?.authorName}</span>
-                  <span className="urgentTickerDot">·</span>
-                  <span className="urgentTickerEllipsis">{current?.content}</span>
-                </div>
-              </button>
+              <path d="M4 13.5v-3l10-4v11l-10-4Z" />
+              <path d="M14 9.5h2.5a2.5 2.5 0 0 1 0 5H14" />
+              <path d="M7 15.2 8.1 19a1.6 1.6 0 0 0 1.54 1.15h.36" />
+            </svg>
 
-              {/* 다음 줄 미리 렌더 → 드래그 시 자연스러움 */}
-              {count > 1 ? (
-                <div className={['urgentTickerRow', 'isDim'].join(' ')}>
-                  <span className="urgentTickerAuthor">{safeItems[(index + 1) % count]?.authorName}</span>
-                  <span className="urgentTickerDot">·</span>
-                  <span className="urgentTickerEllipsis">{safeItems[(index + 1) % count]?.content}</span>
-                </div>
-              ) : null}
+            <div className="urgentTickerWaves">
+              <span className="urgentTickerWave wave1" />
+              <span className="urgentTickerWave wave2" />
+              <span className="urgentTickerWave wave3" />
             </div>
-          )}
+          </div>
+
+          <div className="urgentTickerBadge">
+            <span className="urgentTickerAlertDot" />
+            긴급기도
+          </div>
+        </div>
+
+        <div className="urgentTickerBody">
+          <div
+            className="urgentTickerViewport"
+            style={{ height: heightPx }}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+          >
+            <button
+              type="button"
+              className="urgentTickerTap"
+              onClick={handleClick}
+              disabled={!current}
+              aria-label={current ? `${current.authorName}의 긴급기도 보기` : '긴급기도 없음'}
+            >
+              {count === 0 ? (
+                <div className="urgentTickerRow" style={{ height: heightPx }}>
+                  <span className="urgentTickerText isEmptyText">현재 긴급기도 제목이 없습니다.</span>
+                </div>
+              ) : (
+                <div
+                  className={[
+                    'urgentTickerTrack',
+                    animTransitionOn ? 'withTransition' : ''
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  style={{ transform: `translateY(${translateY}px)` }}
+                >
+                  {(trackRows[0] || current) ? (
+                    <div className="urgentTickerRow" style={{ height: heightPx }}>
+                      <span className="urgentTickerAuthor">{trackRows[0]?.authorName}</span>
+                      <span className="urgentTickerDot">·</span>
+                      <span className="urgentTickerText">{trackRows[0]?.content}</span>
+                    </div>
+                  ) : null}
+
+                  {count > 1 && (trackRows[1] || next) ? (
+                    <div className="urgentTickerRow isGhost" style={{ height: heightPx }}>
+                      <span className="urgentTickerAuthor">{trackRows[1]?.authorName}</span>
+                      <span className="urgentTickerDot">·</span>
+                      <span className="urgentTickerText">{trackRows[1]?.content}</span>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </button>
+          </div>
+
+          <div className="urgentTickerMeta">
+            <span className="urgentTickerMetaStrong">{itemCountText}</span>
+            {pauseText}
+          </div>
         </div>
 
         <div className="urgentTickerChevron" aria-hidden="true">
           ›
         </div>
-      </div>
-
-      <div className="urgentTickerMeta">
-        {count > 0 ? `유효 24시간 · ${count}건` : '유효 24시간'}
-        {isPaused || isDragging ? ' · 일시정지' : ''}
       </div>
     </section>
   );
