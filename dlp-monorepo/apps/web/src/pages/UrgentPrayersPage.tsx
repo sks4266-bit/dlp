@@ -164,6 +164,7 @@ export default function UrgentPrayersPage() {
 
       <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)}>
         <UrgentPrayerComposer
+          onUnauthorized={goLogin}
           onDone={async (newId) => {
             setSheetOpen(false);
             await reload();

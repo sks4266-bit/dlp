@@ -1,30 +1,43 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../../lib/api';
-import { useAuth } from '../../auth/AuthContext';
 
-export default function UrgentPrayerComposer({ onDone }: { onDone?: (newId: string) => void }) {
-  const nav = useNavigate();
-  const { me } = useAuth();
+type Props = {
+  onDone?: (newId: string) => void;
+  onUnauthorized?: () => void;
+};
+
+export default function UrgentPrayerComposer({ onDone, onUnauthorized }: Props) {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   async function submit() {
-    if (!me) {
-      nav('/login');
+    if (loading) return;
+
+    const trimmed = content.trim();
+    if (!trimmed) {
+      setErr('기도제목을 입력해주세요.');
       return;
     }
 
     setErr(null);
     setLoading(true);
+
     try {
       const res = await apiFetch('/api/urgent-prayers', {
         method: 'POST',
-        body: JSON.stringify({ content })
+        body: JSON.stringify({ content: trimmed })
       });
+
+      if (res.status === 401) {
+        onUnauthorized?.();
+        return;
+      }
+
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error ?? 'CREATE_FAILED');
+      if (!res.ok) {
+        throw new Error(data?.error ?? 'CREATE_FAILED');
+      }
 
       setContent('');
       onDone?.(data.id);
@@ -75,7 +88,7 @@ export default function UrgentPrayerComposer({ onDone }: { onDone?: (newId: stri
             color: 'rgb(180,0,0)'
           }}
         >
-          {loading ? '등록 중…' : me ? '등록' : '로그인 필요'}
+          {loading ? '등록 중…' : '등록'}
         </button>
       </div>
 
