@@ -1,5 +1,4 @@
 -- Track McCheyne reading completion per user/day
-BEGIN;
 
 CREATE TABLE IF NOT EXISTS mcheyne_progress (
   user_id TEXT NOT NULL,
@@ -14,5 +13,3 @@ CREATE TABLE IF NOT EXISTS mcheyne_progress (
 );
 
 CREATE INDEX IF NOT EXISTS idx_mcheyne_progress_user ON mcheyne_progress(user_id);
-
-COMMIT;
