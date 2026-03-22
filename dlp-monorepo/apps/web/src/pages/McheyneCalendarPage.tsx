@@ -17,16 +17,6 @@ function kstNow() {
   return new Date(Date.now() + 9 * 60 * 60 * 1000);
 }
 
-function Dots({ done }: { done: number }) {
-  return (
-    <div className="mchDots" aria-label={`완료 ${done}/4`}>
-      {Array.from({ length: 4 }).map((_, i) => (
-        <span key={i} className={['mchDot', i < done ? 'mchDotOn' : ''].filter(Boolean).join(' ')} />
-      ))}
-    </div>
-  );
-}
-
 function Toast({ msg, kind }: { msg: string; kind: 'ok' | 'warn' }) {
   return (
     <div className="uiToastWrap">
@@ -44,11 +34,21 @@ function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () =
           <div className="uiSheetHandle" />
         </div>
         {children}
-        <div style={{ height: 10 }} />
-        <Button variant="ghost" wide onClick={onClose}>
+        <div className="stack10" />
+        <Button variant="secondary" wide onClick={onClose}>
           닫기
         </Button>
       </div>
+    </div>
+  );
+}
+
+function Dots({ done }: { done: number }) {
+  return (
+    <div className="calendarDots" aria-label={`완료 ${done}/4`}>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <span key={i} className={['calendarDot', i < done ? 'calendarDotOn' : ''].filter(Boolean).join(' ')} />
+      ))}
     </div>
   );
 }
@@ -103,13 +103,6 @@ export default function McheyneCalendarPage() {
 
   const [toast, setToast] = useState<null | { msg: string; kind: 'ok' | 'warn' }>(null);
   const toastTimerRef = useRef<any>(null);
-
-  const [flashAt, setFlashAt] = useState(0);
-  const flashTimerRef = useRef<any>(null);
-
-  const [pulseDay, setPulseDay] = useState<number | null>(null);
-  const pulseTimerRef = useRef<any>(null);
-
   const pendingOpenDayRef = useRef<number | null>(null);
 
   const isAuthed = !!me;
@@ -120,23 +113,9 @@ export default function McheyneCalendarPage() {
     toastTimerRef.current = setTimeout(() => setToast(null), ms);
   }
 
-  function flashCheckboxes() {
-    setFlashAt(Date.now());
-    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
-    flashTimerRef.current = setTimeout(() => setFlashAt(0), 650);
-  }
-
-  function pulseCell(day: number) {
-    setPulseDay(day);
-    if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
-    pulseTimerRef.current = setTimeout(() => setPulseDay(null), 250);
-  }
-
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
-      if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
     };
   }, []);
 
@@ -177,7 +156,6 @@ export default function McheyneCalendarPage() {
 
   function openDayReading(m: number, d: number) {
     const next = buildReadingNext(m, d);
-
     if (authLoading) return;
 
     if (!isAuthed) {
@@ -292,279 +270,240 @@ export default function McheyneCalendarPage() {
     if (authLoading) return;
     if (!isAuthed) return;
 
-    flashCheckboxes();
     const ok = await setDayDone(day, { done1: 1, done2: 1, done3: 1, done4: 1 });
 
     if (ok) {
       setSheetOpen(false);
-      pulseCell(day);
       showToast('일괄 완료했어요', 'ok');
     } else {
-      showToast('저장 실패/다시 시도해주세요', 'warn');
+      showToast('저장 실패, 다시 시도해주세요', 'warn');
     }
   }
 
-  const monthLabel = `${month}월`;
-
   return (
-    <div>
-      <TopBar title="맥체인 캘린더" backTo="/mcheyne-today" />
+    <div className="sanctuaryPage">
+      <div className="sanctuaryPageInner">
+        <TopBar title="맥체인 캘린더" backTo="/mcheyne-today" />
 
-      {toast ? <Toast msg={toast.msg} kind={toast.kind} /> : null}
-      {error ? <div className="uiErrorBox">오류: {error}</div> : null}
+        {toast ? <Toast msg={toast.msg} kind={toast.kind} /> : null}
+        {error ? <div className="uiErrorBox">오류: {error}</div> : null}
 
-      <Card>
-        <div className="mchCalHeader">
-          <div>
-            <CardTitle>월 선택</CardTitle>
-            <CardDesc>도트는 완료 개수(0~4). 진행률은 로그인 시 표시됩니다.</CardDesc>
-          </div>
-
-          <div className="mchCalNavRight">
-            <Button variant="ghost" onClick={goPrevMonth} aria-label="이전 달">
-              ←
-            </Button>
-
-            <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="uiSelect" aria-label="월 선택">
-              {Array.from({ length: 12 }).map((_, i) => (
-                <option key={i + 1} value={i + 1}>
-                  {i + 1}월
-                </option>
-              ))}
-            </select>
-
-            <Button variant="ghost" onClick={goNextMonth} aria-label="다음 달">
-              →
-            </Button>
-
-            <Button variant="secondary" onClick={() => goToday(true)}>
-              오늘
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      <div style={{ height: 12 }} />
-
-      <Card>
-        <div className="mchGridHeader">
-          {['일', '월', '화', '수', '목', '금', '토'].map((d) => (
-            <div key={d} style={{ fontSize: 12, fontWeight: 900, color: 'var(--muted)' }}>
-              {d}
+        <Card className="glassHeroCard">
+          <div className="sectionHeadRow">
+            <div>
+              <CardTitle>{month}월 읽기표</CardTitle>
+              <CardDesc>도트는 완료 개수(0~4), 로그인 시 진행률이 함께 표시됩니다.</CardDesc>
             </div>
-          ))}
-        </div>
 
-        <div className="mchGrid">
-          {Array.from({ length: firstDow }).map((_, i) => (
-            <div key={'e' + i} />
-          ))}
+            <div className="toolbarRow">
+              <Button variant="ghost" onClick={goPrevMonth}>←</Button>
+              <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="glassInput glassInputSelect">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    {i + 1}월
+                  </option>
+                ))}
+              </select>
+              <Button variant="ghost" onClick={goNextMonth}>→</Button>
+              <Button variant="secondary" onClick={() => goToday(true)}>오늘</Button>
+            </div>
+          </div>
+        </Card>
 
-          {Array.from({ length: daysInMonth }).map((_, i) => {
-            const day = i + 1;
-            const done = prog ? (progMap.get(day) ?? 0) : 0;
-            const hasPlan = planMap.has(day);
-            const isTodayCell = month === today.month && day === today.day;
+        <div className="stack12" />
 
-            const cls = [
-              'mchCell',
-              !hasPlan ? 'mchCellDim' : '',
-              isTodayCell ? 'mchCellToday' : '',
-              pulseDay === day ? 'mchPulse' : ''
-            ]
-              .filter(Boolean)
-              .join(' ');
+        <Card>
+          <div className="miniWeekHeader">
+            {['일', '월', '화', '수', '목', '금', '토'].map((d) => (
+              <div key={d}>{d}</div>
+            ))}
+          </div>
 
-            return (
-              <div
-                key={day}
-                role="button"
-                tabIndex={0}
-                className={cls}
-                onClick={() => {
-                  setSheetDay(day);
-                  setSheetOpen(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
+          <div className="mcheyneMonthGrid">
+            {Array.from({ length: firstDow }).map((_, i) => (
+              <div key={`e-${i}`} />
+            ))}
+
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const day = i + 1;
+              const done = prog ? (progMap.get(day) ?? 0) : 0;
+              const hasPlan = planMap.has(day);
+              const isTodayCell = month === today.month && day === today.day;
+
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  className={[
+                    'mcheyneDayCard',
+                    !hasPlan ? 'mcheyneDayCardDim' : '',
+                    isTodayCell ? 'mcheyneDayCardToday' : ''
+                  ].filter(Boolean).join(' ')}
+                  onClick={() => {
                     setSheetDay(day);
                     setSheetOpen(true);
-                  }
-                }}
-              >
-                <div className="mchDayRow">
-                  <span>{day}</span>
-                  {isTodayCell ? <span className="mchTodayChip">오늘</span> : null}
-                </div>
-
-                {prog ? <Dots done={done} /> : <div style={{ height: 10 }} />}
-              </div>
-            );
-          })}
-        </div>
-
-        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted)' }}>
-          {prog ? `이번 달 ${monthLabel} 진행률이 색/도트로 표시됩니다.` : `로그인하면 체크/진행률 표시를 사용할 수 있어요.`}
-        </div>
-      </Card>
-
-      <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)}>
-        {sheetDay ? (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontWeight: 950, fontSize: 16 }}>
-                  {month}월 {sheetDay}일
-                </div>
-                <div style={{ marginTop: 6, fontSize: 12, color: 'var(--muted)' }}>완료: {selDone}/4</div>
-              </div>
-
-              <Button variant="secondary" onClick={() => openDayReading(month, sheetDay)}>
-                이 날 본문 읽기
-              </Button>
-            </div>
-
-            <div style={{ height: 12 }} />
-
-            {selPlan ? (
-              <>
-                <Card pad={false} className="uiCard uiCardPad">
-                  <CardTitle>오늘 읽을 본문</CardTitle>
-                  <div style={{ height: 8 }} />
-                  <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
-                    <li>{selPlan.reading1}</li>
-                    <li>{selPlan.reading2}</li>
-                    <li>{selPlan.reading3}</li>
-                    <li>{selPlan.reading4}</li>
-                  </ul>
-                </Card>
-
-                <div style={{ height: 12 }} />
-
-                <Card pad={false} className="uiCard uiCardPad">
-                  <CardTitle>본문 바로 열기</CardTitle>
-                  <CardDesc>각 본문을 성경 화면으로 바로 이동합니다.</CardDesc>
-
-                  <div style={{ height: 10 }} />
-
-                  <div className="stack12">
-                    {[selPlan.reading1, selPlan.reading2, selPlan.reading3, selPlan.reading4].map((raw, idx) => (
-                      <Button
-                        key={idx}
-                        variant="ghost"
-                        wide
-                        onClick={() => {
-                          const qs = new URLSearchParams({ ref: raw }).toString();
-                          nav(`/bible?${qs}`);
-                        }}
-                      >
-                        {idx + 1}번 바로 열기 · {raw}
-                      </Button>
-                    ))}
+                  }}
+                >
+                  <div className="mcheyneDayTop">
+                    <span>{day}</span>
+                    {isTodayCell ? <span className="mcheyneTodayChip">오늘</span> : null}
                   </div>
 
-                  <div style={{ height: 10 }} />
+                  {prog ? <Dots done={done} /> : <div className="mcheyneNeedLoginText">로그인 후 진행률</div>}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="stack10" />
+          <div className="sectionMiniMeta">
+            {prog ? `이번 달 진행률이 색과 도트로 표시됩니다.` : `로그인하면 체크와 진행률 표시를 사용할 수 있어요.`}
+          </div>
+        </Card>
+
+        <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)}>
+          {sheetDay ? (
+            <div>
+              <div className="sectionHeadRow">
+                <div>
+                  <div className="sheetTitle">{month}월 {sheetDay}일</div>
+                  <div className="sectionMiniMeta">완료: {selDone}/4</div>
+                </div>
+
+                <Button variant="secondary" onClick={() => openDayReading(month, sheetDay)}>
+                  이 날 본문 읽기
+                </Button>
+              </div>
+
+              <div className="stack12" />
+
+              {selPlan ? (
+                <>
+                  <Card>
+                    <CardTitle>오늘 읽을 본문</CardTitle>
+                    <div className="stack8" />
+                    <ul className="sheetReadingList">
+                      <li>{selPlan.reading1}</li>
+                      <li>{selPlan.reading2}</li>
+                      <li>{selPlan.reading3}</li>
+                      <li>{selPlan.reading4}</li>
+                    </ul>
+                  </Card>
+
+                  <div className="stack12" />
+
+                  <Card>
+                    <CardTitle>본문 바로 열기</CardTitle>
+                    <CardDesc>각 본문을 성경 화면으로 바로 이동합니다.</CardDesc>
+
+                    <div className="stack10" />
+
+                    <div className="glassList">
+                      {[selPlan.reading1, selPlan.reading2, selPlan.reading3, selPlan.reading4].map((raw, idx) => (
+                        <Button
+                          key={idx}
+                          variant="ghost"
+                          wide
+                          onClick={() => {
+                            const qs = new URLSearchParams({ ref: raw }).toString();
+                            nav(`/bible?${qs}`);
+                          }}
+                        >
+                          {idx + 1}번 바로 열기 · {raw}
+                        </Button>
+                      ))}
+                    </div>
+
+                    <div className="stack10" />
+
+                    {isAuthed ? (
+                      <Button
+                        variant="primary"
+                        wide
+                        disabled={saving}
+                        onClick={() => bulkCompleteDay(sheetDay)}
+                      >
+                        {saving ? '저장 중…' : '일괄 완료 (4개 모두 읽음)'}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        wide
+                        onClick={() => goLogin(buildReadingNext(month, sheetDay))}
+                      >
+                        일괄 완료 (로그인 필요)
+                      </Button>
+                    )}
+                  </Card>
+
+                  <div className="stack12" />
 
                   {isAuthed ? (
-                    <Button
-                      variant="primary"
-                      wide
-                      disabled={saving}
-                      onClick={() => bulkCompleteDay(sheetDay)}
-                      style={{ opacity: saving ? 0.75 : 1 }}
-                    >
-                      {saving ? '저장 중…' : '일괄 완료 (4개 모두 읽음)'}
-                    </Button>
+                    <Card>
+                      <CardTitle>체크</CardTitle>
+                      <CardDesc>체크는 즉시 저장되며 오류 시 자동으로 되돌립니다.</CardDesc>
+
+                      <div className="stack10" />
+
+                      <div className="checkPillWrap">
+                        {([1, 2, 3, 4] as const).map((i) => {
+                          const k =
+                            (i === 1 ? 'done1' : i === 2 ? 'done2' : i === 3 ? 'done3' : 'done4') as
+                              | 'done1'
+                              | 'done2'
+                              | 'done3'
+                              | 'done4';
+
+                          const checked = (selRow as any)?.[k] ? true : false;
+
+                          return (
+                            <label key={i} className={['checkPill', checked ? 'checkPillOn' : ''].join(' ')}>
+                              <input
+                                type="checkbox"
+                                disabled={saving}
+                                checked={checked}
+                                onChange={(e) => setDayDone(sheetDay, { [k]: e.target.checked ? 1 : 0 } as any)}
+                              />
+                              <span>{i}번</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </Card>
                   ) : (
-                    <Button
-                      variant="secondary"
-                      wide
-                      onClick={() => goLogin(buildReadingNext(month, sheetDay))}
-                    >
-                      일괄 완료 (로그인 필요)
-                    </Button>
+                    <Card>
+                      <CardTitle>체크</CardTitle>
+                      <CardDesc>체크와 진행률은 로그인 후 사용할 수 있습니다.</CardDesc>
+
+                      <div className="stack10" />
+
+                      <div className="checkPillWrap">
+                        {([1, 2, 3, 4] as const).map((i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            className="checkPill checkPillGhost"
+                            onClick={() => goLogin(buildReadingNext(month, sheetDay))}
+                          >
+                            {i}번
+                          </button>
+                        ))}
+                      </div>
+                    </Card>
                   )}
-                </Card>
-              </>
-            ) : (
-              <div style={{ color: 'var(--muted)' }}>읽기표 데이터가 없습니다.</div>
-            )}
+                </>
+              ) : (
+                <div className="glassEmpty">읽기표 데이터가 없습니다.</div>
+              )}
 
-            <div style={{ height: 12 }} />
-
-            {isAuthed ? (
-              <Card>
-                <CardTitle>체크</CardTitle>
-                <CardDesc>체크는 즉시 저장되며(네트워크 오류 시 롤백), 일괄 완료는 애니메이션/토스트가 표시됩니다.</CardDesc>
-
-                <div style={{ height: 10 }} />
-
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  {([1, 2, 3, 4] as const).map((i) => {
-                    const k =
-                      (i === 1 ? 'done1' : i === 2 ? 'done2' : i === 3 ? 'done3' : 'done4') as
-                        | 'done1'
-                        | 'done2'
-                        | 'done3'
-                        | 'done4';
-
-                    const checked = (selRow as any)?.[k] ? true : false;
-
-                    return (
-                      <label
-                        key={i}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          fontWeight: 900,
-                          padding: '6px 10px',
-                          borderRadius: 999,
-                          border: '1px solid var(--border)',
-                          background: flashAt ? 'rgba(31,203,184,0.10)' : 'rgba(255,255,255,0.55)',
-                          transition: 'transform 160ms ease, background 240ms ease',
-                          transform: flashAt ? 'scale(1.05)' : 'scale(1)'
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          disabled={saving}
-                          checked={checked}
-                          onChange={(e) => setDayDone(sheetDay, { [k]: e.target.checked ? 1 : 0 } as any)}
-                        />
-                        {i}번
-                      </label>
-                    );
-                  })}
-                </div>
-              </Card>
-            ) : (
-              <Card>
-                <CardTitle>체크</CardTitle>
-                <CardDesc>체크/진행률은 로그인 후 사용할 수 있습니다.</CardDesc>
-
-                <div style={{ height: 10 }} />
-
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', opacity: 0.85 }}>
-                  {([1, 2, 3, 4] as const).map((i) => (
-                    <label key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 900 }}>
-                      <input type="checkbox" checked={false} onChange={() => goLogin(buildReadingNext(month, sheetDay))} />
-                      {i}번
-                    </label>
-                  ))}
-                </div>
-              </Card>
-            )}
-
-            <div style={{ height: 12 }} />
-
-            <Button variant="ghost" wide onClick={() => nav('/mcheyne-today')}>
-              오늘 페이지로 돌아가기
-            </Button>
-          </div>
-        ) : null}
-      </BottomSheet>
+              <div className="stack12" />
+              <Button variant="ghost" wide onClick={() => nav('/mcheyne-today')}>
+                오늘 페이지로 돌아가기
+              </Button>
+            </div>
+          ) : null}
+        </BottomSheet>
+      </div>
     </div>
   );
 }

@@ -4,6 +4,8 @@ import { useAuth } from '../auth/AuthContext';
 import { useUiPrefs } from '../ui/UiPrefsContext';
 import TopBar from '../components/layout/TopBar';
 import { apiFetch } from '../lib/api';
+import Button from '../ui/Button';
+import { Card, CardDesc, CardTitle } from '../ui/Card';
 
 type MeStats = {
   attendanceDays: number;
@@ -144,378 +146,404 @@ export default function MePage() {
   if (!me) return null;
 
   return (
-    <div>
-      <TopBar title="내정보" backTo="/" />
-      <div style={{ height: 12 }} />
+    <div className="sanctuaryPage">
+      <div className="sanctuaryPageInner">
+        <TopBar title="내정보" backTo="/" />
 
-      <div style={card}>
-        <div style={{ fontWeight: 950, fontSize: 16 }}>{me.name}</div>
-        <div style={meta}>아이디: {me.username}</div>
-        <div style={meta}>휴대폰: {me.phone ?? '-'}</div>
-        <div style={meta}>출석교회: {me.homeChurch ?? '-'}</div>
-        <div style={meta}>권한: {me.isAdmin ? 'ADMIN' : '일반'}</div>
-      </div>
-
-      <div style={{ height: 12 }} />
-
-      <section style={card}>
-        <div style={{ fontWeight: 950, marginBottom: 10 }}>간단 통계</div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <Stat label="누적 출석일(DLP 제출)" value={stats?.attendanceDays ?? '-'} />
-          <Stat label="이번 주 제출" value={stats ? `${stats.week.submittedCount}/7` : '-'} />
-        </div>
-
-        <div style={{ height: 12 }} />
-
-        <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 900 }}>
-          이번 주 제출 현황 ({stats?.week.start ?? '—'} ~ {stats?.week.end ?? '—'})
-        </div>
-
-        <div style={{ height: 8 }} />
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
-          {(stats?.week.days ?? Array.from({ length: 7 }).map((_, i) => ({ date: String(i), hasDlp: false }))).map((d, idx) => (
-            <div
-              key={idx}
-              title={String(d.date)}
-              style={{
-                height: 28,
-                borderRadius: 10,
-                border: '1px solid var(--border)',
-                background: d.hasDlp ? 'var(--primary-bg)' : 'rgba(0,0,0,0.05)'
-              }}
-            />
-          ))}
-        </div>
-
-        <div style={{ height: 8 }} />
-
-        <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.4 }}>
-          기준: DLP 제출(dlp_entries)이 있는 날짜를 “출석일”로 집계합니다.
-        </div>
-      </section>
-
-      <div style={{ height: 12 }} />
-
-      <section style={card}>
-        <div style={{ fontWeight: 950, marginBottom: 10 }}>UI 설정</div>
-
-        <label style={{ display: 'grid', gap: 6 }}>
-          <div style={{ fontSize: 13, fontWeight: 900 }}>테마</div>
-          <select
-            value={ui.theme}
-            onChange={(e) => ui.setTheme(e.target.value as any)}
-            style={{ height: 44, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text)', padding: '0 10px', fontWeight: 900 }}
-          >
-            <option value="system">시스템</option>
-            <option value="light">라이트</option>
-            <option value="dark">다크</option>
-          </select>
-        </label>
-
-        <div style={{ height: 12 }} />
-
-        <label style={{ display: 'grid', gap: 6 }}>
-          <div style={{ fontSize: 13, fontWeight: 900 }}>폰트 크기</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <input
-              type="range"
-              min={0.9}
-              max={1.25}
-              step={0.05}
-              value={ui.scale}
-              onChange={(e) => ui.setScale(Number(e.target.value))}
-              style={{ flex: 1 }}
-            />
-            <div style={{ minWidth: 56, textAlign: 'right', fontWeight: 950 }}>{Math.round(ui.scale * 100)}%</div>
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.4 }}>
-            앱 전체에 적용됩니다.
-          </div>
-        </label>
-      </section>
-
-      <div style={{ height: 12 }} />
-
-      <section style={card} id="gratitude">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          <div>
-            <div style={{ fontWeight: 950 }}>감사일기</div>
-            <div style={{ marginTop: 4, fontSize: 12, color: 'var(--muted)', lineHeight: 1.4 }}>
-              달력에서 날짜를 탭하면 작성/수정할 수 있어요.
+        <Card className="glassHeroCard">
+          <div className="profileHero">
+            <div>
+              <CardTitle>{me.name}</CardTitle>
+              <CardDesc>@{me.username}</CardDesc>
             </div>
+
+            <div className="profileRoleChip">{me.isAdmin ? 'ADMIN' : '일반 사용자'}</div>
           </div>
 
-          <button
-            type="button"
-            style={ghostBtn}
-            onClick={() => {
-              const next = !gratExpanded;
-              setGratExpanded(next);
-              if (next) {
-                const qs = new URLSearchParams(loc.search);
-                qs.set('section', 'gratitude');
-                nav(`/me?${qs.toString()}`, { replace: true });
+          <div className="profileMetaGrid">
+            <MetaBox label="휴대폰" value={me.phone ?? '-'} />
+            <MetaBox label="출석교회" value={me.homeChurch ?? '-'} />
+          </div>
+        </Card>
+
+        <div className="stack12" />
+
+        <Card>
+          <CardTitle>신앙 생활 요약</CardTitle>
+          <CardDesc>DLP 제출 기준 누적 출석과 이번 주 현황입니다.</CardDesc>
+
+          <div className="stack12" />
+
+          <div className="glassStatGrid">
+            <StatCard label="누적 출석일" value={String(stats?.attendanceDays ?? '-')} />
+            <StatCard label="이번 주 제출" value={stats ? `${stats.week.submittedCount}/7` : '-'} />
+          </div>
+
+          <div className="stack12" />
+
+          <div className="sectionMiniTitle">
+            이번 주 제출 현황 ({stats?.week.start ?? '—'} ~ {stats?.week.end ?? '—'})
+          </div>
+
+          <div className="stack8" />
+
+          <div className="weekDots">
+            {(stats?.week.days ?? Array.from({ length: 7 }).map((_, i) => ({ date: String(i), hasDlp: false }))).map((d, idx) => (
+              <div
+                key={idx}
+                title={String(d.date)}
+                className={['weekDot', d.hasDlp ? 'weekDotOn' : ''].filter(Boolean).join(' ')}
+              />
+            ))}
+          </div>
+        </Card>
+
+        <div className="stack12" />
+
+        <Card>
+          <CardTitle>UI 설정</CardTitle>
+          <CardDesc>테마와 글자 크기를 내 사용 습관에 맞게 조정하세요.</CardDesc>
+
+          <div className="stack12" />
+
+          <Field label="테마">
+            <select
+              value={ui.theme}
+              onChange={(e) => ui.setTheme(e.target.value as any)}
+              className="glassInput"
+            >
+              <option value="system">시스템</option>
+              <option value="light">라이트</option>
+              <option value="dark">다크</option>
+            </select>
+          </Field>
+
+          <div className="stack12" />
+
+          <Field label="폰트 크기">
+            <div className="fontScaleRow">
+              <input
+                type="range"
+                min={0.9}
+                max={1.25}
+                step={0.05}
+                value={ui.scale}
+                onChange={(e) => ui.setScale(Number(e.target.value))}
+                className="glassRange"
+              />
+              <div className="fontScaleValue">{Math.round(ui.scale * 100)}%</div>
+            </div>
+          </Field>
+        </Card>
+
+        <div className="stack12" />
+
+        <Card id="gratitude">
+          <div className="sectionHeadRow">
+            <div>
+              <CardTitle>감사일기</CardTitle>
+              <CardDesc>달력에서 날짜를 탭하면 작성 또는 수정할 수 있어요.</CardDesc>
+            </div>
+
+            <Button
+              variant="secondary"
+              onClick={() => {
+                const next = !gratExpanded;
+                setGratExpanded(next);
+                if (next) {
+                  const qs = new URLSearchParams(loc.search);
+                  qs.set('section', 'gratitude');
+                  nav(`/me?${qs.toString()}`, { replace: true });
+                }
+              }}
+            >
+              {gratExpanded ? '접기' : '열기'}
+            </Button>
+          </div>
+
+          {gratExpanded ? (
+            <>
+              <div className="stack12" />
+
+              <div className="toolbarRow">
+                <input
+                  type="month"
+                  value={gratMonth}
+                  onChange={(e) => setGratMonth(e.target.value)}
+                  className="glassInput glassInputMonth"
+                />
+                <Button variant="ghost" onClick={() => setGratMonth(ym(kstNow()))}>
+                  이번달
+                </Button>
+              </div>
+
+              <div className="stack10" />
+              {gratErr ? <div className="uiErrorBox">{gratErr}</div> : null}
+
+              <div className="sectionMiniTitle">달력</div>
+              <div className="stack8" />
+
+              <div className="miniWeekHeader">
+                {['일', '월', '화', '수', '목', '금', '토'].map((d) => (
+                  <div key={d}>{d}</div>
+                ))}
+              </div>
+
+              <div className="gratitudeCalendarGrid">
+                {Array.from({ length: gratFirstDow }).map((_, i) => (
+                  <div key={`e-${i}`} />
+                ))}
+
+                {Array.from({ length: gratDaysInMonth }).map((_, i) => {
+                  const day = i + 1;
+                  const date = ymdFromParts(gratYear, gratMon, day);
+                  const has = gratMap.has(date);
+
+                  return (
+                    <button
+                      key={date}
+                      type="button"
+                      onClick={() => openGratitudeEditor(date)}
+                      className={['gratitudeDayCell', has ? 'gratitudeDayCellOn' : ''].join(' ')}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="stack12" />
+
+              <div className="sectionHeadRow">
+                <div className="sectionMiniTitle">이번 달 기록</div>
+                <div className="sectionMiniMeta">{gratItems.length}개</div>
+              </div>
+
+              <div className="stack10" />
+
+              {gratItems.length === 0 ? (
+                <div className="glassEmpty">이번 달 기록이 없습니다.</div>
+              ) : (
+                <div className="glassList">
+                  {gratItems.slice(0, 12).map((it) => (
+                    <button
+                      key={it.id}
+                      type="button"
+                      className="glassListItem"
+                      onClick={() => openGratitudeEditor(it.date)}
+                    >
+                      <div className="glassListDate">{it.date}</div>
+                      <div className="glassListContent">{it.content}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : null}
+        </Card>
+
+        <BottomSheet open={gratEditorOpen} onClose={() => setGratEditorOpen(false)}>
+          <div className="sheetTitle">감사일기 · {gratEditorDate}</div>
+          <div className="stack10" />
+          <textarea
+            value={gratContent}
+            onChange={(e) => setGratContent(e.target.value)}
+            placeholder="예) 오늘도 건강을 지켜주셔서 감사합니다"
+            className="glassTextarea"
+          />
+          <div className="stack10" />
+          <Button
+            variant="primary"
+            wide
+            size="lg"
+            disabled={gratSaving}
+            onClick={async () => {
+              if (!gratEditorDate) return;
+              if (!gratContent.trim()) {
+                alert('내용을 입력하세요.');
+                return;
+              }
+
+              setGratSaving(true);
+              try {
+                const res = await apiFetch(`/api/gratitude/${gratEditorDate}`, {
+                  method: 'PUT',
+                  body: JSON.stringify({ content: gratContent })
+                });
+
+                if (res.status === 401) {
+                  goLogin('/me?section=gratitude');
+                  return;
+                }
+
+                if (!res.ok) throw new Error('SAVE_FAILED');
+                await loadGratitude();
+                setGratEditorOpen(false);
+              } catch {
+                alert('저장에 실패했습니다.');
+              } finally {
+                setGratSaving(false);
               }
             }}
           >
-            {gratExpanded ? '접기' : '열기'}
-          </button>
-        </div>
+            {gratSaving ? '저장 중…' : '저장'}
+          </Button>
+        </BottomSheet>
 
-        {gratExpanded ? (
-          <>
-            <div style={{ height: 12 }} />
+        <div className="stack12" />
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <input type="month" value={gratMonth} onChange={(e) => setGratMonth(e.target.value)} style={monthInput} />
-              <button type="button" style={ghostBtn} onClick={() => setGratMonth(ym(kstNow()))}>
-                이번달
-              </button>
-            </div>
+        <Card>
+          <CardTitle>내정보 수정</CardTitle>
+          <CardDesc>연락처와 출석교회를 최신 상태로 유지해 주세요.</CardDesc>
 
-            <div style={{ height: 10 }} />
-            {gratErr && <div style={errorBox}>{gratErr}</div>}
+          <div className="stack12" />
 
-            <div style={{ fontWeight: 950, marginBottom: 10 }}>달력</div>
-            <div style={gridHeader}>
-              {['일', '월', '화', '수', '목', '금', '토'].map((d) => (
-                <div key={d} style={{ fontSize: 12, fontWeight: 900, color: 'var(--muted)' }}>
-                  {d}
-                </div>
-              ))}
-            </div>
+          <Field label="이름(실명)">
+            <input value={editName} onChange={(e) => setEditName(e.target.value)} className="glassInput" />
+          </Field>
 
-            <div style={grid}>
-              {Array.from({ length: gratFirstDow }).map((_, i) => (
-                <div key={'e' + i} />
-              ))}
-              {Array.from({ length: gratDaysInMonth }).map((_, i) => {
-                const day = i + 1;
-                const date = ymdFromParts(gratYear, gratMon, day);
-                const has = gratMap.has(date);
-                return (
-                  <button
-                    key={date}
-                    type="button"
-                    onClick={() => openGratitudeEditor(date)}
-                    style={{
-                      ...cell,
-                      background: has ? 'var(--primary-bg)' : 'rgba(0,0,0,0.04)',
-                      color: has ? 'var(--primary-text)' : 'rgba(0,0,0,0.85)'
-                    }}
-                    aria-label={`${date} 감사일기 ${has ? '작성됨' : '미작성'}`}
-                  >
-                    {day}
-                  </button>
-                );
-              })}
-            </div>
+          <div className="stack10" />
 
-            <div style={{ height: 12 }} />
+          <Field label="휴대폰">
+            <input
+              value={editPhone}
+              onChange={(e) => setEditPhone(e.target.value)}
+              className="glassInput"
+              inputMode="tel"
+            />
+          </Field>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-              <div style={{ fontWeight: 950 }}>이번 달 기록</div>
-              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 900 }}>{gratItems.length}개</div>
-            </div>
+          <div className="stack10" />
 
-            <div style={{ height: 10 }} />
+          <Field label="출석교회">
+            <input value={editChurch} onChange={(e) => setEditChurch(e.target.value)} className="glassInput" />
+          </Field>
 
-            {gratItems.length === 0 ? (
-              <div style={{ color: 'var(--muted)' }}>이번 달 기록이 없습니다.</div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {gratItems.slice(0, 12).map((it) => (
-                  <button key={it.id} type="button" style={listRow} onClick={() => openGratitudeEditor(it.date)}>
-                    <div style={{ fontWeight: 950 }}>{it.date}</div>
-                    <div style={{ marginTop: 6, color: 'var(--text)', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{it.content}</div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </>
-        ) : null}
-      </section>
+          <div className="stack12" />
 
-      <BottomSheet open={gratEditorOpen} onClose={() => setGratEditorOpen(false)}>
-        <div style={{ fontWeight: 950, fontSize: 16 }}>감사일기 · {gratEditorDate}</div>
-        <div style={{ height: 10 }} />
-        <textarea
-          value={gratContent}
-          onChange={(e) => setGratContent(e.target.value)}
-          placeholder="예) 오늘도 건강을 지켜주셔서 감사합니다"
-          style={textarea}
-        />
-        <div style={{ height: 10 }} />
-        <button
-          type="button"
-          style={{ ...primaryBtn, opacity: gratSaving ? 0.7 : 1 }}
-          disabled={gratSaving}
-          onClick={async () => {
-            if (!gratEditorDate) return;
-            if (!gratContent.trim()) {
-              alert('내용을 입력하세요.');
-              return;
-            }
-            setGratSaving(true);
-            try {
-              const res = await apiFetch(`/api/gratitude/${gratEditorDate}`, {
-                method: 'PUT',
-                body: JSON.stringify({ content: gratContent })
-              });
-              if (res.status === 401) {
-                goLogin('/me?section=gratitude');
+          <Button
+            variant="primary"
+            wide
+            size="lg"
+            disabled={savingProfile}
+            onClick={async () => {
+              setSavingProfile(true);
+              try {
+                const res = await apiFetch('/api/me', {
+                  method: 'PATCH',
+                  body: JSON.stringify({
+                    name: editName,
+                    phone: editPhone || null,
+                    homeChurch: editChurch || null
+                  })
+                });
+
+                if (res.status === 401) {
+                  goLogin('/me');
+                  return;
+                }
+
+                if (!res.ok) throw new Error('SAVE_FAILED');
+                await refreshMe();
+                alert('내정보가 저장되었습니다.');
+              } catch {
+                alert('저장에 실패했습니다.');
+              } finally {
+                setSavingProfile(false);
+              }
+            }}
+          >
+            {savingProfile ? '저장 중…' : '내정보 저장'}
+          </Button>
+        </Card>
+
+        <div className="stack12" />
+
+        <Card>
+          <CardTitle>비밀번호 변경</CardTitle>
+          <CardDesc>변경 후 기존 로그인 세션은 모두 만료됩니다.</CardDesc>
+
+          <div className="stack12" />
+
+          <Field label="현재 비밀번호">
+            <input value={curPw} onChange={(e) => setCurPw(e.target.value)} type="password" className="glassInput" />
+          </Field>
+
+          <div className="stack10" />
+
+          <Field label="새 비밀번호(8자 이상)">
+            <input value={newPw} onChange={(e) => setNewPw(e.target.value)} type="password" className="glassInput" />
+          </Field>
+
+          <div className="stack10" />
+
+          <Field label="새 비밀번호 확인">
+            <input value={newPw2} onChange={(e) => setNewPw2(e.target.value)} type="password" className="glassInput" />
+          </Field>
+
+          <div className="stack12" />
+
+          <Button
+            variant="primary"
+            wide
+            size="lg"
+            disabled={savingPw}
+            onClick={async () => {
+              if (!curPw || !newPw) {
+                alert('비밀번호를 입력하세요.');
                 return;
               }
-              if (!res.ok) throw new Error('SAVE_FAILED');
-              await loadGratitude();
-              setGratEditorOpen(false);
-            } catch {
-              alert('저장에 실패했습니다.');
-            } finally {
-              setGratSaving(false);
-            }
-          }}
-        >
-          {gratSaving ? '저장 중…' : '저장'}
-        </button>
-      </BottomSheet>
 
-      <div style={{ height: 12 }} />
+              if (newPw !== newPw2) {
+                alert('새 비밀번호 확인이 일치하지 않습니다.');
+                return;
+              }
 
-      <section style={card}>
-        <div style={{ fontWeight: 950, marginBottom: 10 }}>내정보 수정</div>
+              setSavingPw(true);
+              try {
+                const res = await apiFetch('/api/me/password', {
+                  method: 'POST',
+                  body: JSON.stringify({ currentPassword: curPw, newPassword: newPw })
+                });
 
-        <Field label="이름(실명)">
-          <input value={editName} onChange={(e) => setEditName(e.target.value)} style={input} />
-        </Field>
-        <div style={{ height: 10 }} />
-        <Field label="휴대폰">
-          <input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} style={input} inputMode="tel" />
-        </Field>
-        <div style={{ height: 10 }} />
-        <Field label="출석교회">
-          <input value={editChurch} onChange={(e) => setEditChurch(e.target.value)} style={input} />
-        </Field>
+                if (res.status === 401) {
+                  alert('현재 비밀번호가 올바르지 않습니다.');
+                  return;
+                }
 
-        <div style={{ height: 12 }} />
+                if (!res.ok) throw new Error('PW_CHANGE_FAILED');
 
-        <button
-          type="button"
-          disabled={savingProfile}
-          style={{ ...btn, opacity: savingProfile ? 0.7 : 1 }}
-          onClick={async () => {
-            setSavingProfile(true);
-            try {
-              const res = await apiFetch('/api/me', {
-                method: 'PATCH',
-                body: JSON.stringify({
-                  name: editName,
-                  phone: editPhone || null,
-                  homeChurch: editChurch || null
-                })
-              });
-
-              if (res.status === 401) {
+                alert('비밀번호가 변경되었습니다. 다시 로그인해 주세요.');
+                logout();
                 goLogin('/me');
-                return;
+              } catch {
+                alert('비밀번호 변경에 실패했습니다.');
+              } finally {
+                setSavingPw(false);
+                setCurPw('');
+                setNewPw('');
+                setNewPw2('');
               }
+            }}
+          >
+            {savingPw ? '변경 중…' : '비밀번호 변경'}
+          </Button>
+        </Card>
 
-              if (!res.ok) throw new Error('SAVE_FAILED');
-              await refreshMe();
-              alert('내정보가 저장되었습니다.');
-            } catch {
-              alert('저장에 실패했습니다.');
-            } finally {
-              setSavingProfile(false);
-            }
+        <div className="stack12" />
+
+        <Button
+          variant="ghost"
+          wide
+          size="lg"
+          onClick={() => {
+            logout();
+            nav('/');
           }}
         >
-          {savingProfile ? '저장 중…' : '내정보 저장'}
-        </button>
-      </section>
-
-      <div style={{ height: 12 }} />
-
-      <section style={card}>
-        <div style={{ fontWeight: 950, marginBottom: 10 }}>비밀번호 변경</div>
-
-        <Field label="현재 비밀번호">
-          <input value={curPw} onChange={(e) => setCurPw(e.target.value)} style={input} type="password" />
-        </Field>
-        <div style={{ height: 10 }} />
-        <Field label="새 비밀번호(8자 이상)">
-          <input value={newPw} onChange={(e) => setNewPw(e.target.value)} style={input} type="password" />
-        </Field>
-        <div style={{ height: 10 }} />
-        <Field label="새 비밀번호 확인">
-          <input value={newPw2} onChange={(e) => setNewPw2(e.target.value)} style={input} type="password" />
-        </Field>
-
-        <div style={{ height: 12 }} />
-
-        <button
-          type="button"
-          disabled={savingPw}
-          style={{ ...btn, opacity: savingPw ? 0.7 : 1 }}
-          onClick={async () => {
-            if (!curPw || !newPw) {
-              alert('비밀번호를 입력하세요.');
-              return;
-            }
-            if (newPw !== newPw2) {
-              alert('새 비밀번호 확인이 일치하지 않습니다.');
-              return;
-            }
-
-            setSavingPw(true);
-            try {
-              const res = await apiFetch('/api/me/password', {
-                method: 'POST',
-                body: JSON.stringify({ currentPassword: curPw, newPassword: newPw })
-              });
-
-              if (res.status === 401) {
-                alert('현재 비밀번호가 올바르지 않습니다.');
-                return;
-              }
-
-              if (!res.ok) throw new Error('PW_CHANGE_FAILED');
-
-              alert('비밀번호가 변경되었습니다. 보안을 위해 다시 로그인합니다.');
-              logout();
-              goLogin('/me');
-            } catch {
-              alert('비밀번호 변경에 실패했습니다.');
-            } finally {
-              setSavingPw(false);
-              setCurPw('');
-              setNewPw('');
-              setNewPw2('');
-            }
-          }}
-        >
-          {savingPw ? '변경 중…' : '비밀번호 변경'}
-        </button>
-
-        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted)', lineHeight: 1.4 }}>
-          비밀번호 변경 시 모든 로그인 세션이 만료되어 다시 로그인해야 합니다.
-        </div>
-      </section>
-
-      <div style={{ height: 12 }} />
-
-      <button
-        type="button"
-        style={{ ...btn, background: 'var(--soft)', border: '1px solid var(--border)', color: 'rgba(0,0,0,0.8)' }}
-        onClick={() => {
-          logout();
-          nav('/');
-        }}
-      >
-        로그아웃
-      </button>
+          로그아웃
+        </Button>
+      </div>
     </div>
   );
 }
@@ -523,41 +551,16 @@ export default function MePage() {
 function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: any }) {
   if (!open) return null;
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.35)',
-        display: 'flex',
-        alignItems: 'flex-end',
-        justifyContent: 'center',
-        padding: 12,
-        zIndex: 1000
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: 520,
-          borderRadius: 18,
-          background: 'var(--card)',
-          border: '1px solid var(--border)',
-          padding: 14,
-          boxShadow: '0 12px 32px rgba(0,0,0,0.18)'
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
-          <div style={{ width: 46, height: 5, borderRadius: 999, background: 'rgba(0,0,0,0.12)' }} />
+    <div role="dialog" aria-modal="true" className="uiSheetBackdrop" onClick={onClose}>
+      <div className="uiSheet" onClick={(e) => e.stopPropagation()}>
+        <div className="uiSheetHandleWrap">
+          <div className="uiSheetHandle" />
         </div>
         {children}
-        <div style={{ height: 10 }} />
-        <button type="button" onClick={onClose} style={{ ...ghostBtn, width: '100%' }}>
+        <div className="stack10" />
+        <Button variant="secondary" wide onClick={onClose}>
           닫기
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -565,127 +568,27 @@ function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () =
 
 function Field({ label, children }: { label: string; children: any }) {
   return (
-    <label style={{ display: 'grid', gap: 6 }}>
-      <div style={{ fontSize: 13, fontWeight: 900 }}>{label}</div>
+    <label className="glassField">
+      <div className="glassFieldLabel">{label}</div>
       {children}
     </label>
   );
 }
 
-function Stat({ label, value }: { label: string; value: any }) {
+function MetaBox({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ padding: 10, borderRadius: 14, border: '1px solid var(--border)' }}>
-      <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 900 }}>{label}</div>
-      <div style={{ marginTop: 6, fontSize: 18, fontWeight: 950 }}>{value}</div>
+    <div className="glassMetaBox">
+      <div className="glassMetaLabel">{label}</div>
+      <div className="glassMetaValue">{value}</div>
     </div>
   );
 }
 
-const card: React.CSSProperties = {
-  padding: 14,
-  borderRadius: 14,
-  border: '1px solid var(--border)',
-  background: 'var(--card)'
-};
-
-const meta: React.CSSProperties = {
-  marginTop: 6,
-  color: 'rgba(0,0,0,0.6)',
-  fontSize: 13
-};
-
-const input: React.CSSProperties = {
-  width: '100%',
-  height: 44,
-  borderRadius: 12,
-  border: '1px solid var(--border)',
-  padding: '0 12px',
-  fontSize: 15
-};
-
-const btn: React.CSSProperties = {
-  width: '100%',
-  height: 44,
-  borderRadius: 14,
-  border: '1px solid var(--border)',
-  background: 'var(--primary-bg)',
-  color: 'var(--primary-text)',
-  fontWeight: 950
-};
-
-const ghostBtn: React.CSSProperties = {
-  height: 40,
-  padding: '0 12px',
-  borderRadius: 12,
-  border: '1px solid var(--border)',
-  background: 'var(--card)',
-  fontWeight: 900,
-  fontSize: 13
-};
-
-const monthInput: React.CSSProperties = {
-  height: 40,
-  padding: '0 10px',
-  borderRadius: 12,
-  border: '1px solid var(--border)',
-  fontWeight: 900
-};
-
-const gridHeader: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(7, 1fr)',
-  gap: 6
-};
-
-const grid: React.CSSProperties = {
-  marginTop: 8,
-  display: 'grid',
-  gridTemplateColumns: 'repeat(7, 1fr)',
-  gap: 6
-};
-
-const cell: React.CSSProperties = {
-  height: 40,
-  borderRadius: 12,
-  border: '1px solid var(--border)',
-  fontWeight: 950
-};
-
-const listRow: React.CSSProperties = {
-  textAlign: 'left',
-  padding: 12,
-  borderRadius: 14,
-  border: '1px solid var(--border)',
-  background: 'var(--card)'
-};
-
-const textarea: React.CSSProperties = {
-  width: '100%',
-  minHeight: 120,
-  resize: 'vertical',
-  padding: 12,
-  borderRadius: 12,
-  border: '1px solid var(--border)',
-  fontSize: 14,
-  lineHeight: 1.45
-};
-
-const primaryBtn: React.CSSProperties = {
-  width: '100%',
-  height: 46,
-  borderRadius: 14,
-  border: '1px solid var(--border)',
-  background: 'var(--primary-bg)',
-  color: 'var(--primary-text)',
-  fontWeight: 950,
-  fontSize: 15
-};
-
-const errorBox: React.CSSProperties = {
-  padding: 12,
-  borderRadius: 14,
-  border: '1px solid rgba(255,0,0,0.25)',
-  background: 'rgba(255,0,0,0.06)',
-  marginBottom: 12,
-  fontWeight: 900
-};
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="glassStatCard">
+      <div className="glassStatLabel">{label}</div>
+      <div className="glassStatValue">{value}</div>
+    </div>
+  );
+}

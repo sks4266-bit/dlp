@@ -642,3 +642,484 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+/* shared helpers */
+.stack8 { height: 8px; }
+.stack10 { height: 10px; }
+.stack12 { height: 12px; }
+
+.glassHeroCard {
+  padding: 20px;
+}
+
+.sectionHeadRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbarRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sectionMiniTitle {
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.sectionMiniMeta {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.sheetTitle {
+  color: var(--text-strong);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.glassInput,
+.glassTextarea,
+.glassInputDate,
+.glassInputMonth,
+.glassInputSelect {
+  width: 100%;
+  border: 1px solid rgba(255,255,255,0.52);
+  background: rgba(255,255,255,0.52);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45);
+  color: var(--text-main);
+}
+
+.glassInput,
+.glassInputDate,
+.glassInputMonth,
+.glassInputSelect {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.glassTextarea {
+  min-height: 110px;
+  padding: 12px;
+  border-radius: 16px;
+  resize: vertical;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.glassField {
+  display: grid;
+  gap: 6px;
+}
+
+.glassFieldLabel {
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.glassEmpty {
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.42);
+  border: 1px dashed rgba(255,255,255,0.55);
+  color: var(--text-soft);
+  font-size: 14px;
+  text-align: center;
+}
+
+.glassList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.glassListItem {
+  text-align: left;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.46);
+  color: inherit;
+  cursor: pointer;
+}
+
+.glassListDate {
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.glassListContent {
+  margin-top: 6px;
+  color: var(--text-main);
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.glassSkeletonStack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.glassSkeletonBlock {
+  height: 110px;
+  border-radius: 20px;
+  background: linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0.025), rgba(0,0,0,0.06));
+  background-size: 200% 100%;
+  animation: glassShimmer 1.2s infinite linear;
+}
+
+@keyframes glassShimmer {
+  0% { background-position: 0 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* profile / me */
+.profileHero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.profileRoleChip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.48);
+  border: 1px solid rgba(255,255,255,0.54);
+  color: var(--mint-600);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.profileMetaGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.glassMetaBox {
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.42);
+  border: 1px solid rgba(255,255,255,0.5);
+}
+
+.glassMetaLabel {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.glassMetaValue {
+  margin-top: 6px;
+  color: var(--text-strong);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.glassStatGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.glassStatCard {
+  padding: 16px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.42);
+  border: 1px solid rgba(255,255,255,0.52);
+}
+
+.glassStatLabel {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.glassStatValue {
+  margin-top: 8px;
+  color: var(--text-strong);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.weekDots {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.weekDot {
+  height: 34px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.52);
+  background: rgba(255,255,255,0.34);
+}
+
+.weekDotOn {
+  background: linear-gradient(135deg, rgba(128,221,206,0.92), rgba(102,208,192,0.92));
+  box-shadow: 0 8px 18px rgba(77, 189, 170, 0.18);
+}
+
+.fontScaleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.glassRange {
+  flex: 1;
+}
+
+.fontScaleValue {
+  min-width: 58px;
+  text-align: right;
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.miniWeekHeader {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.miniWeekHeader > div {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.gratitudeCalendarGrid {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.gratitudeDayCell {
+  min-height: 42px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.52);
+  background: rgba(255,255,255,0.38);
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.gratitudeDayCellOn {
+  background: linear-gradient(135deg, rgba(128,221,206,0.96), rgba(102,208,192,0.96));
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(77, 189, 170, 0.18);
+}
+
+/* dlp */
+.numberRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.numberStepBtn {
+  width: 48px;
+  min-width: 48px;
+  padding: 0 !important;
+}
+
+.numberDisplay {
+  flex: 1;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.48);
+  border: 1px solid rgba(255,255,255,0.52);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.42);
+}
+
+.numberDisplayInput {
+  width: 100%;
+  max-width: 120px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  text-align: center;
+  color: var(--text-strong);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.numberSuffix {
+  color: var(--text-soft);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* mcheyne calendar */
+.mcheyneMonthGrid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mcheyneDayCard {
+  min-height: 82px;
+  padding: 10px 8px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.52);
+  background: rgba(255,255,255,0.42);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.38);
+  cursor: pointer;
+  text-align: left;
+}
+
+.mcheyneDayCardDim {
+  opacity: 0.65;
+}
+
+.mcheyneDayCardToday {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.42),
+    0 10px 22px rgba(77, 189, 170, 0.12);
+  border-color: rgba(114, 215, 199, 0.38);
+}
+
+.mcheyneDayTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  color: var(--text-strong);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.mcheyneTodayChip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgba(128,221,206,0.24);
+  color: var(--mint-600);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.calendarDots {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 14px;
+}
+
+.calendarDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(114, 215, 199, 0.18);
+}
+
+.calendarDotOn {
+  background: var(--mint-500);
+  box-shadow: 0 0 0 3px rgba(114, 215, 199, 0.14);
+}
+
+.mcheyneNeedLoginText {
+  margin-top: 14px;
+  color: var(--text-faint);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.sheetReadingList {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-main);
+  line-height: 1.75;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.checkPillWrap {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.checkPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.52);
+  background: rgba(255,255,255,0.42);
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.checkPillOn {
+  background: rgba(128,221,206,0.22);
+  border-color: rgba(114,215,199,0.36);
+  color: var(--mint-600);
+}
+
+.checkPillGhost {
+  cursor: pointer;
+}
+
+/* responsive */
+@media (max-width: 420px) {
+  .profileMetaGrid,
+  .glassStatGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .numberDisplayInput {
+    max-width: 90px;
+    font-size: 20px;
+  }
+
+  .mcheyneMonthGrid {
+    gap: 6px;
+  }
+
+  .mcheyneDayCard {
+    min-height: 74px;
+    padding: 8px 7px;
+  }
+}
