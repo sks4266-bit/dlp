@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import TopBar from '../components/layout/TopBar';
-import { useAuth } from '../auth/AuthContext';
 import { apiFetch } from '../lib/api';
 
 type Channel = { id: string; name: string; description: string | null; inviteCode: string; myRole: string | null };
@@ -13,7 +12,7 @@ type Comment = { id: string; content: string; authorName: string; createdAt: num
 export default function ChannelDetailPage() {
   const { id } = useParams();
   const nav = useNavigate();
-  const { me, loading: authLoading } = useAuth();
+  const loc = useLocation();
 
   const [channel, setChannel] = useState<Channel | null>(null);
   const [tab, setTab] = useState<'notice' | 'prayer'>('notice');
@@ -36,11 +35,17 @@ export default function ChannelDetailPage() {
 
   const pageTitle = useMemo(() => channel?.name ?? '채널', [channel?.name]);
 
+  function goLogin() {
+    const next = `${loc.pathname}${loc.search}`;
+    nav(`/login?${new URLSearchParams({ next }).toString()}`);
+  }
+
   async function loadChannel() {
     if (!id) return;
+
     const res = await apiFetch(`/api/channels/${id}`);
     if (res.status === 401) {
-      nav('/login');
+      goLogin();
       return;
     }
     if (!res.ok) throw new Error('LOAD_CHANNEL_FAILED');
@@ -49,7 +54,12 @@ export default function ChannelDetailPage() {
 
   async function loadPosts() {
     if (!id) return;
+
     const res = await apiFetch(`/api/channels/${id}/posts?board=${tab}`);
+    if (res.status === 401) {
+      goLogin();
+      return;
+    }
     if (!res.ok) throw new Error('LOAD_POSTS_FAILED');
     setPosts(await res.json());
   }
@@ -65,19 +75,19 @@ export default function ChannelDetailPage() {
   }
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!me) {
-      nav('/login');
-      return;
-    }
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, me, tab]);
+  }, [id, tab]);
 
   async function openComments(p: Post) {
     setActivePost(p);
     setCommentsOpen(true);
+
     const res = await apiFetch(`/api/channels/posts/${p.id}/comments`);
+    if (res.status === 401) {
+      goLogin();
+      return;
+    }
     if (res.ok) setComments(await res.json());
   }
 
@@ -106,11 +116,21 @@ export default function ChannelDetailPage() {
                   type="button"
                   style={ghostBtn}
                   onClick={async () => {
-                    const res = await apiFetch(`/api/channels/${channel.id}/join`, { method: 'POST', body: JSON.stringify({ inviteCode: joinCode.trim() }) });
+                    const res = await apiFetch(`/api/channels/${channel.id}/join`, {
+                      method: 'POST',
+                      body: JSON.stringify({ inviteCode: joinCode.trim() })
+                    });
+
+                    if (res.status === 401) {
+                      goLogin();
+                      return;
+                    }
+
                     if (!res.ok) {
                       alert('가입 실패: 초대코드를 확인하세요.');
                       return;
                     }
+
                     setJoinCode('');
                     await loadAll();
                     alert('가입되었습니다.');
@@ -127,10 +147,18 @@ export default function ChannelDetailPage() {
       <div style={{ height: 12 }} />
 
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="button" style={{ ...tabBtn, background: tab === 'notice' ? 'black' : 'var(--primary-text)', color: tab === 'notice' ? 'var(--primary-text)' : 'black' }} onClick={() => setTab('notice')}>
+        <button
+          type="button"
+          style={{ ...tabBtn, background: tab === 'notice' ? 'black' : 'var(--primary-text)', color: tab === 'notice' ? 'var(--primary-text)' : 'black' }}
+          onClick={() => setTab('notice')}
+        >
           공지
         </button>
-        <button type="button" style={{ ...tabBtn, background: tab === 'prayer' ? 'black' : 'var(--primary-text)', color: tab === 'prayer' ? 'var(--primary-text)' : 'black' }} onClick={() => setTab('prayer')}>
+        <button
+          type="button"
+          style={{ ...tabBtn, background: tab === 'prayer' ? 'black' : 'var(--primary-text)', color: tab === 'prayer' ? 'var(--primary-text)' : 'black' }}
+          onClick={() => setTab('prayer')}
+        >
           기도
         </button>
         <div style={{ flex: 1 }} />
@@ -175,13 +203,21 @@ export default function ChannelDetailPage() {
               alert('내용을 입력하세요.');
               return;
             }
+
             setSaving(true);
             try {
               const res = await apiFetch(`/api/channels/${id}/posts`, {
                 method: 'POST',
                 body: JSON.stringify({ boardType: tab, title: title.trim() || null, content: content.trim() })
               });
+
+              if (res.status === 401) {
+                goLogin();
+                return;
+              }
+
               if (!res.ok) throw new Error('POST_FAILED');
+
               setTitle('');
               setContent('');
               setComposerOpen(false);
@@ -226,13 +262,21 @@ export default function ChannelDetailPage() {
           onClick={async () => {
             if (!activePost) return;
             if (!commentText.trim()) return;
+
             setCommentSaving(true);
             try {
               const res = await apiFetch(`/api/channels/posts/${activePost.id}/comments`, {
                 method: 'POST',
                 body: JSON.stringify({ content: commentText.trim() })
               });
+
+              if (res.status === 401) {
+                goLogin();
+                return;
+              }
+
               if (!res.ok) throw new Error('COMMENT_FAILED');
+
               setCommentText('');
               await openComments(activePost);
             } catch {

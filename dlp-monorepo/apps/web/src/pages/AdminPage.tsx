@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../auth/AuthContext';
 import TopBar from '../components/layout/TopBar';
@@ -29,22 +29,45 @@ type AdminUrgent = {
 
 export default function AdminPage() {
   const nav = useNavigate();
-  const { me, loading } = useAuth();
+  const loc = useLocation();
+  const { me } = useAuth();
+
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [rows, setRows] = useState<AdminUrgent[]>([]);
   const [includeExpired, setIncludeExpired] = useState(true);
   const [includeDeleted, setIncludeDeleted] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
+  function goLogin() {
+    const next = `${loc.pathname}${loc.search}`;
+    nav(`/login?${new URLSearchParams({ next }).toString()}`);
+  }
+
   async function loadAll() {
     setErr(null);
     try {
       const s = await apiFetch('/api/admin/stats');
+      if (s.status === 401) {
+        goLogin();
+        return;
+      }
+      if (s.status === 403) {
+        nav('/');
+        return;
+      }
       if (!s.ok) throw new Error('stats load failed');
       setStats(await s.json());
 
       const q = `?includeExpired=${includeExpired ? '1' : '0'}&includeDeleted=${includeDeleted ? '1' : '0'}`;
       const r = await apiFetch('/api/admin/urgent-prayers' + q);
+      if (r.status === 401) {
+        goLogin();
+        return;
+      }
+      if (r.status === 403) {
+        nav('/');
+        return;
+      }
       if (!r.ok) throw new Error('list load failed');
       setRows(await r.json());
     } catch (e: any) {
@@ -53,18 +76,17 @@ export default function AdminPage() {
   }
 
   useEffect(() => {
-    if (loading) return;
-    if (!me) {
-      nav('/login');
-      return;
-    }
+    if (!me) return;
     if (!me.isAdmin) {
       nav('/');
       return;
     }
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, me, includeExpired, includeDeleted]);
+  }, [me?.isAdmin, includeExpired, includeDeleted]);
+
+  if (!me) return null;
+  if (!me.isAdmin) return null;
 
   return (
     <div>
@@ -117,7 +139,9 @@ export default function AdminPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
                 <div>
                   <div style={{ fontWeight: 900 }}>{r.authorName}</div>
-                  <div style={{ marginTop: 4, fontSize: 12, color: 'var(--muted)' }}>{formatTime(r.createdAt)} · 만료 {formatTime(r.expiresAt)}</div>
+                  <div style={{ marginTop: 4, fontSize: 12, color: 'var(--muted)' }}>
+                    {formatTime(r.createdAt)} · 만료 {formatTime(r.expiresAt)}
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -132,13 +156,30 @@ export default function AdminPage() {
                       onClick={async () => {
                         const ok = confirm('이 긴급기도제목을 삭제할까요? (운영진 전용)');
                         if (!ok) return;
+
                         const reason = prompt('삭제 사유를 입력하세요(필수, 최대 120자)');
                         if (!reason) return;
-                        const res = await apiFetch(`/api/admin/urgent-prayers/${r.id}/delete`, { method: 'POST', body: JSON.stringify({ reason }) });
+
+                        const res = await apiFetch(`/api/admin/urgent-prayers/${r.id}/delete`, {
+                          method: 'POST',
+                          body: JSON.stringify({ reason })
+                        });
+
+                        if (res.status === 401) {
+                          goLogin();
+                          return;
+                        }
+
+                        if (res.status === 403) {
+                          nav('/');
+                          return;
+                        }
+
                         if (!res.ok) {
                           alert('삭제 실패: 권한/로그인 상태를 확인하세요.');
                           return;
                         }
+
                         await loadAll();
                       }}
                     >
@@ -147,6 +188,7 @@ export default function AdminPage() {
                   )}
                 </div>
               </div>
+
               <div style={{ marginTop: 8, lineHeight: 1.5 }}>{r.content}</div>
 
               {r.deletedAt && (

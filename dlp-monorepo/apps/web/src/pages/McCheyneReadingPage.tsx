@@ -83,6 +83,11 @@ export default function McCheyneReadingPage() {
     return addDaysKst(viewMonth, viewDay, +1);
   }, [viewMonth, viewDay]);
 
+  function goLogin() {
+    const next = `${loc.pathname}${loc.search}`;
+    nav(`/login?${new URLSearchParams({ next }).toString()}`);
+  }
+
   async function loadProgress() {
     try {
       const url = target
@@ -90,7 +95,10 @@ export default function McCheyneReadingPage() {
         : '/api/mcheyne/progress/today';
 
       const res = await apiFetch(url);
-      if (res.status === 401) return;
+      if (res.status === 401) {
+        goLogin();
+        return;
+      }
       if (res.ok) setProgress(await res.json());
     } catch {
       // ignore
@@ -106,7 +114,7 @@ export default function McCheyneReadingPage() {
 
       const res = await apiFetch(url);
       if (res.status === 401) {
-        nav('/login');
+        goLogin();
         return;
       }
       if (!res.ok) {
@@ -126,7 +134,6 @@ export default function McCheyneReadingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loc.search]);
 
-  // 로딩 상태
   if (!data) {
     return (
       <div className="mcReadPage">
@@ -161,7 +168,6 @@ export default function McCheyneReadingPage() {
         </Card>
       ) : null}
 
-      {/* 날짜 네비게이션 */}
       <Card className="mcReadHero">
         <div className="mcReadHeroTop">
           <div className="mcReadHeroTitleBlock">
@@ -199,7 +205,6 @@ export default function McCheyneReadingPage() {
         </div>
       </Card>
 
-      {/* 진행률 + 일괄 완료 */}
       {progress ? (
         <Card className="mcReadProgress">
           <div className="mcReadProgressTop">
@@ -227,10 +232,16 @@ export default function McCheyneReadingPage() {
                   ? `/api/mcheyne/progress/day?${buildDayQs(target.month, target.day)}`
                   : '/api/mcheyne/progress/today';
 
-                await apiFetch(putUrl, {
+                const res = await apiFetch(putUrl, {
                   method: 'PUT',
                   body: JSON.stringify({ done1: 1, done2: 1, done3: 1, done4: 1 })
                 });
+
+                if (res.status === 401) {
+                  goLogin();
+                  return;
+                }
+
                 await loadProgress();
               } finally {
                 setBulkSaving(false);
@@ -247,14 +258,13 @@ export default function McCheyneReadingPage() {
       ) : (
         <Card className="mcReadProgress">
           <CardTitle>진행률</CardTitle>
-          <CardDesc>진행률/체크 기능은 로그인 후 사용할 수 있습니다.</CardDesc>
-          <Button variant="secondary" size="lg" wide onClick={() => nav('/mcheyne-calendar')}>
-            캘린더 보기
+          <CardDesc>진행률 데이터를 불러오지 못했습니다.</CardDesc>
+          <Button variant="secondary" size="lg" wide onClick={loadProgress}>
+            진행률 다시 불러오기
           </Button>
         </Card>
       )}
 
-      {/* 오늘 읽을 본문 */}
       <Card className="mcReadPlan">
         <CardTitle>오늘 읽을 본문</CardTitle>
         <ul className="mcReadPlanList">
@@ -266,7 +276,6 @@ export default function McCheyneReadingPage() {
         <CardDesc>아래에서 각 본문을 펼쳐서 바로 읽을 수 있습니다.</CardDesc>
       </Card>
 
-      {/* 본문 4개 */}
       <div className="mcReadList">
         {data.readings.map((r, idx) => {
           const open = openIdx === idx;
@@ -292,7 +301,6 @@ export default function McCheyneReadingPage() {
                         onChange={async (e) => {
                           const next = e.target.checked ? 1 : 0;
 
-                          // optimistic
                           setProgress((prev) => {
                             if (!prev) return prev;
                             const nextToday = { ...prev.today, [doneKey]: next } as ProgressPayload['today'];
@@ -304,10 +312,16 @@ export default function McCheyneReadingPage() {
                             ? `/api/mcheyne/progress/day?${buildDayQs(target.month, target.day)}`
                             : '/api/mcheyne/progress/today';
 
-                          await apiFetch(putUrl, {
+                          const res = await apiFetch(putUrl, {
                             method: 'PUT',
                             body: JSON.stringify({ [doneKey]: next })
                           });
+
+                          if (res.status === 401) {
+                            goLogin();
+                            return;
+                          }
+
                           await loadProgress();
                         }}
                       />
