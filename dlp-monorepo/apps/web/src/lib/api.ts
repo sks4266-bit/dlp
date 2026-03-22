@@ -9,10 +9,7 @@ export function setToken(token: string | null) {
 
 const API_BASE = (() => {
   try {
-    return String(
-      (import.meta as any)?.env?.VITE_API_BASE ??
-        'https://dlp.albi260128.workers.dev'
-    ).trim();
+    return String((import.meta as any)?.env?.VITE_API_BASE ?? 'https://dlp.albi260128.workers.dev').trim();
   } catch {
     return 'https://dlp.albi260128.workers.dev';
   }
@@ -45,7 +42,14 @@ function resolveApiUrl(input: RequestInfo): RequestInfo {
 export async function apiFetch(input: RequestInfo, init: RequestInit = {}) {
   const token = getToken();
   const headers = new Headers(init.headers || {});
-  if (!headers.has('Content-Type') && init.body) headers.set('Content-Type', 'application/json');
-  if (token) headers.set('Authorization', `Bearer ${token}`);
+
+  if (!headers.has('Content-Type') && init.body) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
   return fetch(resolveApiUrl(input), { ...init, headers });
 }

@@ -41,6 +41,7 @@ export function AuthProvider({ children }: { children: any }) {
 
   async function refreshMe() {
     const currentToken = getToken();
+
     if (!currentToken) {
       setMe(null);
       return;
