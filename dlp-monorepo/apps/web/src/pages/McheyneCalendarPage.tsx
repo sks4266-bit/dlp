@@ -165,15 +165,34 @@ export default function McheyneCalendarPage() {
 
     nav(next);
   }
+  async function readErrorMessage(res: Response) {
+    const contentType = res.headers.get('content-type') || '';
+
+    try {
+      if (contentType.includes('application/json')) {
+        const j = await res.json();
+        return j?.message || j?.error || `HTTP ${res.status}`;
+      }
+
+      const text = await res.text();
+      if (text) return text.slice(0, 200);
+      return `HTTP ${res.status}`;
+    } catch {
+      return `HTTP ${res.status}`;
+    }
+  }
 
   async function load() {
     setError(null);
 
     try {
-      const a = await apiFetch(`/api/mcheyne/month?month=${month}`);
-      const aj = await a.json();
-      if (!a.ok) throw new Error(aj?.message || aj?.error || 'PLAN_LOAD_FAILED');
-      setPlan(aj);
+            const a = await apiFetch(`/api/mcheyne/month?month=${month}`);
+      if (!a.ok) {
+        const msg = await readErrorMessage(a);
+        throw new Error(msg || 'PLAN_LOAD_FAILED');
+      }
+      setPlan(await a.json());
+
 
       if (pendingOpenDayRef.current && pendingOpenDayRef.current >= 1) {
         const d = pendingOpenDayRef.current;
@@ -188,13 +207,12 @@ export default function McheyneCalendarPage() {
         return;
       }
 
-      const bj = await b.json();
-      if (!b.ok) throw new Error(bj?.message || bj?.error || 'PROGRESS_LOAD_FAILED');
-      setProg(bj);
-    } catch (e: any) {
-      setError(String(e?.message ?? e));
-    }
-  }
+      if (!b.ok) {
+        const msg = await readErrorMessage(b);
+        throw new Error(msg || 'PROGRESS_LOAD_FAILED');
+      }
+
+      setProg(await b.json());
 
   useEffect(() => {
     load();
@@ -205,7 +223,10 @@ export default function McheyneCalendarPage() {
   const selDone = sheetDay ? (progMap.get(sheetDay) ?? 0) : 0;
   const selRow = sheetDay ? progRowMap.get(sheetDay) : null;
 
-  async function setDayDone(day: number, patch: Partial<{ done1: number; done2: number; done3: number; done4: number }>): Promise<boolean> {
+  async function setDayDone(
+    day: number,
+    patch: Partial<{ done1: number; done2: number; done3: number; done4: number }>
+  ): Promise<boolean> {
     if (authLoading) return false;
     if (!isAuthed) return false;
 
@@ -213,16 +234,34 @@ export default function McheyneCalendarPage() {
 
     setProg((prev) => {
       if (!prev) return prev;
+
       const nextItems = (prev.items ?? []).slice();
       const idx = nextItems.findIndex((x) => x.day === day);
-      const base = (idx >= 0 ? nextItems[idx] : { day, done1: 0, done2: 0, done3: 0, done4: 0, doneCount: 0 }) as any;
-      const nextRow = { ...base, ...patch } as any;
-      nextRow.doneCount = (nextRow.done1 ?? 0) + (nextRow.done2 ?? 0) + (nextRow.done3 ?? 0) + (nextRow.done4 ?? 0);
+
+      const base =
+        idx >= 0
+          ? nextItems[idx]
+          : { day, done1: 0, done2: 0, done3: 0, done4: 0, doneCount: 0 };
+
+      const nextRow = {
+        ...base,
+        ...(patch.done1 !== undefined ? { done1: patch.done1 ? 1 : 0 } : {}),
+        ...(patch.done2 !== undefined ? { done2: patch.done2 ? 1 : 0 } : {}),
+        ...(patch.done3 !== undefined ? { done3: patch.done3 ? 1 : 0 } : {}),
+        ...(patch.done4 !== undefined ? { done4: patch.done4 ? 1 : 0 } : {})
+      };
+
+      nextRow.doneCount =
+        (nextRow.done1 ?? 0) +
+        (nextRow.done2 ?? 0) +
+        (nextRow.done3 ?? 0) +
+        (nextRow.done4 ?? 0);
 
       if (idx >= 0) nextItems[idx] = nextRow;
       else nextItems.push(nextRow);
 
       nextItems.sort((a, b) => a.day - b.day);
+
       return { ...prev, items: nextItems };
     });
 
@@ -230,36 +269,69 @@ export default function McheyneCalendarPage() {
 
     try {
       const next = buildReadingNext(month, day);
-      const url = `/api/mcheyne/progress/day?${new URLSearchParams({ month: String(month), day: String(day) }).toString()}`;
-      const res = await apiFetch(url, { method: 'PUT', body: JSON.stringify(patch) });
+      const url = `/api/mcheyne/progress/day?${new URLSearchParams({
+        month: String(month),
+        day: String(day)
+      }).toString()}`;
 
-      if (res.status === 401) {
-        goLogin(next);
-        throw new Error('UNAUTHORIZED');
-      }
-
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(j?.message || j?.error || 'SAVE_FAILED');
-
-      const t = j?.today as any;
-      const doneCount = (t?.done1 ?? 0) + (t?.done2 ?? 0) + (t?.done3 ?? 0) + (t?.done4 ?? 0);
-
-      setProg((prev) => {
-        if (!prev) return prev;
-        const nextItems = (prev.items ?? []).slice();
-        const idx = nextItems.findIndex((x) => x.day === day);
-        const nextRow = { day, done1: t.done1 ?? 0, done2: t.done2 ?? 0, done3: t.done3 ?? 0, done4: t.done4 ?? 0, doneCount };
-
-        if (idx >= 0) nextItems[idx] = nextRow as any;
-        else nextItems.push(nextRow as any);
-
-        nextItems.sort((a, b) => a.day - b.day);
-        return { ...prev, items: nextItems };
+      const res = await apiFetch(url, {
+        method: 'PUT',
+        body: JSON.stringify(patch)
       });
 
+      if (res.status === 401) {
+        if (prevProgSnapshot) setProg(prevProgSnapshot);
+        goLogin(next);
+        return false;
+      }
+
+      if (!res.ok) {
+        const msg = await readErrorMessage(res);
+        if (prevProgSnapshot) setProg(prevProgSnapshot);
+        showToast(`저장 실패: ${msg}`, 'warn', 1800);
+        return false;
+      }
+
+      const contentType = res.headers.get('content-type') || '';
+
+      if (contentType.includes('application/json')) {
+        const j = await res.json().catch(() => null);
+        const t = j?.today as
+          | { day: number; done1: number; done2: number; done3: number; done4: number }
+          | undefined;
+
+        if (t) {
+          const doneCount =
+            (t.done1 ?? 0) + (t.done2 ?? 0) + (t.done3 ?? 0) + (t.done4 ?? 0);
+
+          setProg((prev) => {
+            if (!prev) return prev;
+
+            const nextItems = (prev.items ?? []).slice();
+            const idx = nextItems.findIndex((x) => x.day === day);
+
+            const nextRow = {
+              day,
+              done1: t.done1 ?? 0,
+              done2: t.done2 ?? 0,
+              done3: t.done3 ?? 0,
+              done4: t.done4 ?? 0,
+              doneCount
+            };
+
+            if (idx >= 0) nextItems[idx] = nextRow;
+            else nextItems.push(nextRow);
+
+            nextItems.sort((a, b) => a.day - b.day);
+            return { ...prev, items: nextItems };
+          });
+        }
+      }
+
       return true;
-    } catch {
+    } catch (e: any) {
       if (prevProgSnapshot) setProg(prevProgSnapshot);
+      showToast(`저장 실패: ${String(e?.message ?? e)}`, 'warn', 1800);
       return false;
     } finally {
       setSaving(false);
