@@ -516,8 +516,7 @@ function ChurchIcon() {
 const page: CSSProperties = {
   minHeight: '100dvh',
   padding: '12px 14px 30px',
-  background:
-    'radial-gradient(circle at top left, rgba(217,242,231,0.72), transparent 28%), radial-gradient(circle at top right, rgba(247,229,216,0.72), transparent 24%), linear-gradient(180deg, #f8f3ea 0%, #f7f4ef 40%, #f4f7f8 100%)'
+  background: 'transparent'
 };
 
 const pageInner: CSSProperties = {
@@ -615,9 +614,9 @@ const tickerWrap: CSSProperties = {
 
 const heroCard: CSSProperties = {
   borderRadius: 24,
-  background: 'rgba(255,255,255,0.76)',
+  background: 'rgba(255,255,255,0.78)',
   border: '1px solid rgba(255,255,255,0.56)',
-  boxShadow: '0 16px 36px rgba(77,90,110,0.10)',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)',
   backdropFilter: 'blur(16px)'
 };
 
