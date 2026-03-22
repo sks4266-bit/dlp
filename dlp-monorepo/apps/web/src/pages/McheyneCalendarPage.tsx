@@ -113,6 +113,23 @@ export default function McheyneCalendarPage() {
     toastTimerRef.current = setTimeout(() => setToast(null), ms);
   }
 
+  async function readErrorMessage(res: Response) {
+    const contentType = res.headers.get('content-type') || '';
+
+    try {
+      if (contentType.includes('application/json')) {
+        const j = await res.json();
+        return j?.message || j?.error || `HTTP ${res.status}`;
+      }
+
+      const text = await res.text();
+      if (text) return text.slice(0, 200);
+      return `HTTP ${res.status}`;
+    } catch {
+      return `HTTP ${res.status}`;
+    }
+  }
+
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -165,34 +182,17 @@ export default function McheyneCalendarPage() {
 
     nav(next);
   }
-  async function readErrorMessage(res: Response) {
-    const contentType = res.headers.get('content-type') || '';
-
-    try {
-      if (contentType.includes('application/json')) {
-        const j = await res.json();
-        return j?.message || j?.error || `HTTP ${res.status}`;
-      }
-
-      const text = await res.text();
-      if (text) return text.slice(0, 200);
-      return `HTTP ${res.status}`;
-    } catch {
-      return `HTTP ${res.status}`;
-    }
-  }
 
   async function load() {
     setError(null);
 
     try {
-            const a = await apiFetch(`/api/mcheyne/month?month=${month}`);
+      const a = await apiFetch(`/api/mcheyne/month?month=${month}`);
       if (!a.ok) {
         const msg = await readErrorMessage(a);
         throw new Error(msg || 'PLAN_LOAD_FAILED');
       }
       setPlan(await a.json());
-
 
       if (pendingOpenDayRef.current && pendingOpenDayRef.current >= 1) {
         const d = pendingOpenDayRef.current;
@@ -213,6 +213,10 @@ export default function McheyneCalendarPage() {
       }
 
       setProg(await b.json());
+    } catch (e: any) {
+      setError(String(e?.message ?? e));
+    }
+  }
 
   useEffect(() => {
     load();
@@ -347,8 +351,6 @@ export default function McheyneCalendarPage() {
     if (ok) {
       setSheetOpen(false);
       showToast('일괄 완료했어요', 'ok');
-    } else {
-      showToast('저장 실패, 다시 시도해주세요', 'warn');
     }
   }
 

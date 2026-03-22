@@ -61,6 +61,8 @@ export default function MePage() {
   const [gratEditorDate, setGratEditorDate] = useState('');
   const [gratContent, setGratContent] = useState('');
   const [gratSaving, setGratSaving] = useState(false);
+  const [gratEditorLoading, setGratEditorLoading] = useState(false);
+  const [gratEditorErr, setGratEditorErr] = useState<string | null>(null);
 
   const gratMap = useMemo(() => {
     const m = new Map<string, GratitudeEntry>();
@@ -86,6 +88,23 @@ export default function MePage() {
     nav(`/login?${new URLSearchParams({ next }).toString()}`);
   }
 
+  async function readErrorMessage(res: Response) {
+    const contentType = res.headers.get('content-type') || '';
+
+    try {
+      if (contentType.includes('application/json')) {
+        const j = await res.json();
+        return j?.message || j?.error || `HTTP ${res.status}`;
+      }
+
+      const text = await res.text();
+      if (text) return text.slice(0, 200);
+      return `HTTP ${res.status}`;
+    } catch {
+      return `HTTP ${res.status}`;
+    }
+  }
+
   async function loadStats() {
     if (!me) return;
     const res = await apiFetch('/api/me/stats');
@@ -99,23 +118,110 @@ export default function MePage() {
 
   async function loadGratitude() {
     setGratErr(null);
+
     try {
       const res = await apiFetch(`/api/gratitude?month=${encodeURIComponent(gratMonth)}`);
+
       if (res.status === 401) {
         goLogin('/me?section=gratitude');
         return;
       }
-      if (!res.ok) throw new Error('LOAD_FAILED');
-      setGratItems(await res.json());
+
+      if (!res.ok) {
+        const msg = await readErrorMessage(res);
+        throw new Error(msg || '감사일기를 불러오지 못했습니다.');
+      }
+
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error('감사일기 응답 형식이 올바르지 않습니다.');
+      }
+
+      const rows = await res.json();
+      setGratItems(Array.isArray(rows) ? rows : []);
     } catch (e: any) {
       setGratErr(e?.message ?? '감사일기를 불러오지 못했습니다.');
+      setGratItems([]);
     }
   }
 
-  function openGratitudeEditor(date: string) {
+  async function openGratitudeEditor(date: string) {
     setGratEditorDate(date);
-    setGratContent(gratMap.get(date)?.content ?? '');
+    setGratEditorErr(null);
     setGratEditorOpen(true);
+    setGratEditorLoading(true);
+    setGratContent('');
+
+    try {
+      const res = await apiFetch(`/api/gratitude/${date}`);
+
+      if (res.status === 401) {
+        setGratEditorOpen(false);
+        goLogin('/me?section=gratitude');
+        return;
+      }
+
+      if (!res.ok) {
+        const msg = await readErrorMessage(res);
+        throw new Error(msg || '감사일기를 불러오지 못했습니다.');
+      }
+
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error('감사일기 상세 응답 형식이 올바르지 않습니다.');
+      }
+
+      const j = await res.json();
+      setGratContent(j?.content ?? '');
+    } catch (e: any) {
+      setGratEditorErr(e?.message ?? '감사일기를 불러오지 못했습니다.');
+      setGratContent(gratMap.get(date)?.content ?? '');
+    } finally {
+      setGratEditorLoading(false);
+    }
+  }
+
+  async function saveGratitude() {
+    if (!gratEditorDate) return false;
+
+    const content = gratContent.trim();
+    setGratEditorErr(null);
+
+    if (!content) {
+      setGratEditorErr('내용을 입력하세요.');
+      return false;
+    }
+
+    setGratSaving(true);
+
+    try {
+      const res = await apiFetch(`/api/gratitude/${gratEditorDate}`, {
+        method: 'PUT',
+        body: JSON.stringify({ content })
+      });
+
+      if (res.status === 401) {
+        goLogin('/me?section=gratitude');
+        return false;
+      }
+
+      if (!res.ok) {
+        const msg = await readErrorMessage(res);
+        setGratEditorErr(msg || '저장에 실패했습니다.');
+        return false;
+      }
+
+      await loadGratitude();
+      setGratEditorOpen(false);
+      setGratContent('');
+      setGratEditorDate('');
+      return true;
+    } catch (e: any) {
+      setGratEditorErr(e?.message ?? '저장에 실패했습니다.');
+      return false;
+    } finally {
+      setGratSaving(false);
+    }
   }
 
   useEffect(() => {
@@ -303,7 +409,7 @@ export default function MePage() {
                     <button
                       key={date}
                       type="button"
-                      onClick={() => openGratitudeEditor(date)}
+                      onClick={() => void openGratitudeEditor(date)}
                       className={['gratitudeDayCell', has ? 'gratitudeDayCellOn' : ''].join(' ')}
                     >
                       {day}
@@ -330,7 +436,7 @@ export default function MePage() {
                       key={it.id}
                       type="button"
                       className="glassListItem"
-                      onClick={() => openGratitudeEditor(it.date)}
+                      onClick={() => void openGratitudeEditor(it.date)}
                     >
                       <div className="glassListDate">{it.date}</div>
                       <div className="glassListContent">{it.content}</div>
@@ -345,46 +451,26 @@ export default function MePage() {
         <BottomSheet open={gratEditorOpen} onClose={() => setGratEditorOpen(false)}>
           <div className="sheetTitle">감사일기 · {gratEditorDate}</div>
           <div className="stack10" />
+
+          {gratEditorErr ? <div className="uiErrorBox">{gratEditorErr}</div> : null}
+          {gratEditorLoading ? <div className="sectionMiniMeta">불러오는 중…</div> : null}
+
           <textarea
             value={gratContent}
             onChange={(e) => setGratContent(e.target.value)}
             placeholder="예) 오늘도 건강을 지켜주셔서 감사합니다"
             className="glassTextarea"
+            disabled={gratEditorLoading || gratSaving}
           />
+
           <div className="stack10" />
+
           <Button
             variant="primary"
             wide
             size="lg"
-            disabled={gratSaving}
-            onClick={async () => {
-              if (!gratEditorDate) return;
-              if (!gratContent.trim()) {
-                alert('내용을 입력하세요.');
-                return;
-              }
-
-              setGratSaving(true);
-              try {
-                const res = await apiFetch(`/api/gratitude/${gratEditorDate}`, {
-                  method: 'PUT',
-                  body: JSON.stringify({ content: gratContent })
-                });
-
-                if (res.status === 401) {
-                  goLogin('/me?section=gratitude');
-                  return;
-                }
-
-                if (!res.ok) throw new Error('SAVE_FAILED');
-                await loadGratitude();
-                setGratEditorOpen(false);
-              } catch {
-                alert('저장에 실패했습니다.');
-              } finally {
-                setGratSaving(false);
-              }
-            }}
+            disabled={gratEditorLoading || gratSaving}
+            onClick={saveGratitude}
           >
             {gratSaving ? '저장 중…' : '저장'}
           </Button>
