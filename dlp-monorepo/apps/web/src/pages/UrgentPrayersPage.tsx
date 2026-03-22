@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import type { UrgentTickerItem } from '../components/UrgentPrayerTicker';
+import UrgentPrayerTicker, { type UrgentTickerItem } from '../components/UrgentPrayerTicker';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../auth/AuthContext';
 import UrgentPrayerComposer from '../components/urgent/UrgentPrayerComposer';
@@ -54,10 +54,7 @@ export default function UrgentPrayersPage() {
 
     try {
       const res = await apiFetch('/api/urgent-prayers');
-
-      if (!res.ok) {
-        throw new Error(await readErrorMessage(res));
-      }
+      if (!res.ok) throw new Error(await readErrorMessage(res));
 
       const data = await res.json();
       setItems(Array.isArray(data) ? data : []);
@@ -81,8 +78,8 @@ export default function UrgentPrayersPage() {
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     el.animate(
       [
-        { backgroundColor: 'rgba(243, 180, 156, 0.24)' },
-        { backgroundColor: 'rgba(243, 180, 156, 0.10)' },
+        { backgroundColor: 'rgba(243, 180, 156, 0.22)' },
+        { backgroundColor: 'rgba(243, 180, 156, 0.08)' },
         { backgroundColor: 'transparent' }
       ],
       { duration: 1200, easing: 'ease-out' }
@@ -139,6 +136,21 @@ export default function UrgentPrayersPage() {
     }
   }
 
+  function focusItem(id: string) {
+    const el = rowRefs.current[id];
+    if (!el) return;
+
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.animate(
+      [
+        { transform: 'translateY(0px)', backgroundColor: 'rgba(243,180,156,0.20)' },
+        { transform: 'translateY(-1px)', backgroundColor: 'rgba(243,180,156,0.08)' },
+        { transform: 'translateY(0px)', backgroundColor: 'transparent' }
+      ],
+      { duration: 900, easing: 'ease-out' }
+    );
+  }
+
   return (
     <div style={page}>
       <div style={pageInner}>
@@ -167,6 +179,16 @@ export default function UrgentPrayersPage() {
               <div style={heroMetaMain}>{items.length}</div>
               <div style={heroMetaLabel}>현재 제목</div>
             </div>
+          </div>
+
+          <div style={tickerSection}>
+            <UrgentPrayerTicker
+              items={items}
+              intervalMs={3200}
+              resumeDelayMs={4500}
+              heightPx={44}
+              onItemClick={focusItem}
+            />
           </div>
 
           <div style={heroActions}>
@@ -198,7 +220,7 @@ export default function UrgentPrayersPage() {
           </Card>
         ) : null}
 
-        {!loading && !error ? (
+        {!loading && !error && items.length > 0 ? (
           <div style={list}>
             {items.map((it, idx) => (
               <Card
@@ -363,9 +385,9 @@ const pageInner: CSSProperties = {
 
 const heroCard: CSSProperties = {
   borderRadius: 24,
-  background: 'linear-gradient(180deg, rgba(255,247,242,0.94), rgba(255,241,234,0.82))',
-  border: '1px solid rgba(243,180,156,0.34)',
-  boxShadow: '0 14px 32px rgba(204,151,126,0.14)',
+  background: 'linear-gradient(180deg, rgba(255,247,242,0.92), rgba(255,243,238,0.80))',
+  border: '1px solid rgba(243,180,156,0.28)',
+  boxShadow: '0 12px 28px rgba(204,151,126,0.12)',
   backdropFilter: 'blur(16px)'
 };
 
@@ -387,8 +409,8 @@ const badgePeach: CSSProperties = {
   minHeight: 28,
   padding: '0 10px',
   borderRadius: 999,
-  background: 'rgba(243,180,156,0.18)',
-  border: '1px solid rgba(243,180,156,0.26)',
+  background: 'rgba(243,180,156,0.16)',
+  border: '1px solid rgba(243,180,156,0.22)',
   color: '#a05f48',
   fontSize: 12,
   fontWeight: 800,
@@ -396,7 +418,7 @@ const badgePeach: CSSProperties = {
 };
 
 const heroTitle: CSSProperties = {
-  fontSize: 28,
+  fontSize: 27,
   fontWeight: 800,
   color: '#24313a',
   letterSpacing: '-0.02em'
@@ -404,9 +426,9 @@ const heroTitle: CSSProperties = {
 
 const heroDesc: CSSProperties = {
   marginTop: 6,
-  color: '#6f625c',
+  color: '#726760',
   fontSize: 14,
-  lineHeight: 1.6
+  lineHeight: 1.58
 };
 
 const heroMetaBox: CSSProperties = {
@@ -414,13 +436,13 @@ const heroMetaBox: CSSProperties = {
   minWidth: 92,
   height: 92,
   borderRadius: 999,
-  background: 'rgba(255,255,255,0.68)',
-  border: '1px solid rgba(255,255,255,0.58)',
+  background: 'rgba(255,255,255,0.64)',
+  border: '1px solid rgba(255,255,255,0.54)',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.55)'
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.52)'
 };
 
 const heroMetaMain: CSSProperties = {
@@ -432,13 +454,17 @@ const heroMetaMain: CSSProperties = {
 
 const heroMetaLabel: CSSProperties = {
   marginTop: 6,
-  color: '#8e7c73',
+  color: '#8f7e75',
   fontSize: 11,
   fontWeight: 800
 };
 
+const tickerSection: CSSProperties = {
+  marginTop: 14
+};
+
 const heroActions: CSSProperties = {
-  marginTop: 18,
+  marginTop: 14,
   display: 'grid',
   gap: 10
 };
@@ -460,11 +486,11 @@ const heroFootText: CSSProperties = {
 const skeletonStack: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: 12
+  gap: 10
 };
 
 const skeletonBlock: CSSProperties = {
-  height: 110,
+  height: 106,
   borderRadius: 22,
   background:
     'linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0.025), rgba(0,0,0,0.06))',
@@ -474,9 +500,9 @@ const skeletonBlock: CSSProperties = {
 
 const errorCard: CSSProperties = {
   borderRadius: 22,
-  background: 'rgba(255,245,245,0.72)',
-  border: '1px solid rgba(235,138,127,0.32)',
-  boxShadow: '0 10px 24px rgba(185,85,85,0.08)'
+  background: 'rgba(255,245,245,0.70)',
+  border: '1px solid rgba(235,138,127,0.28)',
+  boxShadow: '0 10px 24px rgba(185,85,85,0.07)'
 };
 
 const errorTitle: CSSProperties = {
@@ -523,19 +549,19 @@ const emptyDesc: CSSProperties = {
 const list: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: 12
+  gap: 10
 };
 
 const itemCard: CSSProperties = {
   borderRadius: 22,
   background: 'rgba(255,255,255,0.74)',
   border: '1px solid rgba(255,255,255,0.56)',
-  boxShadow: '0 12px 28px rgba(77,90,110,0.08)'
+  boxShadow: '0 10px 24px rgba(77,90,110,0.075)'
 };
 
 const firstItemCard: CSSProperties = {
-  background: 'linear-gradient(180deg, rgba(255,250,247,0.86), rgba(255,255,255,0.78))',
-  border: '1px solid rgba(243,180,156,0.22)'
+  background: 'linear-gradient(180deg, rgba(255,250,247,0.84), rgba(255,255,255,0.78))',
+  border: '1px solid rgba(243,180,156,0.20)'
 };
 
 const itemHead: CSSProperties = {
@@ -559,8 +585,8 @@ const authorBadge: CSSProperties = {
   minHeight: 28,
   padding: '0 10px',
   borderRadius: 999,
-  background: 'rgba(114,215,199,0.14)',
-  border: '1px solid rgba(114,215,199,0.22)',
+  background: 'rgba(114,215,199,0.13)',
+  border: '1px solid rgba(114,215,199,0.20)',
   color: '#2b7f72',
   fontSize: 12,
   fontWeight: 800
@@ -573,16 +599,16 @@ const timeText: CSSProperties = {
 };
 
 const contentText: CSSProperties = {
-  marginTop: 12,
+  marginTop: 11,
   color: '#33424b',
   fontSize: 15,
-  lineHeight: 1.68,
+  lineHeight: 1.66,
   whiteSpace: 'pre-wrap',
   wordBreak: 'break-word'
 };
 
 const metaRow: CSSProperties = {
-  marginTop: 14,
+  marginTop: 13,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
@@ -592,11 +618,11 @@ const metaRow: CSSProperties = {
 const metaChip: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
-  minHeight: 26,
+  minHeight: 25,
   padding: '0 10px',
   borderRadius: 999,
   background: 'rgba(255,255,255,0.62)',
-  border: '1px solid rgba(255,255,255,0.58)',
+  border: '1px solid rgba(255,255,255,0.56)',
   color: '#7d8a92',
   fontSize: 12,
   fontWeight: 800
@@ -605,11 +631,11 @@ const metaChip: CSSProperties = {
 const latestChip: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
-  minHeight: 26,
+  minHeight: 25,
   padding: '0 10px',
   borderRadius: 999,
-  background: 'rgba(243,180,156,0.16)',
-  border: '1px solid rgba(243,180,156,0.26)',
+  background: 'rgba(243,180,156,0.14)',
+  border: '1px solid rgba(243,180,156,0.22)',
   color: '#a05f48',
   fontSize: 12,
   fontWeight: 800

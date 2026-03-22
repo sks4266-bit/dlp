@@ -241,14 +241,14 @@ export default function UrgentPrayerTicker({
           .urgentTickerMegaphone {
             position: relative;
             width: 100%;
-            padding: 12px 12px 10px;
-            border-radius: 18px;
+            padding: 11px 12px 9px;
+            border-radius: 17px;
             background:
-              linear-gradient(180deg, rgba(255,247,242,0.96), rgba(255,241,234,0.82));
-            border: 1px solid rgba(243,180,156,0.36);
+              linear-gradient(180deg, rgba(255,248,244,0.95), rgba(255,243,238,0.84));
+            border: 1px solid rgba(243,180,156,0.24);
             box-shadow:
-              0 10px 24px rgba(204,151,126,0.14),
-              inset 0 1px 0 rgba(255,255,255,0.42);
+              0 8px 20px rgba(204,151,126,0.11),
+              inset 0 1px 0 rgba(255,255,255,0.40);
             overflow: hidden;
           }
 
@@ -257,8 +257,8 @@ export default function UrgentPrayerTicker({
             position: absolute;
             inset: 0;
             background:
-              radial-gradient(circle at 18% 22%, rgba(255,255,255,0.56), transparent 32%),
-              linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.20) 32%, transparent 58%);
+              radial-gradient(circle at 18% 20%, rgba(255,255,255,0.46), transparent 32%),
+              linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.14) 32%, transparent 58%);
             pointer-events: none;
           }
 
@@ -279,21 +279,21 @@ export default function UrgentPrayerTicker({
 
           .urgentTickerHorn {
             position: relative;
-            width: 34px;
-            height: 34px;
+            width: 32px;
+            height: 32px;
             border-radius: 999px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            background: rgba(255,255,255,0.54);
+            background: rgba(255,255,255,0.56);
             border: 1px solid rgba(255,255,255,0.58);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.48);
-            color: #c87355;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.46);
+            color: #c77859;
           }
 
           .urgentTickerHornSvg {
-            width: 19px;
-            height: 19px;
+            width: 18px;
+            height: 18px;
             position: relative;
             z-index: 2;
           }
@@ -308,21 +308,21 @@ export default function UrgentPrayerTicker({
             position: absolute;
             right: -1px;
             top: 50%;
-            width: 12px;
-            height: 12px;
+            width: 11px;
+            height: 11px;
             border-radius: 999px;
-            border: 2px solid rgba(232, 138, 101, 0.44);
+            border: 2px solid rgba(232, 138, 101, 0.34);
             transform: translateY(-50%) scale(0.55);
             opacity: 0;
-            animation: urgentTickerWavePulse 1.7s ease-out infinite;
+            animation: urgentTickerWavePulse 1.8s ease-out infinite;
           }
 
           .urgentTickerWave.wave2 {
-            animation-delay: 0.38s;
+            animation-delay: 0.42s;
           }
 
           .urgentTickerWave.wave3 {
-            animation-delay: 0.76s;
+            animation-delay: 0.84s;
           }
 
           .urgentTickerMegaphone.isPaused .urgentTickerWave,
@@ -334,11 +334,11 @@ export default function UrgentPrayerTicker({
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            min-height: 28px;
+            min-height: 26px;
             padding: 0 10px;
             border-radius: 999px;
-            background: rgba(243,180,156,0.18);
-            border: 1px solid rgba(243,180,156,0.26);
+            background: rgba(243,180,156,0.14);
+            border: 1px solid rgba(243,180,156,0.20);
             color: #a05f48;
             font-size: 12px;
             font-weight: 800;
@@ -347,12 +347,12 @@ export default function UrgentPrayerTicker({
           }
 
           .urgentTickerAlertDot {
-            width: 7px;
-            height: 7px;
+            width: 6px;
+            height: 6px;
             border-radius: 999px;
             background: #e37b54;
-            box-shadow: 0 0 0 rgba(227,123,84,0.55);
-            animation: urgentTickerAlertBlink 1.4s ease-in-out infinite;
+            box-shadow: 0 0 0 rgba(227,123,84,0.42);
+            animation: urgentTickerAlertBlink 1.5s ease-in-out infinite;
           }
 
           .urgentTickerBody {
@@ -365,9 +365,9 @@ export default function UrgentPrayerTicker({
             min-width: 0;
             overflow: hidden;
             border-radius: 14px;
-            background: rgba(255,255,255,0.52);
-            border: 1px solid rgba(255,255,255,0.52);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.46);
+            background: rgba(255,255,255,0.54);
+            border: 1px solid rgba(255,255,255,0.50);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.44);
             touch-action: pan-x;
             user-select: none;
             -webkit-user-select: none;
@@ -401,7 +401,7 @@ export default function UrgentPrayerTicker({
             align-items: center;
             gap: 8px;
             min-width: 0;
-            padding: 0 14px;
+            padding: 0 13px;
           }
 
           .urgentTickerMegaphone.isNormal .urgentTickerRow {
@@ -413,30 +413,30 @@ export default function UrgentPrayerTicker({
           }
 
           .urgentTickerRow.isGhost {
-            opacity: 0.62;
+            opacity: 0.58;
           }
 
           .urgentTickerAuthor {
             color: #2b7f72;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 800;
             flex: 0 0 auto;
-            max-width: 84px;
+            max-width: 78px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
           }
 
           .urgentTickerDot {
-            color: rgba(130, 108, 98, 0.72);
+            color: rgba(130, 108, 98, 0.64);
             flex: 0 0 auto;
             font-weight: 900;
           }
 
           .urgentTickerText {
             min-width: 0;
-            color: #5a4f4a;
-            font-size: 14px;
+            color: #5d5350;
+            font-size: 13px;
             font-weight: 700;
             line-height: 1.4;
             overflow: hidden;
@@ -445,7 +445,7 @@ export default function UrgentPrayerTicker({
           }
 
           .urgentTickerText.isEmptyText {
-            color: #8f776d;
+            color: #907972;
             font-weight: 700;
           }
 
@@ -453,20 +453,20 @@ export default function UrgentPrayerTicker({
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 28px;
-            color: #b38272;
-            font-size: 20px;
+            width: 24px;
+            color: #b98a78;
+            font-size: 18px;
             font-weight: 900;
             flex: 0 0 auto;
           }
 
           .urgentTickerMeta {
             position: relative;
-            margin-top: 8px;
+            margin-top: 7px;
             color: #9a7f74;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
-            line-height: 1.35;
+            line-height: 1.3;
           }
 
           .urgentTickerMetaStrong {
@@ -478,23 +478,23 @@ export default function UrgentPrayerTicker({
               opacity: 0;
               transform: translateY(-50%) scale(0.55);
             }
-            20% {
-              opacity: 0.58;
+            18% {
+              opacity: 0.42;
             }
             100% {
               opacity: 0;
-              transform: translateY(-50%) scale(1.9);
+              transform: translateY(-50%) scale(1.75);
             }
           }
 
           @keyframes urgentTickerAlertBlink {
             0%, 100% {
               transform: scale(1);
-              box-shadow: 0 0 0 0 rgba(227,123,84,0.50);
+              box-shadow: 0 0 0 0 rgba(227,123,84,0.36);
             }
             45% {
-              transform: scale(1.08);
-              box-shadow: 0 0 0 7px rgba(227,123,84,0.00);
+              transform: scale(1.06);
+              box-shadow: 0 0 0 6px rgba(227,123,84,0.00);
             }
           }
         `}
