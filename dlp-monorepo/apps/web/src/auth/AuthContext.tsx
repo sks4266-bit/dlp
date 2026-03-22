@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: any }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error ?? 'LOGIN_FAILED');
     setToken(data.token);
     setTokenState(data.token);
