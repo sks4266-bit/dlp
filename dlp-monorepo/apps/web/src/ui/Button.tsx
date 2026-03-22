@@ -24,10 +24,13 @@ export default function Button({
   const base = 'uiBtn';
 
   const v =
-    variant === 'primary' ? 'uiBtnPrimary' :
-    variant === 'secondary' ? 'uiBtnSecondary' :
-    variant === 'danger' ? 'uiBtnDanger' :
-    'uiBtnGhost';
+    variant === 'primary'
+      ? 'uiBtnPrimary'
+      : variant === 'secondary'
+        ? 'uiBtnSecondary'
+        : variant === 'danger'
+          ? 'uiBtnDanger'
+          : 'uiBtnGhost';
 
   const s = size === 'lg' ? 'uiBtnLg' : 'uiBtnMd';
   const w = wide ? 'uiBtnWide' : '';
@@ -36,10 +39,10 @@ export default function Button({
 
   return (
     <button {...rest} className={cls}>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-        {left ? <span style={{ display: 'inline-flex' }}>{left}</span> : null}
-        <span>{children}</span>
-        {right ? <span style={{ display: 'inline-flex' }}>{right}</span> : null}
+      <span className="uiBtnInner">
+        {left ? <span className="uiBtnIcon">{left}</span> : null}
+        <span className="uiBtnLabel">{children}</span>
+        {right ? <span className="uiBtnIcon">{right}</span> : null}
       </span>
     </button>
   );

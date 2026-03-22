@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import Button from '../../ui/Button';
 
@@ -12,14 +12,19 @@ export default function TopBar({
   title: string;
   backTo?: string;
   right?: ReactNode;
-  /** 로그인/내정보/로그아웃 버튼 숨김 (로그인/회원가입 화면용) */
   hideAuthActions?: boolean;
 }) {
   const nav = useNavigate();
+  const loc = useLocation();
   const { me, loading, logout } = useAuth();
 
+  function goLogin() {
+    const next = `${loc.pathname}${loc.search}`;
+    nav(`/login?${new URLSearchParams({ next }).toString()}`);
+  }
+
   return (
-    <header className="topBar">
+    <header className="topBar topBarGlass">
       <div className="topBarLeft">
         {backTo ? (
           <Button
@@ -46,7 +51,7 @@ export default function TopBar({
         {!hideAuthActions ? (
           <>
             {!me && !loading ? (
-              <Button variant="secondary" onClick={() => nav('/login')}>
+              <Button variant="secondary" className="topBarAuthBtn" onClick={goLogin}>
                 로그인
               </Button>
             ) : null}
@@ -54,17 +59,18 @@ export default function TopBar({
             {me ? (
               <>
                 {me.isAdmin ? (
-                  <Button variant="ghost" onClick={() => nav('/admin')} aria-label="ADMIN 대시보드">
+                  <Button variant="ghost" className="topBarMiniBtn" onClick={() => nav('/admin')} aria-label="ADMIN 대시보드">
                     ADMIN
                   </Button>
                 ) : null}
 
-                <Button variant="ghost" onClick={() => nav('/me')} aria-label="내정보">
+                <Button variant="ghost" className="topBarMiniBtn" onClick={() => nav('/me')} aria-label="내정보">
                   내정보
                 </Button>
 
                 <Button
                   variant="ghost"
+                  className="topBarMiniBtn"
                   onClick={() => {
                     logout();
                     nav('/');
