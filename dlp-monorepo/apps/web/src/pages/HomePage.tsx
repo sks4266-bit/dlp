@@ -179,7 +179,7 @@ export default function HomePage() {
                     items={urgentItems}
                     intervalMs={3000}
                     resumeDelayMs={5000}
-                    heightPx={30}
+                    heightPx={44}
                     onItemClick={(id) => nav(`/urgent-prayers?highlight=${encodeURIComponent(id)}`)}
                   />
                 </div>
@@ -246,7 +246,12 @@ export default function HomePage() {
               오늘 본문 읽기
             </Button>
 
-            <Button variant="secondary" size="lg" className="homeHeroSecondaryBtn" onClick={() => nav('/mcheyne-calendar')}>
+            <Button
+              variant="secondary"
+              size="lg"
+              className="homeHeroSecondaryBtn"
+              onClick={() => nav('/mcheyne-calendar')}
+            >
               캘린더
             </Button>
           </div>
@@ -416,7 +421,15 @@ function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () =
 
 function BookIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="homeInlineIcon" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className="homeInlineIcon"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M4.5 5.5A2.5 2.5 0 0 1 7 3h12v16H7a2.5 2.5 0 0 0-2.5 2.5V5.5Z" />
       <path d="M19 19H7a2.5 2.5 0 0 0-2.5 2.5" />
       <path d="M9 7h6" />
@@ -426,7 +439,15 @@ function BookIcon() {
 
 function QtIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="homeQuickIconSvg" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className="homeQuickIconSvg"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M5 19.5V6.3A2.3 2.3 0 0 1 7.3 4H18v15.5H7.5A2.5 2.5 0 0 0 5 22V19.5Z" />
       <path d="M8.5 7.5h6" />
       <path d="M8.5 11h6" />
@@ -437,7 +458,15 @@ function QtIcon() {
 
 function GratitudeIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="homeQuickIconSvg" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className="homeQuickIconSvg"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M7 3h8l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
       <path d="M15 3v5h5" />
       <path d="M12 16.8s-3.4-1.9-3.4-4.4a2.1 2.1 0 0 1 3.9-1.1 2.1 2.1 0 0 1 3.9 1.1c0 2.5-3.4 4.4-3.4 4.4Z" />
@@ -447,7 +476,15 @@ function GratitudeIcon() {
 
 function ChecklistIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="homeQuickIconSvg" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className="homeQuickIconSvg"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="5" y="3" width="14" height="18" rx="2.5" />
       <path d="M9 3.5h6" />
       <path d="M8.3 9.3l1.4 1.4 2.6-2.8" />
@@ -460,7 +497,15 @@ function ChecklistIcon() {
 
 function SearchIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="homeQuickIconSvg" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className="homeQuickIconSvg"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <circle cx="10.5" cy="10.5" r="5.8" />
       <path d="m15 15 4.5 4.5" />
       <path d="M3.8 20V7.8A2.8 2.8 0 0 1 6.6 5h10.2" opacity="0.55" />
@@ -470,7 +515,15 @@ function SearchIcon() {
 
 function ChurchIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="homeQuickIconSvg" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className="homeQuickIconSvg"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M12 3v4" />
       <path d="M10 5h4" />
       <path d="M6 21V11l6-4 6 4v10" />
