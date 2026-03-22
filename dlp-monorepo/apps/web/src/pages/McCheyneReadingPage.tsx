@@ -104,6 +104,101 @@ export default function McCheyneReadingPage() {
       // ignore
     }
   }
+  async function readErrorMessage(res: Response) {
+    const contentType = res.headers.get('content-type') || '';
+
+    try {
+      if (contentType.includes('application/json')) {
+        const j = await res.json();
+        return j?.message || j?.error || `HTTP ${res.status}`;
+      }
+
+      const text = await res.text();
+      if (text) return text.slice(0, 200);
+      return `HTTP ${res.status}`;
+    } catch {
+      return `HTTP ${res.status}`;
+    }
+  }
+
+  async function saveProgress(
+    patch: Partial<{ done1: number; done2: number; done3: number; done4: number }>
+  ) {
+    const prevProgress = progress;
+
+    setError(null);
+
+    setProgress((prev) => {
+      if (!prev) return prev;
+
+      const nextToday = {
+        ...prev.today,
+        ...(patch.done1 !== undefined ? { done1: patch.done1 ? 1 : 0 } : {}),
+        ...(patch.done2 !== undefined ? { done2: patch.done2 ? 1 : 0 } : {}),
+        ...(patch.done3 !== undefined ? { done3: patch.done3 ? 1 : 0 } : {}),
+        ...(patch.done4 !== undefined ? { done4: patch.done4 ? 1 : 0 } : {})
+      };
+
+      const nextTodayCompleted =
+        (nextToday.done1 ?? 0) +
+        (nextToday.done2 ?? 0) +
+        (nextToday.done3 ?? 0) +
+        (nextToday.done4 ?? 0);
+
+      return {
+        ...prev,
+        today: nextToday,
+        todayCompleted: nextTodayCompleted
+      };
+    });
+
+    try {
+      const putUrl = target
+        ? `/api/mcheyne/progress/day?${buildDayQs(target.month, target.day)}`
+        : '/api/mcheyne/progress/today';
+
+      const res = await apiFetch(putUrl, {
+        method: 'PUT',
+        body: JSON.stringify(patch)
+      });
+
+      if (res.status === 401) {
+        setProgress(prevProgress);
+        goLogin();
+        return false;
+      }
+
+      if (!res.ok) {
+        const msg = await readErrorMessage(res);
+        setProgress(prevProgress);
+        setError(`진행 저장 실패: ${msg}`);
+        return false;
+      }
+
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const j = await res.json();
+
+        setProgress((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            today: j.today ?? prev.today,
+            todayCompleted: j.todayCompleted ?? prev.todayCompleted,
+            summary: j.summary ?? prev.summary
+          };
+        });
+      } else {
+        await loadProgress();
+      }
+
+      return true;
+    } catch (e: any) {
+      setProgress(prevProgress);
+      setError(`진행 저장 실패: ${String(e?.message ?? e)}`);
+      return false;
+    }
+  }
 
   async function load() {
     setError(null);
@@ -226,26 +321,12 @@ export default function McCheyneReadingPage() {
             wide
             disabled={bulkSaving}
             onClick={async () => {
-              setBulkSaving(true);
-              try {
-                const putUrl = target
-                  ? `/api/mcheyne/progress/day?${buildDayQs(target.month, target.day)}`
-                  : '/api/mcheyne/progress/today';
-
-                const res = await apiFetch(putUrl, {
-                  method: 'PUT',
-                  body: JSON.stringify({ done1: 1, done2: 1, done3: 1, done4: 1 })
-                });
-
-                if (res.status === 401) {
-                  goLogin();
-                  return;
-                }
-
-                await loadProgress();
-              } finally {
-                setBulkSaving(false);
-              }
+             setBulkSaving(true);
+             try {
+               await saveProgress({ done1: 1, done2: 1, done3: 1, done4: 1 });
+             } finally {
+               setBulkSaving(false);
+             }
             }}
           >
             {bulkSaving ? '저장 중…' : '오늘 4개 본문 전부 완료 (원클릭)'}
@@ -299,30 +380,13 @@ export default function McCheyneReadingPage() {
                         type="checkbox"
                         checked={!!doneVal}
                         onChange={async (e) => {
-                          const next = e.target.checked ? 1 : 0;
-
-                          setProgress((prev) => {
-                            if (!prev) return prev;
-                            const nextToday = { ...prev.today, [doneKey]: next } as ProgressPayload['today'];
-                            const nextTodayCompleted = nextToday.done1 + nextToday.done2 + nextToday.done3 + nextToday.done4;
-                            return { ...prev, today: nextToday, todayCompleted: nextTodayCompleted };
-                          });
-
-                          const putUrl = target
-                            ? `/api/mcheyne/progress/day?${buildDayQs(target.month, target.day)}`
-                            : '/api/mcheyne/progress/today';
-
-                          const res = await apiFetch(putUrl, {
-                            method: 'PUT',
-                            body: JSON.stringify({ [doneKey]: next })
-                          });
-
-                          if (res.status === 401) {
-                            goLogin();
-                            return;
-                          }
-
-                          await loadProgress();
+                         const next = e.target.checked ? 1 : 0;
+                         await saveProgress({ [doneKey]: next } as Partial<{
+                           done1: number;
+                           done2: number;
+                           done3: number;
+                           done4: number;
+                          }>);
                         }}
                       />
                       완료
