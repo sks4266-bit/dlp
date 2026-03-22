@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: any }) {
   }, []);
 
   async function login(username: string, password: string) {
-    const res = await fetch('/api/auth/login', {
+    const res = await apiFetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: any }) {
   }
 
   async function register(payload: { name: string; username: string; password: string; phone?: string; homeChurch?: string }) {
-    const res = await fetch('/api/auth/register', {
+    const res = await apiFetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
