@@ -21,6 +21,11 @@ export default function UrgentPrayersPage() {
 
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  function goLogin() {
+    const next = `${location.pathname}${location.search}`;
+    navigate(`/login?${new URLSearchParams({ next }).toString()}`);
+  }
+
   async function reload() {
     setLoading(true);
     setError(null);
@@ -66,8 +71,9 @@ export default function UrgentPrayersPage() {
             type="button"
             style={ghostBtn}
             onClick={async () => {
-              if (!me && !authLoading) {
-                navigate('/login');
+              if (authLoading) return;
+              if (!me) {
+                goLogin();
                 return;
               }
               await refreshMe();
@@ -119,13 +125,30 @@ export default function UrgentPrayersPage() {
                   onClick={async () => {
                     const ok = confirm('이 긴급기도제목을 삭제할까요? (운영진 전용)');
                     if (!ok) return;
+
                     const reason = prompt('삭제 사유를 입력하세요(필수, 최대 120자)');
                     if (!reason) return;
-                    const res = await apiFetch(`/api/admin/urgent-prayers/${it.id}/delete`, { method: 'POST', body: JSON.stringify({ reason }) });
+
+                    const res = await apiFetch(`/api/admin/urgent-prayers/${it.id}/delete`, {
+                      method: 'POST',
+                      body: JSON.stringify({ reason })
+                    });
+
+                    if (res.status === 401) {
+                      goLogin();
+                      return;
+                    }
+
+                    if (res.status === 403) {
+                      alert('운영진 권한이 필요합니다.');
+                      return;
+                    }
+
                     if (!res.ok) {
                       alert('삭제 실패: 권한 또는 로그인 상태를 확인하세요.');
                       return;
                     }
+
                     await reload();
                   }}
                 >
@@ -151,7 +174,17 @@ export default function UrgentPrayersPage() {
 
       <div style={{ height: 16 }} />
 
-      <button type="button" style={{ ...ghostBtn, width: '100%' }} onClick={() => navigate('/urgent-prayers/new')}>
+      <button
+        type="button"
+        style={{ ...ghostBtn, width: '100%' }}
+        onClick={() => {
+          if (!me) {
+            goLogin();
+            return;
+          }
+          navigate('/urgent-prayers/new');
+        }}
+      >
         전체화면으로 작성하기
       </button>
     </div>

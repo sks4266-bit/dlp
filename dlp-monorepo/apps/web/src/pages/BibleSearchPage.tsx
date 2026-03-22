@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import TopBar from '../components/layout/TopBar';
 import { apiFetch } from '../lib/api';
+import { useAuth } from '../auth/AuthContext';
 
 // Korean Protestant 66-book canonical order (for stable sorting)
 const CANON = [
@@ -48,7 +49,6 @@ function escapeRegExp(s: string) {
 }
 
 function tokenizeNeedles(q: string) {
-  // UI 하이라이트용 간단 토크나이저(백엔드 parsed.terms가 있으면 그걸 우선 사용)
   const s = String(q ?? '').trim();
   if (!s) return [] as string[];
   return s
@@ -62,11 +62,10 @@ function highlightText(text: string, needles: string[]) {
   const list = (needles ?? []).map((x) => x.trim()).filter(Boolean);
   if (!list.length) return text;
 
-  // 긴 토큰부터 적용(중첩 하이라이트 감소)
   const sorted = list.slice().sort((a, b) => b.length - a.length);
 
   let nodes: any[] = [text];
-  let keySeq = 0; // ✅ 렌더마다 결정적인 key 생성 (Math.random 제거)
+  let keySeq = 0;
 
   for (const needle of sorted) {
     const next: any[] = [];
@@ -158,6 +157,8 @@ export default function BibleSearchPage() {
 
   const loc = useLocation();
   const nav = useNavigate();
+  const { me, loading: authLoading } = useAuth();
+
   const qs = useMemo(() => new URLSearchParams(loc.search), [loc.search]);
   const initialQ = qs.get('q') || '';
 
@@ -178,15 +179,8 @@ export default function BibleSearchPage() {
     | { kind: 'context'; it: SearchItem }
   >(null);
 
-  const isAuthed = useMemo(() => {
-    try {
-      return Boolean(localStorage.getItem('dlp_token'));
-    } catch {
-      return false;
-    }
-  }, []);
+  const isAuthed = !!me;
 
-  // context bottom sheet
   const [ctxOpen, setCtxOpen] = useState(false);
   const [ctxLoading, setCtxLoading] = useState(false);
   const [ctxErr, setCtxErr] = useState<string | null>(null);
@@ -195,25 +189,26 @@ export default function BibleSearchPage() {
 
   const limit = 20;
 
+  function goLogin() {
+    const next = `${loc.pathname}${loc.search}`;
+    nav(`/login?${new URLSearchParams({ next }).toString()}`);
+  }
+
   async function run(searchQ: string, nextOffset: number): Promise<boolean> {
     const query = searchQ.trim();
     if (!query) return false;
 
-    // 레이트리밋 쿨다운 중이면 자동 호출은 막고(수동 Enter/버튼은 허용)
     const cooling = cooldownUntil > Date.now();
     if (cooling && nextOffset === 0 && searchQ === q) {
-      // 사용자가 같은 입력으로 버튼을 연타하는 케이스 방지
       setError(`요청이 너무 많습니다. ${Math.ceil((cooldownUntil - Date.now()) / 1000)}초 후 다시 시도해주세요.`);
       return false;
     }
 
-    // cancel any pending debounce
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
     }
 
-    // 기록(최근 검색어)
     setRecent((prev) => upsertRecent(prev, query));
 
     setLoading(true);
@@ -224,6 +219,11 @@ export default function BibleSearchPage() {
       const res = await apiFetch(url);
       const j = await res.json().catch(() => ({}));
 
+      if (res.status === 401) {
+        goLogin();
+        return false;
+      }
+
       if (res.status === 429) {
         const resetAt = Number(res.headers.get('X-RateLimit-Reset') ?? 0);
         const waitMs = resetAt ? Math.max(1000, resetAt - Date.now()) : 30_000;
@@ -232,7 +232,7 @@ export default function BibleSearchPage() {
 
         const label = rateLimitReasonLabel(j);
         const reasonLabel = label ? ` (${label})` : '';
-        const loginHint = !isAuthed ? ' 로그인하면 제한이 완화될 수 있어요.' : '';
+        const loginHint = !authLoading && !isAuthed ? ' 로그인하면 제한이 완화될 수 있어요.' : '';
         const baseMsg = j?.message || `요청이 너무 많습니다.${reasonLabel} ${Math.ceil(waitMs / 1000)}초 후 다시 시도해주세요.`;
         setError(`${baseMsg}${loginHint}`);
 
@@ -243,7 +243,6 @@ export default function BibleSearchPage() {
       if (!res.ok) throw new Error(j?.message || j?.error || 'SEARCH_FAILED');
       setData(j);
       setOffset(nextOffset);
-      // auto-run 중복 방지(디바운스 루프)
       lastAutoRunRef.current = query;
       return true;
     } catch (e: any) {
@@ -267,6 +266,11 @@ export default function BibleSearchPage() {
       const res = await apiFetch(url);
       const j = await res.json().catch(() => ({}));
 
+      if (res.status === 401) {
+        goLogin();
+        return false;
+      }
+
       if (res.status === 429) {
         const resetAt = Number(res.headers.get('X-RateLimit-Reset') ?? 0);
         const waitMs = resetAt ? Math.max(1000, resetAt - Date.now()) : 10_000;
@@ -275,7 +279,7 @@ export default function BibleSearchPage() {
 
         const label = rateLimitReasonLabel(j);
         const reasonLabel = label ? ` (${label})` : '';
-        const loginHint = !isAuthed ? ' 로그인하면 제한이 완화될 수 있어요.' : '';
+        const loginHint = !authLoading && !isAuthed ? ' 로그인하면 제한이 완화될 수 있어요.' : '';
         const baseMsg = j?.message || `요청이 너무 많습니다.${reasonLabel} ${Math.ceil(waitMs / 1000)}초 후 다시 시도해주세요.`;
         setCtxErr(`${baseMsg}${loginHint}`);
         return false;
@@ -293,10 +297,8 @@ export default function BibleSearchPage() {
   }
 
   useEffect(() => {
-    // 최근 검색어 로드
     setRecent(loadRecent());
 
-    // URL에 q가 있으면 즉시 실행(초기 진입)
     if (initialQ) {
       lastAutoRunRef.current = initialQ.trim();
       run(initialQ, 0);
@@ -304,7 +306,6 @@ export default function BibleSearchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 쿨다운 카운트다운 tick
   useEffect(() => {
     if (!cooldownUntil) return;
     const id = setInterval(() => setNowTick(Date.now()), 250);
@@ -343,17 +344,11 @@ export default function BibleSearchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCooling, autoRetry]);
 
-  // ✅ 추천 UX: 디바운스 자동검색(입력 멈춤 350ms)
   useEffect(() => {
     const query = q.trim();
     if (!query) return;
-
     if (isCooling) return;
-
-    // 초기 로드/직전 실행과 동일하면 스킵
     if (lastAutoRunRef.current === query) return;
-
-    // 너무 짧은 입력은 과도 호출 방지(원하면 1로 낮춰도 됨)
     if (query.length < 2) return;
 
     debounceRef.current = setTimeout(() => {
@@ -375,7 +370,6 @@ export default function BibleSearchPage() {
     if (data?.kind !== 'text') return [] as SearchItem[];
     return data.items
       .slice()
-      // "구절 번호 순"(책(정경순) → 장 → 절)
       .sort((a, b) => {
         const ai = canonIndex.get(a.book) ?? 999;
         const bi = canonIndex.get(b.book) ?? 999;
@@ -435,11 +429,13 @@ export default function BibleSearchPage() {
                 </>
               )}
             </div>
-            {!isAuthed ? (
+
+            {!authLoading && !isAuthed ? (
               <div style={{ marginTop: 6, color: 'var(--muted)' }}>
                 로그인하면 제한이 완화될 수 있어요.
               </div>
             ) : null}
+
             <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button
                 type="button"
@@ -450,15 +446,8 @@ export default function BibleSearchPage() {
                 {retrying ? '재시도 중…' : autoRetry ? `자동 재시도까지 ${cooldownSec}초 (취소)` : `${cooldownSec}초 후 자동 재시도`}
               </button>
 
-              {!isAuthed ? (
-                <button
-                  type="button"
-                  style={ghostBtn}
-                  onClick={() => {
-                    const next = `${loc.pathname}${loc.search}`;
-                    nav(`/login?${new URLSearchParams({ next }).toString()}`);
-                  }}
-                >
+              {!authLoading && !isAuthed ? (
+                <button type="button" style={ghostBtn} onClick={goLogin}>
                   로그인
                 </button>
               ) : null}

@@ -4,6 +4,7 @@ import TopBar from '../components/layout/TopBar';
 
 export default function UrgentPrayerNewPage() {
   const nav = useNavigate();
+
   return (
     <div>
       <TopBar title="긴급기도 작성" backTo="/urgent-prayers" />
