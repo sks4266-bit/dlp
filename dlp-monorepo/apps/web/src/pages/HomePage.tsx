@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import UrgentPrayerTicker, { type UrgentTickerItem } from '../components/UrgentPrayerTicker';
 import { useAuth } from '../auth/AuthContext';
@@ -12,7 +12,6 @@ type HomePayload = {
   urgentTicker: UrgentTickerItem[];
   mcheyneToday: null | { month: number; day: number; reading1: string; reading2: string; reading3: string; reading4: string };
   mcheynePreview?: { c?: number; v: number; t: string }[];
-  // 로그인 사용자에게만 제공(없으면 null)
   mcheyneProgress?: null | { percent: number; completedReadings: number; totalReadings: number; todayCompleted: number };
 };
 
@@ -22,10 +21,15 @@ export default function HomePage() {
   const [mcheyneBulkSaving, setMcheyneBulkSaving] = useState(false);
 
   const nav = useNavigate();
+  const loc = useLocation();
   const { me, loading: authLoading, refreshMe } = useAuth();
 
   const urgentItems = useMemo(() => home?.urgentTicker ?? [], [home]);
   const urgentEmpty = urgentItems.length === 0;
+
+  function goLogin(next = `${loc.pathname}${loc.search}`) {
+    nav(`/login?${new URLSearchParams({ next }).toString()}`);
+  }
 
   async function loadHome() {
     try {
@@ -33,10 +37,16 @@ export default function HomePage() {
       const data = (await res.json()) as HomePayload;
       setHome(data);
     } catch {
-      // fallback (개발 편의용)
       setHome({
         urgentTicker: [],
-        mcheyneToday: { month: 3, day: 20, reading1: '출애굽기 31장', reading2: '요한복음 10장', reading3: '잠언 7장', reading4: '갈라디아서 6장' }
+        mcheyneToday: {
+          month: 3,
+          day: 20,
+          reading1: '출애굽기 31장',
+          reading2: '요한복음 10장',
+          reading3: '잠언 7장',
+          reading4: '갈라디아서 6장'
+        }
       });
     }
   }
@@ -47,10 +57,13 @@ export default function HomePage() {
   }, []);
 
   async function openUrgentComposer() {
-    if (!me && !authLoading) {
-      nav('/login');
+    if (authLoading) return;
+
+    if (!me) {
+      goLogin();
       return;
     }
+
     await refreshMe();
     setSheetOpen(true);
   }
@@ -60,7 +73,6 @@ export default function HomePage() {
       <TopBar title="DLP" />
 
       <div className="homeStack">
-        {/* 긴급기도 */}
         <div className="homeUrgentWrap">
           <UrgentPrayerTicker
             items={urgentItems}
@@ -95,6 +107,7 @@ export default function HomePage() {
 
         <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)}>
           <UrgentPrayerComposer
+            onUnauthorized={() => goLogin()}
             onDone={async (newId) => {
               setSheetOpen(false);
               await loadHome();
@@ -103,7 +116,6 @@ export default function HomePage() {
           />
         </BottomSheet>
 
-        {/* 맥체인 오늘 */}
         <Card className="homeMcheyneCard">
           <div className="homeMcheyneHeader">
             <div className="homeMcheyneTitleBlock">
@@ -131,18 +143,31 @@ export default function HomePage() {
                   variant="ghost"
                   disabled={mcheyneBulkSaving}
                   onClick={async () => {
-                    if (!me && !authLoading) {
-                      nav('/login');
+                    if (authLoading) return;
+
+                    if (!me) {
+                      goLogin('/mcheyne-today');
                       return;
                     }
+
                     await refreshMe();
 
                     setMcheyneBulkSaving(true);
                     try {
-                      await apiFetch('/api/mcheyne/progress/today', {
+                      const res = await apiFetch('/api/mcheyne/progress/today', {
                         method: 'PUT',
                         body: JSON.stringify({ done1: 1, done2: 1, done3: 1, done4: 1 })
                       });
+
+                      if (res.status === 401) {
+                        goLogin('/mcheyne-today');
+                        return;
+                      }
+
+                      if (!res.ok) {
+                        throw new Error('SAVE_FAILED');
+                      }
+
                       await loadHome();
                     } finally {
                       setMcheyneBulkSaving(false);
@@ -156,10 +181,13 @@ export default function HomePage() {
               <Button
                 variant="primary"
                 onClick={async () => {
-                  if (!me && !authLoading) {
-                    nav('/login');
+                  if (authLoading) return;
+
+                  if (!me) {
+                    goLogin('/mcheyne-today');
                     return;
                   }
+
                   await refreshMe();
                   nav('/mcheyne-today');
                 }}
@@ -182,9 +210,7 @@ export default function HomePage() {
                 ))}
               </div>
 
-              <div className="homePreviewHint">
-                미리보기는 앱 내 성경 텍스트에서 일부 절만 표시합니다.
-              </div>
+              <div className="homePreviewHint">미리보기는 앱 내 성경 텍스트에서 일부 절만 표시합니다.</div>
             </div>
           ) : null}
 
@@ -200,7 +226,6 @@ export default function HomePage() {
           )}
         </Card>
 
-        {/* 액션 카드들 */}
         <div className="homeActionsGrid">
           <ActionCard title="매일성경 QT" desc="오늘 QT로 이동" onClick={() => nav('/qt')} />
           <ActionCard title="감사일기" desc="한 줄 감사 기록" onClick={() => nav('/me?section=gratitude')} />

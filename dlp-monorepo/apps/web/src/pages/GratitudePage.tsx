@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import TopBar from '../components/layout/TopBar';
-import { useAuth } from '../auth/AuthContext';
 import { apiFetch } from '../lib/api';
 
 function kstNow() {
@@ -20,11 +19,12 @@ type Entry = { id: string; date: string; content: string; createdAt: number };
 
 export default function GratitudePage() {
   const nav = useNavigate();
-  const { me, loading: authLoading } = useAuth();
+  const loc = useLocation();
 
   const [month, setMonth] = useState(ym(kstNow()));
   const [items, setItems] = useState<Entry[]>([]);
   const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorDate, setEditorDate] = useState('');
@@ -51,30 +51,38 @@ export default function GratitudePage() {
     return new Date(Date.UTC(year, mon, 0)).getUTCDate();
   }, [year, mon]);
 
+  function goLogin(next = `${loc.pathname}${loc.search}`) {
+    nav(`/login?${new URLSearchParams({ next }).toString()}`);
+  }
+
   async function load() {
     setErr(null);
+    setLoading(true);
+
     try {
       const res = await apiFetch(`/api/gratitude?month=${encodeURIComponent(month)}`);
+
       if (res.status === 401) {
-        nav('/login');
+        goLogin('/me?section=gratitude');
         return;
       }
-      if (!res.ok) throw new Error('LOAD_FAILED');
+
+      if (!res.ok) {
+        throw new Error('LOAD_FAILED');
+      }
+
       setItems(await res.json());
     } catch (e: any) {
       setErr(e?.message ?? '불러오기에 실패했습니다.');
+    } finally {
+      setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!me) {
-      nav('/login');
-      return;
-    }
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, me, month]);
+  }, [month]);
 
   function openEditor(date: string) {
     setEditorDate(date);
@@ -122,6 +130,7 @@ export default function GratitudePage() {
             const day = i + 1;
             const date = ymdFromParts(year, mon, day);
             const has = map.has(date);
+
             return (
               <button
                 key={date}
@@ -150,7 +159,10 @@ export default function GratitudePage() {
 
       <section style={card}>
         <div style={{ fontWeight: 950, marginBottom: 10 }}>목록</div>
-        {items.length === 0 ? (
+
+        {loading ? (
+          <div style={{ color: 'var(--muted)' }}>불러오는 중…</div>
+        ) : items.length === 0 ? (
           <div style={{ color: 'var(--muted)' }}>이번 달 기록이 없습니다.</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -184,10 +196,21 @@ export default function GratitudePage() {
               alert('내용을 입력하세요.');
               return;
             }
+
             setSaving(true);
             try {
-              const res = await apiFetch(`/api/gratitude/${editorDate}`, { method: 'PUT', body: JSON.stringify({ content }) });
+              const res = await apiFetch(`/api/gratitude/${editorDate}`, {
+                method: 'PUT',
+                body: JSON.stringify({ content })
+              });
+
+              if (res.status === 401) {
+                goLogin('/me?section=gratitude');
+                return;
+              }
+
               if (!res.ok) throw new Error('SAVE_FAILED');
+
               await load();
               setEditorOpen(false);
             } catch {

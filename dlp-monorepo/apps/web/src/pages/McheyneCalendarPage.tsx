@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import TopBar from '../components/layout/TopBar';
 import { apiFetch } from '../lib/api';
+import { useAuth } from '../auth/AuthContext';
 import Button from '../ui/Button';
 import { Card, CardDesc, CardTitle } from '../ui/Card';
 
@@ -54,6 +55,8 @@ function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () =
 
 export default function McheyneCalendarPage() {
   const nav = useNavigate();
+  const loc = useLocation();
+  const { me, loading: authLoading } = useAuth();
 
   const today = useMemo(() => {
     const now = kstNow();
@@ -109,7 +112,7 @@ export default function McheyneCalendarPage() {
 
   const pendingOpenDayRef = useRef<number | null>(null);
 
-  const isAuthed = prog !== null;
+  const isAuthed = !!me;
 
   function showToast(msg: string, kind: 'ok' | 'warn' = 'ok', ms = 1400) {
     setToast({ msg, kind });
@@ -137,6 +140,10 @@ export default function McheyneCalendarPage() {
     };
   }, []);
 
+  function goLogin(next = `${loc.pathname}${loc.search}`) {
+    nav(`/login?${new URLSearchParams({ next }).toString()}`);
+  }
+
   function modMonth(m: number) {
     return ((m - 1 + 12) % 12) + 1;
   }
@@ -159,22 +166,31 @@ export default function McheyneCalendarPage() {
       }
       return;
     }
+
     if (openSheet) pendingOpenDayRef.current = today.day;
     setMonth(today.month);
   }
 
+  function buildReadingNext(m: number, d: number) {
+    return `/mcheyne-today?${new URLSearchParams({ month: String(m), day: String(d) }).toString()}`;
+  }
+
   function openDayReading(m: number, d: number) {
-    const next = `/mcheyne-today?${new URLSearchParams({ month: String(m), day: String(d) }).toString()}`;
+    const next = buildReadingNext(m, d);
+
+    if (authLoading) return;
+
     if (!isAuthed) {
-      showToast('이 기능은 로그인 후 사용할 수 있어요', 'warn');
-      setTimeout(() => nav(`/login?${new URLSearchParams({ next }).toString()}`), 150);
+      goLogin(next);
       return;
     }
+
     nav(next);
   }
 
   async function load() {
     setError(null);
+
     try {
       const a = await apiFetch(`/api/mcheyne/month?month=${month}`);
       const aj = await a.json();
@@ -193,6 +209,7 @@ export default function McheyneCalendarPage() {
         setProg(null);
         return;
       }
+
       const bj = await b.json();
       if (!b.ok) throw new Error(bj?.message || bj?.error || 'PROGRESS_LOAD_FAILED');
       setProg(bj);
@@ -211,11 +228,11 @@ export default function McheyneCalendarPage() {
   const selRow = sheetDay ? progRowMap.get(sheetDay) : null;
 
   async function setDayDone(day: number, patch: Partial<{ done1: number; done2: number; done3: number; done4: number }>): Promise<boolean> {
+    if (authLoading) return false;
     if (!isAuthed) return false;
 
     const prevProgSnapshot = prog;
 
-    // optimistic update
     setProg((prev) => {
       if (!prev) return prev;
       const nextItems = (prev.items ?? []).slice();
@@ -223,30 +240,41 @@ export default function McheyneCalendarPage() {
       const base = (idx >= 0 ? nextItems[idx] : { day, done1: 0, done2: 0, done3: 0, done4: 0, doneCount: 0 }) as any;
       const nextRow = { ...base, ...patch } as any;
       nextRow.doneCount = (nextRow.done1 ?? 0) + (nextRow.done2 ?? 0) + (nextRow.done3 ?? 0) + (nextRow.done4 ?? 0);
+
       if (idx >= 0) nextItems[idx] = nextRow;
       else nextItems.push(nextRow);
+
       nextItems.sort((a, b) => a.day - b.day);
       return { ...prev, items: nextItems };
     });
 
     setSaving(true);
+
     try {
+      const next = buildReadingNext(month, day);
       const url = `/api/mcheyne/progress/day?${new URLSearchParams({ month: String(month), day: String(day) }).toString()}`;
       const res = await apiFetch(url, { method: 'PUT', body: JSON.stringify(patch) });
+
+      if (res.status === 401) {
+        goLogin(next);
+        throw new Error('UNAUTHORIZED');
+      }
+
       const j = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(j?.message || j?.error || 'SAVE_FAILED');
 
       const t = j?.today as any;
       const doneCount = (t?.done1 ?? 0) + (t?.done2 ?? 0) + (t?.done3 ?? 0) + (t?.done4 ?? 0);
 
-      // server truth sync
       setProg((prev) => {
         if (!prev) return prev;
         const nextItems = (prev.items ?? []).slice();
         const idx = nextItems.findIndex((x) => x.day === day);
         const nextRow = { day, done1: t.done1 ?? 0, done2: t.done2 ?? 0, done3: t.done3 ?? 0, done4: t.done4 ?? 0, doneCount };
+
         if (idx >= 0) nextItems[idx] = nextRow as any;
         else nextItems.push(nextRow as any);
+
         nextItems.sort((a, b) => a.day - b.day);
         return { ...prev, items: nextItems };
       });
@@ -261,6 +289,7 @@ export default function McheyneCalendarPage() {
   }
 
   async function bulkCompleteDay(day: number) {
+    if (authLoading) return;
     if (!isAuthed) return;
 
     flashCheckboxes();
@@ -271,7 +300,7 @@ export default function McheyneCalendarPage() {
       pulseCell(day);
       showToast('일괄 완료했어요', 'ok');
     } else {
-      showToast('저장 실패/다시 제한됨', 'warn');
+      showToast('저장 실패/다시 시도해주세요', 'warn');
     }
   }
 
@@ -369,11 +398,7 @@ export default function McheyneCalendarPage() {
                   {isTodayCell ? <span className="mchTodayChip">오늘</span> : null}
                 </div>
 
-                {/* 로그인 상태면 done dot 표시 */}
                 {prog ? <Dots done={done} /> : <div style={{ height: 10 }} />}
-
-                {/* today shortcut은 텍스트 버튼 대신 바텀시트에서 primary로 처리하는게 더 깔끔.
-                    그래도 유지하려면 아래 버튼을 살리면 됨. */}
               </div>
             );
           })}
@@ -455,11 +480,7 @@ export default function McheyneCalendarPage() {
                     <Button
                       variant="secondary"
                       wide
-                      onClick={() => {
-                        showToast('체크/진행률은 로그인 후 사용할 수 있어요', 'warn');
-                        const next = `/mcheyne-today?${new URLSearchParams({ month: String(month), day: String(sheetDay) }).toString()}`;
-                        setTimeout(() => nav(`/login?${new URLSearchParams({ next }).toString()}`), 150);
-                      }}
+                      onClick={() => goLogin(buildReadingNext(month, sheetDay))}
                     >
                       일괄 완료 (로그인 필요)
                     </Button>
@@ -472,7 +493,6 @@ export default function McheyneCalendarPage() {
 
             <div style={{ height: 12 }} />
 
-            {/* 체크 UI */}
             {isAuthed ? (
               <Card>
                 <CardTitle>체크</CardTitle>
@@ -488,6 +508,7 @@ export default function McheyneCalendarPage() {
                         | 'done2'
                         | 'done3'
                         | 'done4';
+
                     const checked = (selRow as any)?.[k] ? true : false;
 
                     return (
@@ -528,7 +549,7 @@ export default function McheyneCalendarPage() {
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', opacity: 0.85 }}>
                   {([1, 2, 3, 4] as const).map((i) => (
                     <label key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 900 }}>
-                      <input type="checkbox" checked={false} onChange={() => showToast('체크/진행률은 로그인 후 사용할 수 있어요', 'warn')} />
+                      <input type="checkbox" checked={false} onChange={() => goLogin(buildReadingNext(month, sheetDay))} />
                       {i}번
                     </label>
                   ))}
