@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import UrgentPrayerTicker, { type UrgentTickerItem } from '../components/UrgentPrayerTicker';
@@ -32,6 +32,7 @@ export default function HomePage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [mcheyneBulkSaving, setMcheyneBulkSaving] = useState(false);
   const [dismissUrgent, setDismissUrgent] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const nav = useNavigate();
   const loc = useLocation();
@@ -39,8 +40,10 @@ export default function HomePage() {
 
   const urgentItems = useMemo(() => home?.urgentTicker ?? [], [home]);
   const urgentEmpty = urgentItems.length === 0;
+
   const todayCompleted = home?.mcheyneProgress?.todayCompleted ?? 0;
-  const progressRatio = Math.max(0, Math.min(100, (todayCompleted / 4) * 100));
+  const totalToday = 4;
+  const progressRatio = Math.max(0, Math.min(100, (todayCompleted / totalToday) * 100));
 
   const readings = useMemo(() => {
     if (!home?.mcheyneToday) return [];
@@ -57,28 +60,20 @@ export default function HomePage() {
   }
 
   async function loadHome() {
+    setLoading(true);
     try {
       const res = await apiFetch('/api/home');
+      if (!res.ok) throw new Error('LOAD_HOME_FAILED');
       const data = (await res.json()) as HomePayload;
       setHome(data);
     } catch {
       setHome({
         urgentTicker: [],
-        mcheyneToday: {
-          month: 3,
-          day: 20,
-          reading1: '출애굽기 31장',
-          reading2: '요한복음 10장',
-          reading3: '잠언 7장',
-          reading4: '갈라디아서 6장'
-        },
-        mcheyneProgress: {
-          percent: 0,
-          completedReadings: 0,
-          totalReadings: 0,
-          todayCompleted: 0
-        }
+        mcheyneToday: null,
+        mcheyneProgress: null
       });
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -132,9 +127,7 @@ export default function HomePage() {
         return;
       }
 
-      if (!res.ok) {
-        throw new Error('SAVE_FAILED');
-      }
+      if (!res.ok) throw new Error('SAVE_FAILED');
 
       await loadHome();
     } finally {
@@ -143,19 +136,19 @@ export default function HomePage() {
   }
 
   return (
-    <div className="sanctuaryPage">
-      <div className="sanctuaryPageInner">
+    <div style={page}>
+      <div style={pageInner}>
         <TopBar title="DLP" />
 
         {!dismissUrgent ? (
-          <Card className="homeUrgentBanner">
-            <div className="homeUrgentBannerHead">
-              <div className="homeUrgentBadge">긴급기도</div>
+          <Card pad style={urgentCard}>
+            <div style={urgentHead}>
+              <div style={badgePeach}>긴급기도</div>
               <button
                 type="button"
-                className="homeUrgentClose"
-                aria-label="긴급기도 배너 닫기"
+                aria-label="긴급기도 카드 닫기"
                 onClick={() => setDismissUrgent(true)}
+                style={closeBtn}
               >
                 ×
               </button>
@@ -163,18 +156,22 @@ export default function HomePage() {
 
             {urgentEmpty ? (
               <>
-                <div className="homeUrgentTitle">현재 등록된 긴급기도가 없습니다.</div>
-                <div className="homeUrgentMetaRow">
-                  <span className="homeUrgentMeta">유효 24시간</span>
-                  <button type="button" className="homeUrgentAction" onClick={openUrgentComposer}>
+                <div style={sectionTitleSmall}>현재 등록된 긴급기도가 없습니다.</div>
+                <div style={sectionDescSmall}>필요한 기도제목이 생기면 바로 작성해서 함께 나눌 수 있어요.</div>
+
+                <div style={metaRow}>
+                  <span style={metaText}>유효 24시간</span>
+                  <Button type="button" variant="secondary" size="md" onClick={openUrgentComposer}>
                     + 작성하기
-                  </button>
+                  </Button>
                 </div>
               </>
             ) : (
               <>
-                <div className="homeUrgentTitle">지금 함께 기도해야 할 제목이 있습니다.</div>
-                <div className="homeUrgentTickerWrap">
+                <div style={sectionTitleSmall}>지금 함께 기도해야 할 제목이 있습니다.</div>
+                <div style={sectionDescSmall}>최근 등록된 긴급기도를 아래에서 바로 확인해 보세요.</div>
+
+                <div style={tickerWrap}>
                   <UrgentPrayerTicker
                     items={urgentItems}
                     intervalMs={3000}
@@ -183,86 +180,82 @@ export default function HomePage() {
                     onItemClick={(id) => nav(`/urgent-prayers?highlight=${encodeURIComponent(id)}`)}
                   />
                 </div>
-                <div className="homeUrgentMetaRow">
-                  <span className="homeUrgentMeta">유효 24시간</span>
-                  <button
-                    type="button"
-                    className="homeUrgentAction"
-                    onClick={() => nav('/urgent-prayers')}
-                  >
+
+                <div style={metaRow}>
+                  <span style={metaText}>유효 24시간</span>
+                  <Button type="button" variant="ghost" size="md" onClick={() => nav('/urgent-prayers')}>
                     전체 보기
-                  </button>
+                  </Button>
                 </div>
               </>
             )}
           </Card>
         ) : null}
 
-        <Card className="homeHeroCard">
-          <div className="homeHeroTop">
-            <div className="homeHeroCopy">
-              <CardTitle className="homeHeroTitle">맥체인 성경읽기 (오늘)</CardTitle>
-              <CardDesc className="homeHeroDesc">이제 앱에서 바로 본문을 읽을 수 있습니다.</CardDesc>
+        <Card pad style={heroCard}>
+          <div style={heroTop}>
+            <div style={heroCopy}>
+              <div style={badgeMint}>TODAY READING</div>
+              <CardTitle style={heroTitle}>맥체인 성경읽기</CardTitle>
+              <CardDesc style={heroDesc}>오늘 읽을 본문과 진행 상태를 한 번에 확인할 수 있어요.</CardDesc>
 
-              <ul className="homeReadingList">
-                {readings.length > 0 ? (
-                  readings.map((reading, idx) => (
-                    <li key={`${reading}-${idx}`} className="homeReadingItem">
-                      <BookIcon />
+              {loading ? (
+                <div style={helperMuted}>불러오는 중…</div>
+              ) : readings.length > 0 ? (
+                <ul style={readingList}>
+                  {readings.map((reading, idx) => (
+                    <li key={`${reading}-${idx}`} style={readingItem}>
+                      <span style={bulletIconWrap}>
+                        <BookIcon />
+                      </span>
                       <span>{reading}</span>
                     </li>
-                  ))
-                ) : (
-                  <li className="homeReadingEmpty">오늘 본문을 불러오지 못했습니다.</li>
-                )}
-              </ul>
+                  ))}
+                </ul>
+              ) : (
+                <div style={emptyNote}>오늘 본문을 아직 불러오지 못했습니다.</div>
+              )}
             </div>
 
-            <div className="homeProgressBlock">
+            <div style={progressBlock}>
               <div
-                className="homeProgressRing"
                 style={{
-                  background: `conic-gradient(var(--mint-500) ${progressRatio}%, rgba(114, 215, 199, 0.18) 0%)`
+                  ...progressRing,
+                  background: `conic-gradient(#72d7c7 ${progressRatio}%, rgba(114,215,199,0.18) 0%)`
                 }}
               >
-                <div className="homeProgressRingInner">
-                  <div className="homeProgressMain">{todayCompleted}/4</div>
-                  <div className="homeProgressLabel">오늘 진행</div>
+                <div style={progressRingInner}>
+                  <div style={progressMain}>{todayCompleted}/4</div>
+                  <div style={progressLabel}>오늘 진행</div>
                 </div>
               </div>
 
-              {home?.mcheyneProgress ? (
-                <div className="homeProgressSub">
-                  전체 {home.mcheyneProgress.completedReadings}/{home.mcheyneProgress.totalReadings}
-                </div>
-              ) : (
-                <div className="homeProgressSub">로그인 후 진행률 표시</div>
-              )}
+              <div style={progressSub}>
+                {home?.mcheyneProgress
+                  ? `전체 ${home.mcheyneProgress.completedReadings}/${home.mcheyneProgress.totalReadings}`
+                  : '로그인 후 진행률 표시'}
+              </div>
             </div>
           </div>
 
-          <div className="homeHeroActions">
-            <Button variant="primary" size="lg" className="homeHeroPrimaryBtn" onClick={goTodayReading}>
+          <div style={heroActions}>
+            <Button type="button" variant="primary" size="lg" wide onClick={goTodayReading}>
               오늘 본문 읽기
             </Button>
-
-            <Button
-              variant="secondary"
-              size="lg"
-              className="homeHeroSecondaryBtn"
-              onClick={() => nav('/mcheyne-calendar')}
-            >
-              캘린더
+            <Button type="button" variant="secondary" size="lg" wide onClick={() => nav('/mcheyne-calendar')}>
+              캘린더 보기
             </Button>
           </div>
 
           {me ? (
-            <div className="homeHeroBottomAction">
+            <div style={{ marginTop: 10 }}>
               <Button
+                type="button"
                 variant="ghost"
+                size="md"
+                wide
                 onClick={completeTodayAll}
                 disabled={mcheyneBulkSaving}
-                className="homeMiniProgressBtn"
               >
                 {mcheyneBulkSaving ? '저장 중…' : '오늘 4개 원클릭 완료'}
               </Button>
@@ -270,44 +263,56 @@ export default function HomePage() {
           ) : null}
         </Card>
 
-        <div className="homeQuickGrid">
-          <QuickCard
-            tone="mint"
-            icon={<QtIcon />}
-            title="매일성경 QT"
-            desc="오늘 QT로 이동"
-            onClick={() => nav('/qt')}
-          />
-          <QuickCard
+        <section style={sectionWrap}>
+          <div style={sectionHeader}>
+            <div>
+              <div style={sectionEyebrow}>QUICK MENU</div>
+              <div style={sectionHeading}>자주 쓰는 기능</div>
+            </div>
+          </div>
+
+          <div style={quickGrid}>
+            <QuickCard
+              icon={<QtIcon />}
+              tone="mint"
+              title="매일성경 QT"
+              desc="오늘 QT로 이동"
+              onClick={() => nav('/qt')}
+            />
+            <QuickCard
+              icon={<GratitudeIcon />}
+              tone="peach"
+              title="감사일기"
+              desc="한 줄 감사 기록"
+              onClick={() => nav('/me?section=gratitude')}
+            />
+            <QuickCard
+              icon={<ChecklistIcon />}
+              tone="peach"
+              title="DLP 체크리스트"
+              desc="오늘 항목 점검"
+              onClick={() => nav('/dlp')}
+            />
+            <QuickCard
+              icon={<SearchIcon />}
+              tone="mint"
+              title="성경 검색"
+              desc="단어/구절로 찾기"
+              onClick={() => nav('/bible-search')}
+            />
+          </div>
+        </section>
+
+        <div style={{ marginTop: 12 }}>
+          <WideActionCard
+            icon={<ChurchIcon />}
             tone="peach"
-            icon={<GratitudeIcon />}
-            title="감사일기"
-            desc="한 줄 감사 기록"
-            onClick={() => nav('/me?section=gratitude')}
-          />
-          <QuickCard
-            tone="peach"
-            icon={<ChecklistIcon />}
-            title="DLP 체크리스트"
-            desc="오늘의 체크리스트"
-            onClick={() => nav('/dlp')}
-          />
-          <QuickCard
-            tone="mint"
-            icon={<SearchIcon />}
-            title="성경 검색"
-            desc="단어/구절로 찾기"
-            onClick={() => nav('/bible-search')}
+            title="교회 채널"
+            desc="공지 · 기도 · 댓글을 한곳에서"
+            actionLabel="채널 보기"
+            onClick={() => nav('/channels')}
           />
         </div>
-
-        <QuickWideCard
-          tone="peach"
-          icon={<ChurchIcon />}
-          title="교회 채널"
-          desc="공지/기도/댓글"
-          onClick={() => nav('/channels')}
-        />
 
         <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)}>
           <UrgentPrayerComposer
@@ -332,85 +337,109 @@ function QuickCard({
   onClick,
   tone
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   desc: string;
   onClick: () => void;
   tone: 'mint' | 'peach';
 }) {
+  const iconBg = tone === 'mint' ? 'rgba(114,215,199,0.14)' : 'rgba(243,180,156,0.16)';
+  const iconColor = tone === 'mint' ? '#4dbdaa' : '#d88c73';
+
   return (
-    <Card
-      pad={false}
-      className={`homeQuickCard homeQuickCard-${tone}`}
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') onClick();
-      }}
-      aria-label={`${title}: ${desc}`}
-    >
-      <div className="homeQuickCardInner">
-        <div className="homeQuickIconWrap">{icon}</div>
-        <div className="homeQuickText">
-          <div className="homeQuickTitle">{title}</div>
-          <div className="homeQuickDesc">{desc}</div>
+    <button type="button" onClick={onClick} style={quickBtn}>
+      <Card pad={false} style={quickCard}>
+        <div style={quickInner}>
+          <div
+            style={{
+              ...quickIconWrap,
+              background: iconBg,
+              color: iconColor
+            }}
+          >
+            {icon}
+          </div>
+
+          <div style={quickTextWrap}>
+            <div style={quickTitle}>{title}</div>
+            <div style={quickDesc}>{desc}</div>
+          </div>
+
+          <div style={quickArrow}>›</div>
         </div>
-      </div>
-    </Card>
+      </Card>
+    </button>
   );
 }
 
-function QuickWideCard({
+function WideActionCard({
   icon,
   title,
   desc,
+  actionLabel,
   onClick,
   tone
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   desc: string;
+  actionLabel: string;
   onClick: () => void;
   tone: 'mint' | 'peach';
 }) {
+  const iconBg = tone === 'mint' ? 'rgba(114,215,199,0.14)' : 'rgba(243,180,156,0.16)';
+  const iconColor = tone === 'mint' ? '#4dbdaa' : '#d88c73';
+
   return (
-    <Card
-      pad={false}
-      className={`homeQuickWideCard homeQuickCard-${tone}`}
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') onClick();
-      }}
-      aria-label={`${title}: ${desc}`}
-    >
-      <div className="homeQuickCardInner">
-        <div className="homeQuickIconWrap">{icon}</div>
-        <div className="homeQuickText">
-          <div className="homeQuickTitle">{title}</div>
-          <div className="homeQuickDesc">{desc}</div>
+    <button type="button" onClick={onClick} style={wideBtn}>
+      <Card pad style={wideCard}>
+        <div style={wideInner}>
+          <div style={wideLeft}>
+            <div
+              style={{
+                ...wideIconWrap,
+                background: iconBg,
+                color: iconColor
+              }}
+            >
+              {icon}
+            </div>
+
+            <div>
+              <div style={wideTitle}>{title}</div>
+              <div style={wideDesc}>{desc}</div>
+            </div>
+          </div>
+
+          <div style={wideAction}>{actionLabel}</div>
         </div>
-      </div>
-    </Card>
+      </Card>
+    </button>
   );
 }
 
-function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: any }) {
+function BottomSheet({
+  open,
+  onClose,
+  children
+}: {
+  open: boolean;
+  onClose: () => void;
+  children: ReactNode;
+}) {
   if (!open) return null;
 
   return (
-    <div role="dialog" aria-modal="true" className="uiSheetBackdrop" onClick={onClose}>
-      <div className="uiSheet" onClick={(e) => e.stopPropagation()}>
-        <div className="uiSheetHandleWrap">
-          <div className="uiSheetHandle" />
+    <div role="dialog" aria-modal="true" style={sheetBackdrop} onClick={onClose}>
+      <div style={sheet} onClick={(e) => e.stopPropagation()}>
+        <div style={sheetHandleWrap}>
+          <div style={sheetHandle} />
         </div>
 
         {children}
 
-        <div className="homeSheetFooter">
-          <Button variant="secondary" wide size="lg" onClick={onClose}>
+        <div style={{ marginTop: 14 }}>
+          <Button type="button" variant="secondary" size="lg" wide onClick={onClose}>
             닫기
           </Button>
         </div>
@@ -421,15 +450,7 @@ function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () =
 
 function BookIcon() {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className="homeInlineIcon"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg viewBox="0 0 24 24" style={icon18} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4.5 5.5A2.5 2.5 0 0 1 7 3h12v16H7a2.5 2.5 0 0 0-2.5 2.5V5.5Z" />
       <path d="M19 19H7a2.5 2.5 0 0 0-2.5 2.5" />
       <path d="M9 7h6" />
@@ -439,34 +460,18 @@ function BookIcon() {
 
 function QtIcon() {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className="homeQuickIconSvg"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg viewBox="0 0 24 24" style={icon22} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M5 19.5V6.3A2.3 2.3 0 0 1 7.3 4H18v15.5H7.5A2.5 2.5 0 0 0 5 22V19.5Z" />
       <path d="M8.5 7.5h6" />
       <path d="M8.5 11h6" />
-      <path d="M19.5 8a4 4 0 1 0-8 0c0 3 4 6.2 4 6.2S19.5 11 19.5 8Z" opacity="0.85" />
+      <path d="M19.3 8a3.8 3.8 0 1 0-7.6 0c0 2.8 3.8 5.9 3.8 5.9S19.3 10.8 19.3 8Z" opacity="0.9" />
     </svg>
   );
 }
 
 function GratitudeIcon() {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className="homeQuickIconSvg"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg viewBox="0 0 24 24" style={icon22} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M7 3h8l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
       <path d="M15 3v5h5" />
       <path d="M12 16.8s-3.4-1.9-3.4-4.4a2.1 2.1 0 0 1 3.9-1.1 2.1 2.1 0 0 1 3.9 1.1c0 2.5-3.4 4.4-3.4 4.4Z" />
@@ -476,61 +481,473 @@ function GratitudeIcon() {
 
 function ChecklistIcon() {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className="homeQuickIconSvg"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg viewBox="0 0 24 24" style={icon22} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <rect x="5" y="3" width="14" height="18" rx="2.5" />
       <path d="M9 3.5h6" />
-      <path d="M8.3 9.3l1.4 1.4 2.6-2.8" />
-      <path d="M8.3 14.3l1.4 1.4 2.6-2.8" />
-      <path d="M14.5 9.5h2.2" />
-      <path d="M14.5 14.5h2.2" />
+      <path d="M8.2 9.2l1.5 1.5 2.7-3" />
+      <path d="M8.2 14.2l1.5 1.5 2.7-3" />
+      <path d="M14.7 9.5h2" />
+      <path d="M14.7 14.5h2" />
     </svg>
   );
 }
 
 function SearchIcon() {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className="homeQuickIconSvg"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg viewBox="0 0 24 24" style={icon22} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="10.5" cy="10.5" r="5.8" />
       <path d="m15 15 4.5 4.5" />
-      <path d="M3.8 20V7.8A2.8 2.8 0 0 1 6.6 5h10.2" opacity="0.55" />
     </svg>
   );
 }
 
 function ChurchIcon() {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className="homeQuickIconSvg"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg viewBox="0 0 24 24" style={icon22} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 3v4" />
       <path d="M10 5h4" />
       <path d="M6 21V11l6-4 6 4v10" />
       <path d="M4 21h16" />
       <path d="M9.5 21v-4a2.5 2.5 0 0 1 5 0v4" />
-      <path d="M7.5 12.5h0" />
-      <path d="M16.5 12.5h0" />
     </svg>
   );
 }
+
+const page: CSSProperties = {
+  minHeight: '100dvh',
+  padding: '12px 14px 30px',
+  background:
+    'radial-gradient(circle at top left, rgba(217,242,231,0.72), transparent 28%), radial-gradient(circle at top right, rgba(247,229,216,0.72), transparent 24%), linear-gradient(180deg, #f8f3ea 0%, #f7f4ef 40%, #f4f7f8 100%)'
+};
+
+const pageInner: CSSProperties = {
+  width: '100%',
+  maxWidth: 430,
+  margin: '0 auto'
+};
+
+const urgentCard: CSSProperties = {
+  marginBottom: 14,
+  borderRadius: 20,
+  background: 'linear-gradient(180deg, rgba(255,247,242,0.94), rgba(255,241,234,0.84))',
+  border: '1px solid rgba(241,195,170,0.42)',
+  boxShadow: '0 10px 24px rgba(204,151,126,0.14)'
+};
+
+const urgentHead: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 8,
+  marginBottom: 10
+};
+
+const badgePeach: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 28,
+  padding: '0 10px',
+  borderRadius: 999,
+  background: 'rgba(243,180,156,0.18)',
+  border: '1px solid rgba(243,180,156,0.26)',
+  color: '#a05f48',
+  fontSize: 12,
+  fontWeight: 800
+};
+
+const badgeMint: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 28,
+  padding: '0 10px',
+  borderRadius: 999,
+  background: 'rgba(114,215,199,0.14)',
+  border: '1px solid rgba(114,215,199,0.22)',
+  color: '#2b7f72',
+  fontSize: 12,
+  fontWeight: 800,
+  marginBottom: 10
+};
+
+const closeBtn: CSSProperties = {
+  border: 0,
+  background: 'transparent',
+  color: '#b38272',
+  fontSize: 22,
+  lineHeight: 1,
+  cursor: 'pointer',
+  padding: 0,
+  width: 28,
+  height: 28
+};
+
+const sectionTitleSmall: CSSProperties = {
+  color: '#5d4e4a',
+  fontSize: 15,
+  fontWeight: 800,
+  lineHeight: 1.45
+};
+
+const sectionDescSmall: CSSProperties = {
+  marginTop: 6,
+  color: '#8f776d',
+  fontSize: 13,
+  lineHeight: 1.55
+};
+
+const metaRow: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 10,
+  marginTop: 12
+};
+
+const metaText: CSSProperties = {
+  color: '#9a7f74',
+  fontSize: 12,
+  fontWeight: 700
+};
+
+const tickerWrap: CSSProperties = {
+  marginTop: 10
+};
+
+const heroCard: CSSProperties = {
+  borderRadius: 24,
+  background: 'rgba(255,255,255,0.76)',
+  border: '1px solid rgba(255,255,255,0.56)',
+  boxShadow: '0 16px 36px rgba(77,90,110,0.10)',
+  backdropFilter: 'blur(16px)'
+};
+
+const heroTop: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 14
+};
+
+const heroCopy: CSSProperties = {
+  minWidth: 0,
+  flex: 1
+};
+
+const heroTitle: CSSProperties = {
+  fontSize: 28,
+  fontWeight: 800,
+  color: '#24313a',
+  letterSpacing: '-0.02em'
+};
+
+const heroDesc: CSSProperties = {
+  marginTop: 6,
+  marginBottom: 14,
+  color: '#64727b',
+  fontSize: 14,
+  lineHeight: 1.6
+};
+
+const helperMuted: CSSProperties = {
+  color: '#7a8790',
+  fontSize: 14,
+  lineHeight: 1.5
+};
+
+const emptyNote: CSSProperties = {
+  padding: '12px 14px',
+  borderRadius: 16,
+  background: 'rgba(247,250,251,0.72)',
+  border: '1px solid rgba(224,231,236,0.9)',
+  color: '#6d7a83',
+  fontSize: 14,
+  lineHeight: 1.55
+};
+
+const readingList: CSSProperties = {
+  margin: 0,
+  padding: 0,
+  listStyle: 'none',
+  display: 'grid',
+  gap: 10
+};
+
+const readingItem: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  color: '#33424b',
+  fontSize: 15,
+  fontWeight: 700,
+  lineHeight: 1.4
+};
+
+const bulletIconWrap: CSSProperties = {
+  width: 24,
+  height: 24,
+  borderRadius: 999,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'rgba(114,215,199,0.12)',
+  color: '#4dbdaa',
+  flex: '0 0 auto'
+};
+
+const progressBlock: CSSProperties = {
+  width: 106,
+  flex: '0 0 106px',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: 8,
+  paddingTop: 4
+};
+
+const progressRing: CSSProperties = {
+  width: 92,
+  height: 92,
+  borderRadius: 999,
+  display: 'grid',
+  placeItems: 'center',
+  padding: 7
+};
+
+const progressRingInner: CSSProperties = {
+  width: '100%',
+  height: '100%',
+  borderRadius: 999,
+  background: 'rgba(255,255,255,0.90)',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6)'
+};
+
+const progressMain: CSSProperties = {
+  color: '#24313a',
+  fontSize: 26,
+  fontWeight: 800,
+  lineHeight: 1
+};
+
+const progressLabel: CSSProperties = {
+  marginTop: 4,
+  color: '#8c979e',
+  fontSize: 11,
+  fontWeight: 700
+};
+
+const progressSub: CSSProperties = {
+  color: '#66737b',
+  fontSize: 11,
+  lineHeight: 1.4,
+  textAlign: 'center'
+};
+
+const heroActions: CSSProperties = {
+  display: 'grid',
+  gap: 10,
+  marginTop: 18
+};
+
+const sectionWrap: CSSProperties = {
+  marginTop: 14
+};
+
+const sectionHeader: CSSProperties = {
+  marginBottom: 10,
+  padding: '2px 2px 0'
+};
+
+const sectionEyebrow: CSSProperties = {
+  fontSize: 11,
+  fontWeight: 900,
+  letterSpacing: '0.08em',
+  color: '#83a39a'
+};
+
+const sectionHeading: CSSProperties = {
+  marginTop: 6,
+  color: '#24313a',
+  fontSize: 20,
+  fontWeight: 800,
+  letterSpacing: '-0.02em'
+};
+
+const quickGrid: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 12
+};
+
+const quickBtn: CSSProperties = {
+  padding: 0,
+  border: 0,
+  background: 'transparent',
+  textAlign: 'left',
+  cursor: 'pointer'
+};
+
+const quickCard: CSSProperties = {
+  minHeight: 102,
+  borderRadius: 22,
+  background: 'rgba(255,255,255,0.72)',
+  border: '1px solid rgba(255,255,255,0.56)',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)'
+};
+
+const quickInner: CSSProperties = {
+  minHeight: 102,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  padding: 16
+};
+
+const quickIconWrap: CSSProperties = {
+  width: 46,
+  height: 46,
+  borderRadius: 16,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flex: '0 0 auto'
+};
+
+const quickTextWrap: CSSProperties = {
+  minWidth: 0,
+  flex: 1
+};
+
+const quickTitle: CSSProperties = {
+  color: '#24313a',
+  fontSize: 15,
+  fontWeight: 800,
+  lineHeight: 1.35,
+  letterSpacing: '-0.02em'
+};
+
+const quickDesc: CSSProperties = {
+  marginTop: 4,
+  color: '#69767e',
+  fontSize: 13,
+  fontWeight: 600,
+  lineHeight: 1.4
+};
+
+const quickArrow: CSSProperties = {
+  color: '#96a1a8',
+  fontSize: 20,
+  fontWeight: 700,
+  flex: '0 0 auto'
+};
+
+const wideBtn: CSSProperties = {
+  width: '100%',
+  padding: 0,
+  border: 0,
+  background: 'transparent',
+  textAlign: 'left',
+  cursor: 'pointer'
+};
+
+const wideCard: CSSProperties = {
+  borderRadius: 22,
+  background: 'rgba(255,255,255,0.72)',
+  border: '1px solid rgba(255,255,255,0.56)',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)'
+};
+
+const wideInner: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 12
+};
+
+const wideLeft: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  minWidth: 0
+};
+
+const wideIconWrap: CSSProperties = {
+  width: 46,
+  height: 46,
+  borderRadius: 16,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flex: '0 0 auto'
+};
+
+const wideTitle: CSSProperties = {
+  color: '#24313a',
+  fontSize: 16,
+  fontWeight: 800,
+  lineHeight: 1.35,
+  letterSpacing: '-0.02em'
+};
+
+const wideDesc: CSSProperties = {
+  marginTop: 4,
+  color: '#69767e',
+  fontSize: 13,
+  fontWeight: 600,
+  lineHeight: 1.4
+};
+
+const wideAction: CSSProperties = {
+  color: '#8d7568',
+  fontSize: 13,
+  fontWeight: 800,
+  whiteSpace: 'nowrap'
+};
+
+const sheetBackdrop: CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 1000,
+  background: 'rgba(56,67,76,0.22)',
+  backdropFilter: 'blur(6px)',
+  display: 'flex',
+  alignItems: 'flex-end',
+  justifyContent: 'center',
+  padding: 12
+};
+
+const sheet: CSSProperties = {
+  width: '100%',
+  maxWidth: 430,
+  borderRadius: '24px 24px 18px 18px',
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.84))',
+  border: '1px solid rgba(255,255,255,0.58)',
+  boxShadow: '0 20px 50px rgba(72,84,92,0.18)',
+  padding: 14
+};
+
+const sheetHandleWrap: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'center',
+  marginBottom: 12
+};
+
+const sheetHandle: CSSProperties = {
+  width: 46,
+  height: 5,
+  borderRadius: 999,
+  background: 'rgba(56,67,76,0.14)'
+};
+
+const icon18: CSSProperties = {
+  width: 18,
+  height: 18
+};
+
+const icon22: CSSProperties = {
+  width: 22,
+  height: 22
+};
