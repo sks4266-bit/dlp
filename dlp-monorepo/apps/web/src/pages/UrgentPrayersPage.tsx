@@ -25,7 +25,7 @@ export default function UrgentPrayersPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/urgent-prayers');
+      const res = await apiFetch('/api/urgent-prayers');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setItems(Array.isArray(data) ? data : []);

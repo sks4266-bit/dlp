@@ -15,7 +15,13 @@ type AuthState = {
   me: Me | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
-  register: (payload: { name: string; username: string; password: string; phone?: string; homeChurch?: string }) => Promise<void>;
+  register: (payload: {
+    name: string;
+    username: string;
+    password: string;
+    phone?: string;
+    homeChurch?: string;
+  }) => Promise<void>;
   logout: () => void;
   refreshMe: () => Promise<void>;
 };
@@ -27,30 +33,53 @@ export function AuthProvider({ children }: { children: any }) {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
 
+  function clearAuth() {
+    setToken(null);
+    setTokenState(null);
+    setMe(null);
+  }
+
   async function refreshMe() {
-    if (!getToken()) {
+    const currentToken = getToken();
+    if (!currentToken) {
       setMe(null);
       return;
     }
-    const res = await apiFetch('/api/me');
-    if (!res.ok) {
-      setToken(null);
-      setTokenState(null);
-      setMe(null);
-      return;
+
+    try {
+      const res = await apiFetch('/api/me');
+
+      if (res.status === 401) {
+        clearAuth();
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(`ME_${res.status}`);
+      }
+
+      const data = await res.json();
+      setMe(data);
+    } catch (err) {
+      console.error('refreshMe failed:', err);
+      // 네트워크/일시 장애 시 토큰을 지우지 않음
     }
-    setMe(await res.json());
   }
 
   useEffect(() => {
+    let alive = true;
+
     (async () => {
       try {
         await refreshMe();
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    return () => {
+      alive = false;
+    };
   }, []);
 
   async function login(username: string, password: string) {
@@ -59,30 +88,40 @@ export function AuthProvider({ children }: { children: any }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
+
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error ?? 'LOGIN_FAILED');
+
     setToken(data.token);
     setTokenState(data.token);
     await refreshMe();
   }
 
-  async function register(payload: { name: string; username: string; password: string; phone?: string; homeChurch?: string }) {
+  async function register(payload: {
+    name: string;
+    username: string;
+    password: string;
+    phone?: string;
+    homeChurch?: string;
+  }) {
     const res = await apiFetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error ?? 'REGISTER_FAILED');
   }
 
   function logout() {
-    setToken(null);
-    setTokenState(null);
-    setMe(null);
+    clearAuth();
   }
 
-  const value = useMemo<AuthState>(() => ({ token, me, loading, login, register, logout, refreshMe }), [token, me, loading]);
+  const value = useMemo<AuthState>(
+    () => ({ token, me, loading, login, register, logout, refreshMe }),
+    [token, me, loading]
+  );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

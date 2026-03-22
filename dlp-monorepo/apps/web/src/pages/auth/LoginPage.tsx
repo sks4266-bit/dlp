@@ -6,10 +6,16 @@ import TopBar from '../../components/layout/TopBar';
 export default function LoginPage() {
   const nav = useNavigate();
   const loc = useLocation();
+
   const nextUrl = useMemo(() => {
     const qs = new URLSearchParams(loc.search);
-    return qs.get('next') || '/urgent-prayers';
+    return qs.get('next') || '/';
   }, [loc.search]);
+
+  const registerLink = useMemo(() => {
+    return `/register?${new URLSearchParams({ next: nextUrl }).toString()}`;
+  }, [nextUrl]);
+
   const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -26,7 +32,7 @@ export default function LoginPage() {
           setLoading(true);
           try {
             await login(username, password);
-            nav(nextUrl);
+            nav(nextUrl, { replace: true });
           } catch (e: any) {
             setErr(e?.message ?? '로그인에 실패했습니다.');
           } finally {
@@ -38,6 +44,7 @@ export default function LoginPage() {
         <Field label="아이디">
           <input value={username} onChange={(e) => setUsername(e.target.value)} style={inputStyle} autoCapitalize="none" />
         </Field>
+
         <Field label="비밀번호">
           <input value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} type="password" />
         </Field>
@@ -49,7 +56,7 @@ export default function LoginPage() {
         </button>
 
         <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-          계정이 없나요? <Link to="/register">회원가입</Link>
+          계정이 없나요? <Link to={registerLink}>회원가입</Link>
         </div>
       </form>
     </div>

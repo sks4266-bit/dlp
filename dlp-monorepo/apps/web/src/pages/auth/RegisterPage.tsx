@@ -1,11 +1,17 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import TopBar from '../../components/layout/TopBar';
 
 export default function RegisterPage() {
   const nav = useNavigate();
-  const { register } = useAuth();
+  const loc = useLocation();
+  const nextUrl = useMemo(() => {
+    const qs = new URLSearchParams(loc.search);
+    return qs.get('next') || '/';
+  }, [loc.search]);
+
+  const { register, login } = useAuth();
 
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
@@ -20,16 +26,26 @@ export default function RegisterPage() {
   return (
     <div>
       <TopBar title="회원가입" backTo="/login" hideAuthActions />
+
       <form
         onSubmit={async (e) => {
           e.preventDefault();
           setErr(null);
           setOk(null);
           setLoading(true);
+
           try {
-            await register({ name, username, password, phone: phone || undefined, homeChurch: homeChurch || undefined });
-            setOk('가입이 완료되었습니다. 로그인 해주세요.');
-            setTimeout(() => nav('/login'), 600);
+            await register({
+              name,
+              username,
+              password,
+              phone: phone || undefined,
+              homeChurch: homeChurch || undefined
+            });
+
+            await login(username, password);
+            setOk('가입 및 로그인이 완료되었습니다.');
+            setTimeout(() => nav(nextUrl, { replace: true }), 400);
           } catch (e: any) {
             setErr(e?.message ?? '회원가입에 실패했습니다.');
           } finally {
@@ -41,15 +57,19 @@ export default function RegisterPage() {
         <Field label="이름(실명)">
           <input value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
         </Field>
+
         <Field label="아이디">
           <input value={username} onChange={(e) => setUsername(e.target.value)} style={inputStyle} autoCapitalize="none" />
         </Field>
+
         <Field label="비밀번호(8자 이상)">
           <input value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} type="password" />
         </Field>
+
         <Field label="휴대폰번호(선택)">
           <input value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} inputMode="tel" />
         </Field>
+
         <Field label="출석교회(선택)">
           <input value={homeChurch} onChange={(e) => setHomeChurch(e.target.value)} style={inputStyle} />
         </Field>
@@ -62,7 +82,8 @@ export default function RegisterPage() {
         </button>
 
         <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-          이미 계정이 있나요? <Link to="/login">로그인</Link>
+          이미 계정이 있나요?{' '}
+          <Link to={`/login?${new URLSearchParams({ next: nextUrl }).toString()}`}>로그인</Link>
         </div>
       </form>
     </div>
