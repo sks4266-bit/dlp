@@ -22,7 +22,7 @@ type DlpPayload = {
 
 export default function DlpPage() {
   const nav = useNavigate();
-  const { me, loading: authLoading, refreshMe, logout } = useAuth();
+  const { refreshMe, logout } = useAuth();
 
   const [date, setDate] = useState(kstToday());
   const [data, setData] = useState<DlpPayload | null>(null);
@@ -31,12 +31,16 @@ export default function DlpPage() {
 
   const title = useMemo(() => `DLP (${date.slice(5)})`, [date]);
 
+  function goLogin() {
+    nav(`/login?${new URLSearchParams({ next: '/dlp' }).toString()}`);
+  }
+
   async function load() {
     setErr(null);
     try {
       const res = await apiFetch(`/api/dlp/${date}`);
       if (res.status === 401) {
-        nav('/login');
+        goLogin();
         return;
       }
       if (!res.ok) throw new Error('LOAD_FAILED');
@@ -47,14 +51,9 @@ export default function DlpPage() {
   }
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!me) {
-      nav('/login');
-      return;
-    }
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, me, date]);
+  }, [date]);
 
   return (
     <div>
@@ -144,15 +143,15 @@ export default function DlpPage() {
                     qtApply: data.qtApply
                   })
                 });
+
                 if (res.status === 401) {
-                  nav('/login');
+                  goLogin();
                   return;
                 }
+
                 if (!res.ok) throw new Error('SAVE_FAILED');
 
-                // 저장 후 내 통계가 즉시 갱신되도록 me refresh
                 await refreshMe();
-
                 alert('저장되었습니다.');
                 nav('/me');
               } catch (e: any) {

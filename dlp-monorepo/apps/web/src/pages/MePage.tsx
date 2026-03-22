@@ -32,17 +32,15 @@ function ymdFromParts(y: number, m: number, day: number) {
 export default function MePage() {
   const nav = useNavigate();
   const loc = useLocation();
-  const { me, loading, logout, refreshMe } = useAuth();
+  const { me, logout, refreshMe } = useAuth();
   const ui = useUiPrefs();
 
   const [stats, setStats] = useState<MeStats | null>(null);
 
-  // profile edit
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editChurch, setEditChurch] = useState('');
 
-  // password change
   const [curPw, setCurPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [newPw2, setNewPw2] = useState('');
@@ -50,7 +48,6 @@ export default function MePage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPw, setSavingPw] = useState(false);
 
-  // gratitude integrated (calendar + editor)
   const section = useMemo(() => new URLSearchParams(loc.search).get('section') || '', [loc.search]);
   const [gratExpanded, setGratExpanded] = useState(false);
 
@@ -83,9 +80,17 @@ export default function MePage() {
     return new Date(Date.UTC(gratYear, gratMon, 0)).getUTCDate();
   }, [gratYear, gratMon]);
 
+  function goLogin(next = '/me') {
+    nav(`/login?${new URLSearchParams({ next }).toString()}`);
+  }
+
   async function loadStats() {
     if (!me) return;
     const res = await apiFetch('/api/me/stats');
+    if (res.status === 401) {
+      goLogin('/me');
+      return;
+    }
     if (!res.ok) return;
     setStats(await res.json());
   }
@@ -95,7 +100,7 @@ export default function MePage() {
     try {
       const res = await apiFetch(`/api/gratitude?month=${encodeURIComponent(gratMonth)}`);
       if (res.status === 401) {
-        nav('/login');
+        goLogin('/me?section=gratitude');
         return;
       }
       if (!res.ok) throw new Error('LOAD_FAILED');
@@ -136,18 +141,7 @@ export default function MePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me?.id, gratMonth, gratExpanded, section]);
 
-  if (!me && !loading) {
-    return (
-      <div>
-        <TopBar title="내정보" backTo="/" />
-        <div style={card}>로그인이 필요합니다.</div>
-        <div style={{ height: 10 }} />
-        <button style={btn} onClick={() => nav('/login')}>
-          로그인
-        </button>
-      </div>
-    );
-  }
+  if (!me) return null;
 
   return (
     <div>
@@ -155,11 +149,11 @@ export default function MePage() {
       <div style={{ height: 12 }} />
 
       <div style={card}>
-        <div style={{ fontWeight: 950, fontSize: 16 }}>{me?.name}</div>
-        <div style={meta}>아이디: {me?.username}</div>
-        <div style={meta}>휴대폰: {me?.phone ?? '-'}</div>
-        <div style={meta}>출석교회: {me?.homeChurch ?? '-'}</div>
-        <div style={meta}>권한: {me?.isAdmin ? 'ADMIN' : '일반'}</div>
+        <div style={{ fontWeight: 950, fontSize: 16 }}>{me.name}</div>
+        <div style={meta}>아이디: {me.username}</div>
+        <div style={meta}>휴대폰: {me.phone ?? '-'}</div>
+        <div style={meta}>출석교회: {me.homeChurch ?? '-'}</div>
+        <div style={meta}>권한: {me.isAdmin ? 'ADMIN' : '일반'}</div>
       </div>
 
       <div style={{ height: 12 }} />
@@ -204,7 +198,6 @@ export default function MePage() {
 
       <div style={{ height: 12 }} />
 
-      {/* UI 설정 */}
       <section style={card}>
         <div style={{ fontWeight: 950, marginBottom: 10 }}>UI 설정</div>
 
@@ -245,7 +238,6 @@ export default function MePage() {
 
       <div style={{ height: 12 }} />
 
-      {/* Gratitude integrated */}
       <section style={card} id="gratitude">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <div>
@@ -372,6 +364,10 @@ export default function MePage() {
                 method: 'PUT',
                 body: JSON.stringify({ content: gratContent })
               });
+              if (res.status === 401) {
+                goLogin('/me?section=gratitude');
+                return;
+              }
               if (!res.ok) throw new Error('SAVE_FAILED');
               await loadGratitude();
               setGratEditorOpen(false);
@@ -420,6 +416,12 @@ export default function MePage() {
                   homeChurch: editChurch || null
                 })
               });
+
+              if (res.status === 401) {
+                goLogin('/me');
+                return;
+              }
+
               if (!res.ok) throw new Error('SAVE_FAILED');
               await refreshMe();
               alert('내정보가 저장되었습니다.');
@@ -466,21 +468,24 @@ export default function MePage() {
               alert('새 비밀번호 확인이 일치하지 않습니다.');
               return;
             }
+
             setSavingPw(true);
             try {
               const res = await apiFetch('/api/me/password', {
                 method: 'POST',
                 body: JSON.stringify({ currentPassword: curPw, newPassword: newPw })
               });
+
               if (res.status === 401) {
                 alert('현재 비밀번호가 올바르지 않습니다.');
                 return;
               }
+
               if (!res.ok) throw new Error('PW_CHANGE_FAILED');
 
               alert('비밀번호가 변경되었습니다. 보안을 위해 다시 로그인합니다.');
               logout();
-              nav('/login');
+              goLogin('/me');
             } catch {
               alert('비밀번호 변경에 실패했습니다.');
             } finally {

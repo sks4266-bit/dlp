@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../components/layout/TopBar';
-import { useAuth } from '../auth/AuthContext';
 import { apiFetch } from '../lib/api';
 
 function kstToday() {
@@ -22,30 +21,31 @@ type DlpPayload = {
 
 export default function QtPage() {
   const nav = useNavigate();
-  const { me, loading: authLoading } = useAuth();
 
   const [date, setDate] = useState(kstToday());
   const [dlp, setDlp] = useState<DlpPayload | null>(null);
   const [saving, setSaving] = useState(false);
 
+  function goLogin() {
+    nav(`/login?${new URLSearchParams({ next: '/qt' }).toString()}`);
+  }
+
   async function load() {
     const res = await apiFetch(`/api/dlp/${date}`);
     if (res.status === 401) {
-      nav('/login');
+      goLogin();
       return;
     }
+    if (!res.ok) throw new Error('LOAD_FAILED');
     setDlp(await res.json());
   }
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!me) {
-      nav('/login');
-      return;
-    }
-    load();
+    load().catch(() => {
+      alert('불러오기에 실패했습니다.');
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, me, date]);
+  }, [date]);
 
   return (
     <div>
@@ -109,6 +109,12 @@ export default function QtPage() {
                   qtApply: dlp.qtApply
                 })
               });
+
+              if (res.status === 401) {
+                goLogin();
+                return;
+              }
+
               if (!res.ok) throw new Error('SAVE_FAILED');
               alert('저장되었습니다.');
             } catch {

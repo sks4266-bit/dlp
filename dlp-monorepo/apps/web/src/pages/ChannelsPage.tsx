@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../components/layout/TopBar';
-import { useAuth } from '../auth/AuthContext';
 import { apiFetch } from '../lib/api';
 
 type Channel = { id: string; name: string; description: string | null; inviteCode: string; createdAt: number; score?: number };
 
 export default function ChannelsPage() {
   const nav = useNavigate();
-  const { me, loading: authLoading } = useAuth();
 
   const [reco, setReco] = useState<Channel[]>([]);
   const [all, setAll] = useState<Channel[]>([]);
@@ -18,11 +16,21 @@ export default function ChannelsPage() {
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
 
+  function goLogin() {
+    nav(`/login?${new URLSearchParams({ next: '/channels' }).toString()}`);
+  }
+
   async function load() {
     setErr(null);
     try {
       const r1 = await apiFetch('/api/channels/recommended');
       const r2 = await apiFetch('/api/channels');
+
+      if (r1.status === 401 || r2.status === 401) {
+        goLogin();
+        return;
+      }
+
       if (!r1.ok || !r2.ok) throw new Error('LOAD_FAILED');
       setReco(await r1.json());
       setAll(await r2.json());
@@ -32,14 +40,8 @@ export default function ChannelsPage() {
   }
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!me) {
-      nav('/login');
-      return;
-    }
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, me]);
+  }, []);
 
   return (
     <div>
@@ -106,14 +108,22 @@ export default function ChannelsPage() {
               alert('채널 이름을 2자 이상 입력하세요.');
               return;
             }
+
             const res = await apiFetch('/api/channels', {
               method: 'POST',
               body: JSON.stringify({ name: name.trim(), description: desc.trim() || null })
             });
+
+            if (res.status === 401) {
+              goLogin();
+              return;
+            }
+
             if (!res.ok) {
               alert('생성 실패');
               return;
             }
+
             const data = await res.json();
             setCreateOpen(false);
             setName('');
