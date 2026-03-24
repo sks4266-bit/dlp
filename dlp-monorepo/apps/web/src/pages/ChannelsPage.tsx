@@ -130,31 +130,28 @@ export default function ChannelsPage() {
           backTo="/"
           right={
             <Button type="button" variant="secondary" onClick={() => setCreateOpen(true)}>
-              + 채널 생성
+              + 생성
             </Button>
           }
         />
 
         <Card style={heroCard}>
-          <div style={heroBadge}>FELLOWSHIP</div>
-          <div style={heroTitle}>공지와 기도제목을 같은 톤으로 모아보세요</div>
+          <div style={badgeMint}>CHANNEL HUB</div>
+          <div style={heroTitle}>공지와 기도 나눔을 한 곳에서 이어보세요</div>
           <div style={heroDesc}>
-            추천 채널과 전체 채널을 한 화면에서 자연스럽게 탐색하고, 필요하면 바로 새 채널을
-            만들 수 있도록 정리했습니다.
+            추천 채널부터 전체 채널까지 홈 화면 톤과 같은 폭·간격으로 정리했습니다.
           </div>
 
-          <div style={{ height: 16 }} />
-
-          <div style={statRow}>
+          <div style={heroStats}>
             <StatChip label="추천" value={String(reco.length)} tint="mint" />
             <StatChip label="전체" value={String(all.length)} tint="peach" />
           </div>
 
           <div style={heroActions}>
-            <Button type="button" variant="primary" size="lg" onClick={() => setCreateOpen(true)}>
+            <Button type="button" variant="primary" size="lg" wide onClick={() => setCreateOpen(true)}>
               새 채널 만들기
             </Button>
-            <Button type="button" variant="ghost" size="lg" onClick={load}>
+            <Button type="button" variant="ghost" wide onClick={load}>
               새로고침
             </Button>
           </div>
@@ -169,7 +166,7 @@ export default function ChannelsPage() {
             <div>
               <CardEyebrow>RECOMMENDED</CardEyebrow>
               <CardTitle>추천 채널</CardTitle>
-              <CardDesc>가장 먼저 살펴보면 좋은 공동체 채널입니다.</CardDesc>
+              <CardDesc>먼저 살펴보면 좋은 공동체 채널입니다.</CardDesc>
             </div>
           </div>
 
@@ -199,7 +196,7 @@ export default function ChannelsPage() {
             <div>
               <CardEyebrow>ALL CHANNELS</CardEyebrow>
               <CardTitle>전체 채널</CardTitle>
-              <CardDesc>모든 채널을 현재 디자인 톤에 맞춰 차분하게 탐색할 수 있습니다.</CardDesc>
+              <CardDesc>모든 채널을 모바일 한 화면 안에서 차분하게 탐색할 수 있어요.</CardDesc>
             </div>
           </div>
 
@@ -228,9 +225,7 @@ export default function ChannelsPage() {
         <div style={sheetHeader}>
           <div style={sheetEyebrow}>CREATE CHANNEL</div>
           <div style={sheetTitle}>새 채널 만들기</div>
-          <div style={sheetDesc}>
-            교회 공지, 기도 나눔, 공동체 소식을 위한 공간을 추가합니다.
-          </div>
+          <div style={sheetDesc}>교회 공지, 기도제목, 공동체 소식을 위한 채널을 추가합니다.</div>
         </div>
 
         <div style={{ height: 12 }} />
@@ -240,7 +235,7 @@ export default function ChannelsPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             style={input}
-            placeholder="예) 00교회 청년부"
+            placeholder="예) 청년부 공지방"
           />
         </Field>
 
@@ -291,9 +286,13 @@ function StatChip({
       style={{
         ...statChip,
         background:
-          tint === 'mint' ? 'rgba(114,215,199,0.16)' : 'rgba(243,180,156,0.16)',
+          tint === 'mint'
+            ? 'rgba(114,215,199,0.16)'
+            : 'rgba(243,180,156,0.16)',
         borderColor:
-          tint === 'mint' ? 'rgba(114,215,199,0.26)' : 'rgba(243,180,156,0.26)'
+          tint === 'mint'
+            ? 'rgba(114,215,199,0.26)'
+            : 'rgba(243,180,156,0.26)'
       }}
     >
       <div style={statLabel}>{label}</div>
@@ -312,7 +311,7 @@ function ChannelRow({
   return (
     <button type="button" style={rowBtn} onClick={onClick}>
       <div style={rowTop}>
-        <div style={{ minWidth: 0 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div style={rowTitle}>{channel.name}</div>
           <div style={rowDesc}>{channel.description ?? '설명 없음'}</div>
         </div>
@@ -393,13 +392,10 @@ function Sheet({
 }
 
 const heroCard: CSSProperties = {
-  borderRadius: 28,
-  background: 'linear-gradient(180deg, rgba(255,255,255,0.80), rgba(255,255,255,0.68))',
-  border: '1px solid rgba(255,255,255,0.56)',
-  boxShadow: '0 20px 42px rgba(77,90,110,0.10)'
+  borderRadius: 24
 };
 
-const heroBadge: CSSProperties = {
+const badgeMint: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   height: 28,
@@ -416,23 +412,24 @@ const heroBadge: CSSProperties = {
 const heroTitle: CSSProperties = {
   marginTop: 12,
   color: '#24313a',
-  fontSize: 28,
+  fontSize: 26,
   lineHeight: 1.18,
   fontWeight: 800,
   letterSpacing: '-0.02em'
 };
 
 const heroDesc: CSSProperties = {
-  marginTop: 10,
+  marginTop: 8,
   color: '#66737b',
   fontSize: 14,
-  lineHeight: 1.65
+  lineHeight: 1.6
 };
 
-const statRow: CSSProperties = {
+const heroStats: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr',
-  gap: 10
+  gap: 10,
+  marginTop: 14
 };
 
 const statChip: CSSProperties = {
@@ -449,17 +446,16 @@ const statLabel: CSSProperties = {
 
 const statValue: CSSProperties = {
   marginTop: 6,
-  fontSize: 22,
+  fontSize: 21,
   lineHeight: 1,
   fontWeight: 800,
   color: '#24313a'
 };
 
 const heroActions: CSSProperties = {
-  display: 'flex',
+  display: 'grid',
   gap: 10,
-  flexWrap: 'wrap',
-  marginTop: 16
+  marginTop: 14
 };
 
 const sectionCard: CSSProperties = {
@@ -475,17 +471,17 @@ const sectionHead: CSSProperties = {
 
 const list: CSSProperties = {
   display: 'grid',
-  gap: 12
+  gap: 10
 };
 
 const rowBtn: CSSProperties = {
   textAlign: 'left',
   width: '100%',
-  padding: 18,
-  borderRadius: 22,
-  border: '1px solid rgba(255,255,255,0.62)',
+  padding: 16,
+  borderRadius: 20,
+  border: '1px solid rgba(255,255,255,0.58)',
   background: 'linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.64))',
-  boxShadow: '0 14px 32px rgba(77,90,110,0.08)'
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)'
 };
 
 const rowTop: CSSProperties = {
@@ -496,23 +492,25 @@ const rowTop: CSSProperties = {
 };
 
 const rowTitle: CSSProperties = {
-  fontSize: 18,
+  fontSize: 17,
   fontWeight: 800,
-  color: '#24313a'
+  color: '#24313a',
+  lineHeight: 1.25
 };
 
 const rowArrow: CSSProperties = {
   fontSize: 22,
   color: '#89a6a0',
   fontWeight: 700,
-  flexShrink: 0
+  flexShrink: 0,
+  lineHeight: 1
 };
 
 const rowDesc: CSSProperties = {
-  marginTop: 8,
+  marginTop: 7,
   color: '#5f6b73',
-  fontSize: 14,
-  lineHeight: 1.6
+  fontSize: 13,
+  lineHeight: 1.55
 };
 
 const rowMeta: CSSProperties = {
@@ -525,7 +523,7 @@ const rowMeta: CSSProperties = {
 const metaPill: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
-  height: 30,
+  minHeight: 30,
   padding: '0 12px',
   borderRadius: 999,
   background: 'rgba(114,215,199,0.12)',
@@ -536,7 +534,7 @@ const metaPill: CSSProperties = {
 };
 
 const emptyCard: CSSProperties = {
-  borderRadius: 22,
+  borderRadius: 20,
   textAlign: 'center'
 };
 
@@ -547,8 +545,8 @@ const emptyText: CSSProperties = {
 };
 
 const skeletonCard: CSSProperties = {
-  padding: 18,
-  borderRadius: 22,
+  padding: 16,
+  borderRadius: 20,
   border: '1px solid rgba(255,255,255,0.62)',
   background: 'rgba(255,255,255,0.62)'
 };

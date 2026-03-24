@@ -27,13 +27,8 @@ async function readErrorMessage(res: Response, fallback: string) {
     const ct = res.headers.get('content-type') || '';
     if (ct.includes('application/json')) {
       const j = await res.json().catch(() => null);
-      const msg =
-        j?.message ||
-        j?.error ||
-        (typeof j === 'string' ? j : '');
-      return msg || fallback;
+      return j?.message || j?.error || fallback;
     }
-
     const text = await res.text().catch(() => '');
     return text?.trim() || fallback;
   } catch {
@@ -159,17 +154,17 @@ export default function DlpPage() {
         />
 
         <Card style={heroCard}>
-          <div style={heroTop}>
-            <div style={heroCopy}>
-              <div style={heroBadge}>DISCIPLE LIFE</div>
-              <div style={heroTitle}>오늘의 영적 루틴을 차분하게 기록해보세요</div>
-              <div style={heroDesc}>
-                성경 읽기, 기도 시간, 전도, QT 적용을 한 화면에서 정리하는 DLP 체크리스트입니다.
-              </div>
-            </div>
+          <div style={badgeMint}>DISCIPLE LIFE</div>
+          <div style={heroTitle}>오늘의 영적 루틴을 간단히 기록해보세요</div>
+          <div style={heroDesc}>
+            홈 화면 카드 톤에 맞춰, 읽기·기도·전도·QT 적용을 한 화면 안에서 차분하게 남길 수 있게 정리했습니다.
+          </div>
 
-            <div style={heroDateBox}>
-              <div style={miniLabel}>기록 날짜</div>
+          <div style={{ height: 14 }} />
+
+          <div style={dateBox}>
+            <div style={miniLabel}>기록 날짜</div>
+            <div style={dateRow}>
               <input
                 type="date"
                 value={date}
@@ -215,13 +210,9 @@ export default function DlpPage() {
         ) : (
           <>
             <Card style={sectionCard}>
-              <div style={sectionHead}>
-                <div>
-                  <div style={sectionEyebrow}>READING</div>
-                  <CardTitle>성경 읽기</CardTitle>
-                  <CardDesc>오늘 읽은 장 수를 기록해 주세요.</CardDesc>
-                </div>
-              </div>
+              <div style={sectionEyebrow}>READING</div>
+              <CardTitle>성경 읽기</CardTitle>
+              <CardDesc>오늘 읽은 장 수를 기록해 주세요.</CardDesc>
 
               <div style={{ height: 12 }} />
 
@@ -238,13 +229,9 @@ export default function DlpPage() {
             <div style={{ height: 12 }} />
 
             <Card style={sectionCard}>
-              <div style={sectionHead}>
-                <div>
-                  <div style={sectionEyebrow}>PRAYER</div>
-                  <CardTitle>기도 시간</CardTitle>
-                  <CardDesc>오늘 기도한 시간을 분 단위로 기록합니다.</CardDesc>
-                </div>
-              </div>
+              <div style={sectionEyebrow}>PRAYER</div>
+              <CardTitle>기도 시간</CardTitle>
+              <CardDesc>오늘 기도한 시간을 분 단위로 기록합니다.</CardDesc>
 
               <div style={{ height: 12 }} />
 
@@ -262,13 +249,9 @@ export default function DlpPage() {
             <div style={{ height: 12 }} />
 
             <Card style={sectionCard}>
-              <div style={sectionHead}>
-                <div>
-                  <div style={sectionEyebrow}>OUTREACH</div>
-                  <CardTitle>전도 / 권유</CardTitle>
-                  <CardDesc>오늘 복음을 전했거나 교회로 초대한 인원 수입니다.</CardDesc>
-                </div>
-              </div>
+              <div style={sectionEyebrow}>OUTREACH</div>
+              <CardTitle>전도 / 권유</CardTitle>
+              <CardDesc>오늘 복음을 전했거나 교회로 초대한 인원 수입니다.</CardDesc>
 
               <div style={{ height: 12 }} />
 
@@ -286,13 +269,9 @@ export default function DlpPage() {
             <div style={{ height: 12 }} />
 
             <Card style={sectionCard}>
-              <div style={sectionHead}>
-                <div>
-                  <div style={sectionEyebrow}>APPLICATION</div>
-                  <CardTitle>QT 적용</CardTitle>
-                  <CardDesc>오늘 말씀을 삶에 어떻게 적용할지 한 줄로 적어보세요.</CardDesc>
-                </div>
-              </div>
+              <div style={sectionEyebrow}>APPLICATION</div>
+              <CardTitle>QT 적용</CardTitle>
+              <CardDesc>오늘 말씀을 삶에 어떻게 적용할지 한 줄로 적어보세요.</CardDesc>
 
               <div style={{ height: 12 }} />
 
@@ -447,26 +426,10 @@ function SkeletonStack() {
 }
 
 const heroCard: CSSProperties = {
-  borderRadius: 28,
-  background: 'linear-gradient(180deg, rgba(255,255,255,0.80), rgba(255,255,255,0.68))',
-  border: '1px solid rgba(255,255,255,0.56)',
-  boxShadow: '0 20px 42px rgba(77,90,110,0.10)'
+  borderRadius: 24
 };
 
-const heroTop: CSSProperties = {
-  display: 'flex',
-  gap: 16,
-  alignItems: 'stretch',
-  justifyContent: 'space-between',
-  flexWrap: 'wrap'
-};
-
-const heroCopy: CSSProperties = {
-  flex: '1 1 220px',
-  minWidth: 0
-};
-
-const heroBadge: CSSProperties = {
+const badgeMint: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   height: 28,
@@ -483,30 +446,35 @@ const heroBadge: CSSProperties = {
 const heroTitle: CSSProperties = {
   marginTop: 12,
   color: '#24313a',
-  fontSize: 28,
+  fontSize: 26,
   lineHeight: 1.18,
   fontWeight: 800,
   letterSpacing: '-0.02em'
 };
 
 const heroDesc: CSSProperties = {
-  marginTop: 10,
+  marginTop: 8,
   color: '#66737b',
   fontSize: 14,
-  lineHeight: 1.65
+  lineHeight: 1.6
 };
 
-const heroDateBox: CSSProperties = {
-  minWidth: 150,
+const dateBox: CSSProperties = {
   display: 'grid',
-  gap: 8,
-  alignSelf: 'flex-start'
+  gap: 8
 };
 
 const miniLabel: CSSProperties = {
   color: '#7a8790',
   fontSize: 12,
   fontWeight: 800
+};
+
+const dateRow: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr) auto',
+  gap: 10,
+  alignItems: 'center'
 };
 
 const dateInput: CSSProperties = {
@@ -524,11 +492,11 @@ const summaryGrid: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
   gap: 10,
-  marginTop: 16
+  marginTop: 14
 };
 
 const summaryChip: CSSProperties = {
-  padding: '12px 14px',
+  padding: '12px 12px',
   borderRadius: 18,
   border: '1px solid transparent'
 };
@@ -542,20 +510,13 @@ const summaryLabel: CSSProperties = {
 const summaryValue: CSSProperties = {
   marginTop: 6,
   color: '#24313a',
-  fontSize: 20,
-  lineHeight: 1,
+  fontSize: 18,
+  lineHeight: 1.05,
   fontWeight: 800
 };
 
 const sectionCard: CSSProperties = {
   borderRadius: 24
-};
-
-const sectionHead: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: 12,
-  alignItems: 'flex-start'
 };
 
 const sectionEyebrow: CSSProperties = {
@@ -568,7 +529,7 @@ const sectionEyebrow: CSSProperties = {
 
 const textarea: CSSProperties = {
   width: '100%',
-  minHeight: 132,
+  minHeight: 128,
   resize: 'vertical',
   padding: 14,
   borderRadius: 18,
@@ -586,14 +547,14 @@ const actionStack: CSSProperties = {
 
 const numberRow: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '68px minmax(0, 1fr) 68px',
+  gridTemplateColumns: '60px minmax(0, 1fr) 60px',
   gap: 10,
   alignItems: 'center'
 };
 
 const numberDisplay: CSSProperties = {
   minHeight: 52,
-  padding: '0 16px',
+  padding: '0 14px',
   borderRadius: 18,
   border: '1px solid rgba(255,255,255,0.58)',
   background: 'rgba(255,255,255,0.60)',
@@ -608,7 +569,7 @@ const numberInput: CSSProperties = {
   border: 0,
   background: 'transparent',
   color: '#24313a',
-  fontSize: 26,
+  fontSize: 24,
   lineHeight: 1,
   fontWeight: 800,
   textAlign: 'center',
@@ -628,7 +589,7 @@ const skeletonStack: CSSProperties = {
 };
 
 const skeletonBlock: CSSProperties = {
-  height: 132,
+  height: 126,
   borderRadius: 24,
   border: '1px solid rgba(255,255,255,0.56)',
   background:
