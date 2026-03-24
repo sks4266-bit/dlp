@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import TopBar from '../components/layout/TopBar';
 import { apiFetch } from '../lib/api';
 import Button from '../ui/Button';
-import { Card, CardDesc, CardTitle } from '../ui/Card';
+import { Card } from '../ui/Card';
 
 function kstNow() {
   return new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -76,7 +76,7 @@ export default function GratitudePage() {
         return;
       }
 
-      if (!res.ok) throw new Error('LOAD_FAILED');
+      if (!res.ok) throw new Error('불러오기에 실패했습니다.');
       setItems(await res.json());
     } catch (error: any) {
       setErr(error?.message ?? '불러오기에 실패했습니다.');
@@ -93,7 +93,6 @@ export default function GratitudePage() {
 
   async function saveEntry() {
     if (!editorDate) return;
-
     if (!content.trim()) {
       window.alert('내용을 입력하세요.');
       return;
@@ -103,7 +102,7 @@ export default function GratitudePage() {
     try {
       const res = await apiFetch(`/api/gratitude/${editorDate}`, {
         method: 'PUT',
-        body: JSON.stringify({ content })
+        body: JSON.stringify({ content: content.trim() })
       });
 
       if (res.status === 401) {
@@ -128,65 +127,46 @@ export default function GratitudePage() {
   }, [month]);
 
   return (
-    <div className="sanctuaryPage">
-      <div className="sanctuaryPageInner">
+    <div style={page}>
+      <div style={pageInner}>
         <TopBar title="감사일기" backTo="/" hideAuthActions />
 
-        <Card className="glassHeroCard">
-          <div style={heroHeadStyle}>
-            <div>
-              <div style={eyebrowStyle}>GRATITUDE JOURNAL</div>
-              <CardTitle>이번 달 감사 기록</CardTitle>
-              <CardDesc>날짜를 눌러 한 줄 감사일기를 바로 작성하거나 수정해 보세요.</CardDesc>
+        <Card pad style={heroCard}>
+          <div style={heroTop}>
+            <div style={heroCopy}>
+              <div style={badgeMint}>GRATITUDE JOURNAL</div>
+              <div style={heroTitle}>한 줄 감사 기록</div>
+              <div style={heroDesc}>업로드한 홈 기준 폭·여백·카드 밀도로 다시 맞추고, 달력과 목록도 작고 안정적으로 정리했습니다.</div>
             </div>
-
-            <div style={heroCountBadgeStyle}>{loading ? '…' : `${items.length}개 기록`}</div>
+            <div style={countBadge}>{loading ? '…' : `${items.length}개`}</div>
           </div>
 
-          <div className="stack12" />
-
-          <div style={heroPillRowStyle}>
-            <span style={heroMintPillStyle}>{loading ? '기록 불러오는 중…' : `이번 달 ${items.length}개 기록`}</span>
-            <span style={heroPeachPillStyle}>오늘 날짜 {todayDate}</span>
+          <div style={heroPillRow}>
+            <span style={heroMintPill}>{loading ? '불러오는 중…' : `${month} · ${items.length}개 기록`}</span>
+            <span style={heroPeachPill}>오늘 {todayDate}</span>
           </div>
 
-          <div className="stack12" />
-
-          <div style={heroToolbarStyle}>
-            <input
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className="glassInput glassInputMonth"
-            />
-
-            <div style={heroActionGridStyle}>
-              <Button variant="ghost" onClick={() => setMonth(ym(kstNow()))}>
+          <div style={heroToolbar}>
+            <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="glassInput glassInputMonth" />
+            <div style={heroActions}>
+              <Button variant="ghost" size="md" onClick={() => setMonth(ym(kstNow()))}>
                 이번달
               </Button>
-              <Button variant="secondary" onClick={() => openEditor(todayDate)}>
-                오늘 기록하기
+              <Button variant="secondary" size="md" onClick={() => openEditor(todayDate)}>
+                오늘 기록
               </Button>
             </div>
           </div>
         </Card>
 
-        <div className="stack12" />
-
         {err ? <div className="uiErrorBox">{err}</div> : null}
 
-        <Card>
-          <div style={cardHeadStyle}>
-            <div>
-              <CardTitle>달력</CardTitle>
-              <CardDesc>색이 있는 날짜는 기록이 저장된 날입니다.</CardDesc>
-            </div>
-            <div style={miniPillStyle}>{month}</div>
-          </div>
+        <Card pad style={sectionCard}>
+          <SectionHeader eyebrow="CALENDAR" title="감사 달력" desc="색이 있는 날짜는 기록이 저장된 날입니다." />
 
-          <div className="stack12" />
+          <div style={miniPill}>{month}</div>
 
-          <div className="miniWeekHeader">
+          <div className="miniWeekHeader" style={{ marginTop: 12 }}>
             {weekLabels.map((dayLabel) => (
               <div key={dayLabel}>{dayLabel}</div>
             ))}
@@ -220,29 +200,23 @@ export default function GratitudePage() {
           </div>
         </Card>
 
-        <div className="stack12" />
-
-        <Card>
-          <div style={cardHeadStyle}>
-            <div>
-              <CardTitle>이번 달 기록</CardTitle>
-              <CardDesc>{loading ? '불러오는 중…' : `${items.length}개의 감사가 저장되어 있어요.`}</CardDesc>
-            </div>
-          </div>
-
-          <div className="stack12" />
+        <Card pad style={sectionCard}>
+          <SectionHeader eyebrow="ENTRIES" title="이번 달 기록" desc={loading ? '불러오는 중…' : `${items.length}개의 기록이 저장되어 있어요.`} />
 
           {loading ? (
-            <div className="glassEmpty">불러오는 중…</div>
+            <div className="glassSkeletonStack">
+              <div className="glassSkeletonBlock" style={{ height: 98, borderRadius: 18 }} />
+              <div className="glassSkeletonBlock" style={{ height: 98, borderRadius: 18 }} />
+            </div>
           ) : items.length === 0 ? (
             <div className="glassEmpty">이번 달 기록이 없습니다. 오늘의 감사를 남겨보세요.</div>
           ) : (
             <div className="glassList">
               {items.slice(0, 31).map((item) => (
-                <button key={item.id} type="button" className="glassListItem" onClick={() => openEditor(item.date)}>
-                  <div style={listTopStyle}>
+                <button key={item.id} type="button" className="glassListItem" style={entryListItem} onClick={() => openEditor(item.date)}>
+                  <div style={entryTop}>
                     <div className="glassListDate">{item.date}</div>
-                    <div style={listChipStyle}>{item.date === todayDate ? '오늘' : '기록'}</div>
+                    <div style={item.date === todayDate ? entryChipToday : entryChip}>{item.date === todayDate ? '오늘' : '기록'}</div>
                   </div>
                   <div className="glassListContent">{item.content}</div>
                 </button>
@@ -252,24 +226,37 @@ export default function GratitudePage() {
         </Card>
 
         <BottomSheet open={editorOpen} onClose={() => setEditorOpen(false)}>
-          <div style={sheetEyebrowStyle}>WRITE GRATITUDE</div>
+          <div style={sheetEyebrow}>WRITE GRATITUDE</div>
           <div className="sheetTitle">감사일기 · {editorDate}</div>
-          <div style={sheetDescStyle}>짧게 적어도 괜찮아요. 오늘 감사한 일을 자연스럽게 남겨보세요.</div>
+          <div style={sheetDesc}>홈 시트 톤에 맞춰 작고 차분하게 작성할 수 있도록 정리했습니다.</div>
           <div className="stack10" />
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="예) 오늘도 건강을 지켜주셔서 감사합니다"
-            className="glassTextarea"
-          />
-          <div style={sheetFooterStyle}>
+          <div style={editorCard}>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="예) 오늘도 지켜주셔서 감사합니다"
+              className="glassTextarea"
+              style={{ minHeight: 96 }}
+            />
+          </div>
+          <div style={sheetFooter}>
             <div style={countStyle}>{content.length}자</div>
-            <Button variant="primary" size="lg" disabled={saving} onClick={saveEntry}>
+            <Button variant="primary" size="lg" onClick={saveEntry} disabled={saving}>
               {saving ? '저장 중…' : '저장'}
             </Button>
           </div>
         </BottomSheet>
       </div>
+    </div>
+  );
+}
+
+function SectionHeader({ eyebrow, title, desc }: { eyebrow: string; title: string; desc: string }) {
+  return (
+    <div style={sectionHeader}>
+      <div style={sectionEyebrow}>{eyebrow}</div>
+      <div style={sectionTitle}>{title}</div>
+      <div style={sectionDesc}>{desc}</div>
     </div>
   );
 }
@@ -293,22 +280,70 @@ function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () =
   );
 }
 
-const eyebrowStyle: CSSProperties = {
-  marginBottom: 8,
-  fontSize: 11,
-  fontWeight: 900,
-  letterSpacing: '0.08em',
-  color: '#82a39a'
+const page: CSSProperties = {
+  minHeight: '100dvh',
+  padding: '12px 14px 30px',
+  background: 'transparent'
 };
 
-const heroHeadStyle: CSSProperties = {
+const pageInner: CSSProperties = {
+  width: '100%',
+  maxWidth: 430,
+  margin: '0 auto'
+};
+
+const heroCard: CSSProperties = {
+  borderRadius: 24,
+  background: 'rgba(255,255,255,0.78)',
+  border: '1px solid rgba(255,255,255,0.56)',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)',
+  backdropFilter: 'blur(16px)',
+  marginBottom: 12
+};
+
+const heroTop: CSSProperties = {
   display: 'flex',
   alignItems: 'flex-start',
   justifyContent: 'space-between',
-  gap: 12
+  gap: 12,
+  flexWrap: 'wrap'
 };
 
-const heroCountBadgeStyle: CSSProperties = {
+const heroCopy: CSSProperties = {
+  minWidth: 0,
+  flex: 1
+};
+
+const badgeMint: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 28,
+  padding: '0 10px',
+  borderRadius: 999,
+  background: 'rgba(114,215,199,0.14)',
+  border: '1px solid rgba(114,215,199,0.22)',
+  color: '#2b7f72',
+  fontSize: 12,
+  fontWeight: 800,
+  marginBottom: 10
+};
+
+const heroTitle: CSSProperties = {
+  fontSize: 27,
+  fontWeight: 800,
+  color: '#24313a',
+  letterSpacing: '-0.02em',
+  lineHeight: 1.18
+};
+
+const heroDesc: CSSProperties = {
+  marginTop: 8,
+  color: '#64727b',
+  fontSize: 14,
+  lineHeight: 1.6
+};
+
+const countBadge: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 32,
@@ -322,18 +357,14 @@ const heroCountBadgeStyle: CSSProperties = {
   whiteSpace: 'nowrap'
 };
 
-const heroToolbarStyle: CSSProperties = {
-  display: 'grid',
-  gap: 10
-};
-
-const heroPillRowStyle: CSSProperties = {
+const heroPillRow: CSSProperties = {
   display: 'flex',
   gap: 8,
-  flexWrap: 'wrap'
+  flexWrap: 'wrap',
+  marginTop: 14
 };
 
-const heroMintPillStyle: CSSProperties = {
+const heroMintPill: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 30,
@@ -346,7 +377,7 @@ const heroMintPillStyle: CSSProperties = {
   fontWeight: 800
 };
 
-const heroPeachPillStyle: CSSProperties = {
+const heroPeachPill: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 30,
@@ -359,20 +390,53 @@ const heroPeachPillStyle: CSSProperties = {
   fontWeight: 800
 };
 
-const heroActionGridStyle: CSSProperties = {
+const heroToolbar: CSSProperties = {
+  display: 'grid',
+  gap: 10,
+  marginTop: 14
+};
+
+const heroActions: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr',
   gap: 10
 };
 
-const cardHeadStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'flex-start',
-  justifyContent: 'space-between',
-  gap: 10
+const sectionCard: CSSProperties = {
+  marginBottom: 12,
+  borderRadius: 22,
+  background: 'rgba(255,255,255,0.74)',
+  border: '1px solid rgba(255,255,255,0.56)',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)'
 };
 
-const miniPillStyle: CSSProperties = {
+const sectionHeader: CSSProperties = {
+  padding: '2px 2px 12px'
+};
+
+const sectionEyebrow: CSSProperties = {
+  fontSize: 11,
+  fontWeight: 900,
+  letterSpacing: '0.08em',
+  color: '#83a39a'
+};
+
+const sectionTitle: CSSProperties = {
+  marginTop: 6,
+  fontSize: 22,
+  fontWeight: 800,
+  color: '#24313a',
+  letterSpacing: '-0.02em'
+};
+
+const sectionDesc: CSSProperties = {
+  marginTop: 6,
+  color: '#6b7780',
+  fontSize: 14,
+  lineHeight: 1.6
+};
+
+const miniPill: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 28,
@@ -399,14 +463,20 @@ const entryDotStyle: CSSProperties = {
   marginTop: 4
 };
 
-const listTopStyle: CSSProperties = {
+const entryListItem: CSSProperties = {
+  borderRadius: 18,
+  background: 'rgba(255,255,255,0.50)',
+  border: '1px solid rgba(255,255,255,0.56)'
+};
+
+const entryTop: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
   gap: 8
 };
 
-const listChipStyle: CSSProperties = {
+const entryChip: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 24,
@@ -419,21 +489,34 @@ const listChipStyle: CSSProperties = {
   whiteSpace: 'nowrap'
 };
 
-const sheetEyebrowStyle: CSSProperties = {
+const entryChipToday: CSSProperties = {
+  ...entryChip,
+  background: 'rgba(243,180,156,0.16)',
+  color: '#9d6550'
+};
+
+const sheetEyebrow: CSSProperties = {
   fontSize: 11,
   fontWeight: 900,
   letterSpacing: '0.08em',
   color: '#82a39a'
 };
 
-const sheetDescStyle: CSSProperties = {
+const sheetDesc: CSSProperties = {
   marginTop: 8,
   color: '#6e7b84',
   fontSize: 13,
   lineHeight: 1.55
 };
 
-const sheetFooterStyle: CSSProperties = {
+const editorCard: CSSProperties = {
+  padding: 14,
+  borderRadius: 18,
+  background: 'rgba(255,255,255,0.62)',
+  border: '1px solid rgba(255,255,255,0.56)'
+};
+
+const sheetFooter: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',

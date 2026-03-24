@@ -1,10 +1,10 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import TopBar from '../components/layout/TopBar';
 import { apiFetch } from '../lib/api';
 import Button from '../ui/Button';
-import { Card, CardDesc, CardTitle } from '../ui/Card';
+import { Card } from '../ui/Card';
 
 type MeStats = {
   attendanceDays: number;
@@ -33,6 +33,9 @@ export default function MePage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPw, setSavingPw] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const attendancePercent = useMemo(() => clampPercent(((stats?.attendanceDays ?? 0) / 365) * 100), [stats?.attendanceDays]);
+  const weekPercent = useMemo(() => clampPercent((((stats?.week.submittedCount ?? 0) || 0) / 7) * 100), [stats?.week.submittedCount]);
 
   function goLogin(next = '/me') {
     nav(`/login?${new URLSearchParams({ next }).toString()}`);
@@ -172,59 +175,57 @@ export default function MePage() {
   if (!me) return null;
 
   return (
-    <div className="sanctuaryPage">
-      <div className="sanctuaryPageInner">
+    <div style={page}>
+      <div style={pageInner}>
         <TopBar title="내정보" backTo="/" hideAuthActions />
 
-        <Card className="glassHeroCard">
-          <div className="profileHero">
-            <div>
-              <div style={eyebrowStyle}>MY ACCOUNT</div>
-              <CardTitle>{me.name}</CardTitle>
-              <CardDesc>@{me.username} · 개인 정보와 신앙 생활 흐름을 여기서 정리할 수 있어요.</CardDesc>
+        <Card pad style={heroCard}>
+          <div style={heroTop}>
+            <div style={heroCopy}>
+              <div style={badgeMint}>MY ACCOUNT</div>
+              <div style={heroTitle}>{me.name}</div>
+              <div style={heroDesc}>홈 카드 기준 폭과 간격으로 다시 맞추고, 너무 크게 보이던 내정보 화면을 더 작고 차분하게 정리했습니다.</div>
             </div>
-
-            <div className="profileRoleChip">{me.isAdmin ? 'ADMIN' : '일반 사용자'}</div>
+            <div style={roleChip}>{me.isAdmin ? 'ADMIN' : '사용자'}</div>
           </div>
 
-          <div className="stack12" />
+          <div style={heroPillRow}>
+            <span style={heroMintPill}>@{me.username}</span>
+            <span style={heroPeachPill}>{me.homeChurch || '출석교회 미등록'}</span>
+          </div>
 
-          <div className="profileMetaGrid">
+          <div style={metaGrid}>
             <MetaBox label="휴대폰" value={me.phone ?? '-'} />
-            <MetaBox label="출석교회" value={me.homeChurch ?? '-'} />
+            <MetaBox label="누적 출석" value={`${stats?.attendanceDays ?? 0}일`} />
+            <MetaBox label="이번 주 DLP" value={stats ? `${stats.week.submittedCount}/7` : '-'} />
+            <MetaBox label="역할" value={me.isAdmin ? '관리자' : '일반 사용자'} />
           </div>
 
-          <div className="stack12" />
-
-          <div style={heroPillRowStyle}>
-            <span style={heroMintPillStyle}>누적 출석 {stats?.attendanceDays ?? 0}일</span>
-            <span style={heroPeachPillStyle}>이번 주 DLP {stats?.week.submittedCount ?? 0}/7</span>
+          <div style={actionGrid}>
+            <Button variant="secondary" size="md" onClick={() => nav('/gratitude')}>
+              감사일기 보기
+            </Button>
+            <Button variant="ghost" size="md" onClick={handleLogout}>
+              로그아웃
+            </Button>
           </div>
         </Card>
 
-        <div className="stack12" />
+        <Card pad style={sectionCard}>
+          <SectionHeader eyebrow="SUMMARY" title="신앙 생활 요약" desc="홈 성과 버튼과 같은 게이지 톤으로 출석과 주간 DLP 흐름을 보여줍니다." />
 
-        <Card>
-          <CardTitle>신앙 생활 요약</CardTitle>
-          <CardDesc>홈 성과 통계와 같은 기준으로 누적 출석과 이번 주 DLP 제출 흐름을 보여줍니다.</CardDesc>
-
-          <div className="stack12" />
-
-          <div className="glassStatGrid">
-            <StatCard label="누적 출석일" value={String(stats?.attendanceDays ?? '-')} helper="전체 누적 기록" />
-            <StatCard label="이번 주 제출" value={stats ? `${stats.week.submittedCount}/7` : '-'} helper="주간 DLP 기준" />
+          <div style={metricGrid}>
+            <GaugeMetricCard label="누적 출석" value={`${stats?.attendanceDays ?? 0}일`} percent={attendancePercent} hint="365일 기준" tone="mint" />
+            <GaugeMetricCard label="이번 주 DLP" value={stats ? `${stats.week.submittedCount}/7` : '-'} percent={weekPercent} hint="주간 제출 리듬" tone="peach" />
           </div>
 
-          <div className="stack12" />
-
-          <div style={summaryPanelStyle}>
-            <div className="sectionMiniTitle">
-              이번 주 제출 현황 ({stats?.week.start ?? '—'} ~ {stats?.week.end ?? '—'})
+          <div style={weekPanel}>
+            <div style={panelTitle}>이번 주 제출 현황</div>
+            <div style={panelDesc}>
+              {stats?.week.start ?? '—'} ~ {stats?.week.end ?? '—'}
             </div>
 
-            <div className="stack8" />
-
-            <div style={weekLabelRowStyle}>
+            <div style={weekLabelRow}>
               {weekLabels.map((label) => (
                 <div key={label} style={weekLabelStyle}>
                   {label}
@@ -235,10 +236,7 @@ export default function MePage() {
             <div className="weekDots">
               {(stats?.week.days ?? Array.from({ length: 7 }).map((_, i) => ({ date: String(i), hasDlp: false }))).map((dayItem, idx) => (
                 <div key={idx} style={weekDotWrapStyle}>
-                  <div
-                    title={String(dayItem.date)}
-                    className={['weekDot', dayItem.hasDlp ? 'weekDotOn' : ''].filter(Boolean).join(' ')}
-                  />
+                  <div className={['weekDot', dayItem.hasDlp ? 'weekDotOn' : ''].filter(Boolean).join(' ')} title={String(dayItem.date)} />
                 </div>
               ))}
             </div>
@@ -247,128 +245,74 @@ export default function MePage() {
           </div>
         </Card>
 
-        <div className="stack12" />
-
-        <Card>
-          <CardTitle>바로가기</CardTitle>
-          <CardDesc>자주 쓰는 계정 기능을 여기서 빠르게 실행할 수 있어요.</CardDesc>
-
-          <div className="stack12" />
-
-          <div style={actionGridStyle}>
-            <Button variant="secondary" size="lg" wide onClick={() => nav('/gratitude')}>
-              감사일기 페이지 열기
-            </Button>
-            <Button variant="ghost" size="lg" wide onClick={handleLogout}>
-              로그아웃
-            </Button>
-          </div>
-        </Card>
-
-        <div className="stack12" />
-
-        <Card>
-          <CardTitle>내정보 수정</CardTitle>
-          <CardDesc>이름, 연락처, 출석교회를 최신 상태로 유지해 주세요.</CardDesc>
-
-          <div className="stack12" />
+        <Card pad style={sectionCard}>
+          <SectionHeader eyebrow="PROFILE" title="내정보 수정" desc="입력창과 버튼도 홈 기준 높이로 줄여 과하게 커 보이지 않도록 맞췄습니다." />
 
           <Field label="이름(실명)">
             <input value={editName} onChange={(e) => setEditName(e.target.value)} className="glassInput" />
           </Field>
-
           <div className="stack10" />
-
           <Field label="휴대폰">
-            <input
-              value={editPhone}
-              onChange={(e) => setEditPhone(e.target.value)}
-              className="glassInput"
-              inputMode="tel"
-              placeholder="010-0000-0000"
-            />
+            <input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="glassInput" inputMode="tel" placeholder="010-0000-0000" />
           </Field>
-
           <div className="stack10" />
-
           <Field label="출석교회">
-            <input
-              value={editChurch}
-              onChange={(e) => setEditChurch(e.target.value)}
-              className="glassInput"
-              placeholder="출석교회 이름"
-            />
+            <input value={editChurch} onChange={(e) => setEditChurch(e.target.value)} className="glassInput" placeholder="출석교회 이름" />
           </Field>
-
           <div className="stack12" />
-
           <Button variant="primary" wide size="lg" disabled={savingProfile} onClick={saveProfile}>
             {savingProfile ? '저장 중…' : '내정보 저장'}
           </Button>
         </Card>
 
-        <div className="stack12" />
-
-        <Card>
-          <CardTitle>비밀번호 변경</CardTitle>
-          <CardDesc>변경 후 기존 로그인 세션은 모두 만료됩니다.</CardDesc>
-
-          <div className="stack12" />
+        <Card pad style={sectionCard}>
+          <SectionHeader eyebrow="SECURITY" title="비밀번호 변경" desc="큰 블록 대신 홈 시트 밀도와 비슷한 간결한 구성으로 정리했습니다." />
 
           <Field label="현재 비밀번호">
             <input value={curPw} onChange={(e) => setCurPw(e.target.value)} type="password" className="glassInput" />
           </Field>
-
           <div className="stack10" />
-
           <Field label="새 비밀번호(8자 이상)">
             <input value={newPw} onChange={(e) => setNewPw(e.target.value)} type="password" className="glassInput" />
           </Field>
-
           <div className="stack10" />
-
           <Field label="새 비밀번호 확인">
             <input value={newPw2} onChange={(e) => setNewPw2(e.target.value)} type="password" className="glassInput" />
           </Field>
-
           <div className="stack12" />
-
           <Button variant="primary" wide size="lg" disabled={savingPw} onClick={changePassword}>
             {savingPw ? '변경 중…' : '비밀번호 변경'}
           </Button>
         </Card>
 
-        <div className="stack12" />
+        <Card pad style={sectionCard}>
+          <SectionHeader eyebrow="DANGER ZONE" title="회원탈퇴" desc="과한 크기 대신 홈 카드 밀도로 경고와 입력만 담아 정리했습니다." />
 
-        <Card>
-          <CardTitle>회원탈퇴</CardTitle>
-          <CardDesc>계정과 개인 기록이 삭제됩니다. 탈퇴 전 현재 비밀번호를 입력해 주세요.</CardDesc>
-
+          <div style={dangerNoticeStyle}>탈퇴 후에는 내정보, 감사일기, DLP/맥체인 진행 기록이 함께 삭제되며 복구할 수 없습니다.</div>
           <div className="stack12" />
-
-          <div style={dangerNoticeStyle}>
-            탈퇴 후에는 내정보, 감사일기, DLP/맥체인 진행 기록이 함께 삭제되며 복구할 수 없습니다.
-          </div>
-
-          <div className="stack12" />
-
           <Field label="현재 비밀번호 확인">
-            <input
-              value={deletePw}
-              onChange={(e) => setDeletePw(e.target.value)}
-              type="password"
-              className="glassInput"
-              placeholder="회원탈퇴 확인용 비밀번호"
-            />
+            <input value={deletePw} onChange={(e) => setDeletePw(e.target.value)} type="password" className="glassInput" placeholder="회원탈퇴 확인용 비밀번호" />
           </Field>
-
           <div className="stack12" />
-
           <Button variant="danger" wide size="lg" disabled={deleting} onClick={deleteAccount}>
             {deleting ? '탈퇴 처리 중…' : '회원탈퇴'}
           </Button>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function clampPercent(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function SectionHeader({ eyebrow, title, desc }: { eyebrow: string; title: string; desc: string }) {
+  return (
+    <div style={sectionHeader}>
+      <div style={sectionEyebrow}>{eyebrow}</div>
+      <div style={sectionTitle}>{title}</div>
+      <div style={sectionDesc}>{desc}</div>
     </div>
   );
 }
@@ -384,42 +328,327 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 function MetaBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="glassMetaBox">
-      <div className="glassMetaLabel">{label}</div>
-      <div className="glassMetaValue">{value}</div>
+    <div style={metaBox}>
+      <div style={metaLabel}>{label}</div>
+      <div style={metaValue}>{value}</div>
     </div>
   );
 }
 
-function StatCard({ label, value, helper }: { label: string; value: string; helper: string }) {
+function GaugeMetricCard({
+  label,
+  value,
+  percent,
+  hint,
+  tone
+}: {
+  label: string;
+  value: string;
+  percent: number;
+  hint: string;
+  tone: 'mint' | 'peach';
+}) {
+  const fill = tone === 'mint' ? 'linear-gradient(90deg, rgba(114,215,199,0.28), rgba(114,215,199,0.14))' : 'linear-gradient(90deg, rgba(243,180,156,0.28), rgba(243,180,156,0.14))';
+  const border = tone === 'mint' ? 'rgba(114,215,199,0.26)' : 'rgba(243,180,156,0.26)';
+  const badgeBg = tone === 'mint' ? 'rgba(114,215,199,0.18)' : 'rgba(243,180,156,0.18)';
+  const badgeColor = tone === 'mint' ? '#2f7f73' : '#9d6550';
+  const valueColor = tone === 'mint' ? '#245f56' : '#8d5a47';
+
   return (
-    <div className="glassStatCard">
-      <div className="glassStatLabel">{label}</div>
-      <div className="glassStatValue">{value}</div>
-      <div style={statHelperStyle}>{helper}</div>
+    <div style={{ ...metricButton, border: `1px solid ${border}` }}>
+      <div style={metricFillTrack}>
+        <div style={{ ...metricFillBar, width: `${clampPercent(percent)}%`, background: fill }} />
+      </div>
+      <div style={metricContent}>
+        <div style={metricTopRow}>
+          <div style={metricLabel}>{label}</div>
+          <div style={{ ...metricPercentBadge, background: badgeBg, color: badgeColor }}>{clampPercent(percent)}%</div>
+        </div>
+        <div style={{ ...metricValue, color: valueColor }}>{value}</div>
+        <div style={metricHint}>{hint}</div>
+      </div>
     </div>
   );
 }
 
-const eyebrowStyle: CSSProperties = {
-  marginBottom: 8,
+const page: CSSProperties = {
+  minHeight: '100dvh',
+  padding: '12px 14px 30px',
+  background: 'transparent'
+};
+
+const pageInner: CSSProperties = {
+  width: '100%',
+  maxWidth: 430,
+  margin: '0 auto'
+};
+
+const heroCard: CSSProperties = {
+  borderRadius: 24,
+  background: 'rgba(255,255,255,0.78)',
+  border: '1px solid rgba(255,255,255,0.56)',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)',
+  backdropFilter: 'blur(16px)',
+  marginBottom: 12
+};
+
+const heroTop: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 12,
+  flexWrap: 'wrap'
+};
+
+const heroCopy: CSSProperties = {
+  minWidth: 0,
+  flex: 1
+};
+
+const badgeMint: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 28,
+  padding: '0 10px',
+  borderRadius: 999,
+  background: 'rgba(114,215,199,0.14)',
+  border: '1px solid rgba(114,215,199,0.22)',
+  color: '#2b7f72',
+  fontSize: 12,
+  fontWeight: 800,
+  marginBottom: 10
+};
+
+const heroTitle: CSSProperties = {
+  fontSize: 27,
+  fontWeight: 800,
+  color: '#24313a',
+  letterSpacing: '-0.02em',
+  lineHeight: 1.18
+};
+
+const heroDesc: CSSProperties = {
+  marginTop: 8,
+  color: '#64727b',
+  fontSize: 14,
+  lineHeight: 1.6
+};
+
+const roleChip: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 32,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'rgba(255,255,255,0.58)',
+  border: '1px solid rgba(255,255,255,0.6)',
+  color: '#5d6b73',
+  fontSize: 12,
+  fontWeight: 800
+};
+
+const heroPillRow: CSSProperties = {
+  display: 'flex',
+  gap: 8,
+  flexWrap: 'wrap',
+  marginTop: 14
+};
+
+const heroMintPill: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 30,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'rgba(114,215,199,0.14)',
+  border: '1px solid rgba(114,215,199,0.24)',
+  color: '#2f7f73',
+  fontSize: 12,
+  fontWeight: 800
+};
+
+const heroPeachPill: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 30,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'rgba(243,180,156,0.16)',
+  border: '1px solid rgba(243,180,156,0.24)',
+  color: '#9d6550',
+  fontSize: 12,
+  fontWeight: 800
+};
+
+const metaGrid: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 10,
+  marginTop: 14
+};
+
+const metaBox: CSSProperties = {
+  padding: 14,
+  borderRadius: 18,
+  background: 'rgba(255,255,255,0.52)',
+  border: '1px solid rgba(255,255,255,0.56)'
+};
+
+const metaLabel: CSSProperties = {
+  color: '#7a8790',
+  fontSize: 12,
+  fontWeight: 700
+};
+
+const metaValue: CSSProperties = {
+  marginTop: 6,
+  color: '#24313a',
+  fontSize: 15,
+  fontWeight: 800,
+  lineHeight: 1.35
+};
+
+const actionGrid: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 10,
+  marginTop: 14
+};
+
+const sectionCard: CSSProperties = {
+  marginBottom: 12,
+  borderRadius: 22,
+  background: 'rgba(255,255,255,0.74)',
+  border: '1px solid rgba(255,255,255,0.56)',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)'
+};
+
+const sectionHeader: CSSProperties = {
+  padding: '2px 2px 12px'
+};
+
+const sectionEyebrow: CSSProperties = {
   fontSize: 11,
   fontWeight: 900,
   letterSpacing: '0.08em',
-  color: '#82a39a'
+  color: '#83a39a'
 };
 
-const summaryPanelStyle: CSSProperties = {
+const sectionTitle: CSSProperties = {
+  marginTop: 6,
+  fontSize: 22,
+  fontWeight: 800,
+  color: '#24313a',
+  letterSpacing: '-0.02em'
+};
+
+const sectionDesc: CSSProperties = {
+  marginTop: 6,
+  color: '#6b7780',
+  fontSize: 14,
+  lineHeight: 1.6
+};
+
+const metricGrid: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 10
+};
+
+const metricButton: CSSProperties = {
+  position: 'relative',
+  overflow: 'hidden',
+  minHeight: 110,
+  borderRadius: 20,
+  background: 'rgba(255,255,255,0.62)',
+  textAlign: 'left',
+  padding: 0
+};
+
+const metricFillTrack: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  overflow: 'hidden'
+};
+
+const metricFillBar: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  width: '0%'
+};
+
+const metricContent: CSSProperties = {
+  position: 'relative',
+  zIndex: 1,
+  padding: '14px 14px 12px'
+};
+
+const metricTopRow: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 8
+};
+
+const metricLabel: CSSProperties = {
+  color: '#68757e',
+  fontSize: 12,
+  fontWeight: 800
+};
+
+const metricPercentBadge: CSSProperties = {
+  minHeight: 24,
+  padding: '0 8px',
+  borderRadius: 999,
+  display: 'inline-flex',
+  alignItems: 'center',
+  fontSize: 11,
+  fontWeight: 800,
+  whiteSpace: 'nowrap'
+};
+
+const metricValue: CSSProperties = {
+  marginTop: 10,
+  fontSize: 22,
+  fontWeight: 800,
+  lineHeight: 1.05,
+  letterSpacing: '-0.02em'
+};
+
+const metricHint: CSSProperties = {
+  marginTop: 8,
+  color: '#6f7c85',
+  fontSize: 12,
+  fontWeight: 700,
+  lineHeight: 1.45
+};
+
+const weekPanel: CSSProperties = {
+  marginTop: 12,
   padding: '14px 14px 12px',
   borderRadius: 18,
   background: 'rgba(248,250,251,0.72)',
   border: '1px solid rgba(227,233,237,0.92)'
 };
 
-const weekLabelRowStyle: CSSProperties = {
+const panelTitle: CSSProperties = {
+  color: '#24313a',
+  fontSize: 15,
+  fontWeight: 800
+};
+
+const panelDesc: CSSProperties = {
+  marginTop: 6,
+  color: '#7a8790',
+  fontSize: 12,
+  fontWeight: 700
+};
+
+const weekLabelRow: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
   gap: 8,
+  marginTop: 12,
   marginBottom: 8
 };
 
@@ -440,52 +669,6 @@ const weekGuideStyle: CSSProperties = {
   color: '#7a878f',
   fontSize: 12,
   lineHeight: 1.45
-};
-
-const actionGridStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: 10
-};
-
-const heroPillRowStyle: CSSProperties = {
-  display: 'flex',
-  gap: 8,
-  flexWrap: 'wrap'
-};
-
-const heroMintPillStyle: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  minHeight: 30,
-  padding: '0 12px',
-  borderRadius: 999,
-  background: 'rgba(114,215,199,0.14)',
-  border: '1px solid rgba(114,215,199,0.24)',
-  color: '#2f7f73',
-  fontSize: 12,
-  fontWeight: 800
-};
-
-const heroPeachPillStyle: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  minHeight: 30,
-  padding: '0 12px',
-  borderRadius: 999,
-  background: 'rgba(243,180,156,0.16)',
-  border: '1px solid rgba(243,180,156,0.24)',
-  color: '#9d6550',
-  fontSize: 12,
-  fontWeight: 800
-};
-
-const statHelperStyle: CSSProperties = {
-  marginTop: 6,
-  color: '#7b8790',
-  fontSize: 11,
-  fontWeight: 700,
-  lineHeight: 1.4
 };
 
 const dangerNoticeStyle: CSSProperties = {

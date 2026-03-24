@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import TopBar from '../components/layout/TopBar';
 import { apiFetch } from '../lib/api';
 import Button from '../ui/Button';
-import { Card, CardTitle, CardDesc } from '../ui/Card';
+import { Card } from '../ui/Card';
 
 type Channel = {
   id: string;
@@ -58,13 +58,7 @@ export default function ChannelDetailPage() {
   const [commentSaving, setCommentSaving] = useState(false);
 
   const boardLabel = tab === 'notice' ? '공지' : '기도';
-  const boardDesc =
-    tab === 'notice'
-      ? '예배와 모임, 공동체 전달사항을 차분하게 확인하는 보드입니다.'
-      : '함께 기도할 제목과 응답을 이어서 나누는 보드입니다.';
-
-  const heroDescription =
-    channel?.description ?? '홈 화면과 같은 부드러운 톤으로 공지와 기도제목, 댓글 흐름을 한 화면에서 편하게 이어갈 수 있어요.';
+  const boardDesc = tab === 'notice' ? '예배와 모임, 전달사항을 확인하는 보드입니다.' : '기도제목과 응답을 나누는 보드입니다.';
 
   const summaryItems = useMemo(
     () => [
@@ -77,7 +71,7 @@ export default function ChannelDetailPage() {
       {
         label: '초대 코드',
         value: channel?.inviteCode ?? '-',
-        subValue: '바로 공유 가능',
+        subValue: '공유용 코드',
         tone: 'sky' as Tone
       },
       {
@@ -88,8 +82,8 @@ export default function ChannelDetailPage() {
       },
       {
         label: '게시글 수',
-        value: loading ? '...' : `${posts.length}개`,
-        subValue: `${boardLabel} 보드 기준`,
+        value: loading ? '…' : `${posts.length}개`,
+        subValue: `${boardLabel} 기준`,
         tone: 'neutral' as Tone
       }
     ],
@@ -217,7 +211,7 @@ export default function ChannelDetailPage() {
       setComposerOpen(false);
       await loadPosts();
     } catch {
-      window.alert('등록 실패');
+      window.alert('등록에 실패했습니다.');
     } finally {
       setSaving(false);
     }
@@ -225,7 +219,10 @@ export default function ChannelDetailPage() {
 
   async function submitComment() {
     if (!activePost) return;
-    if (!commentText.trim()) return;
+    if (!commentText.trim()) {
+      window.alert('댓글을 입력하세요.');
+      return;
+    }
 
     setCommentSaving(true);
     try {
@@ -244,7 +241,7 @@ export default function ChannelDetailPage() {
       setCommentText('');
       await openComments(activePost);
     } catch {
-      window.alert('댓글 등록 실패');
+      window.alert('댓글 등록에 실패했습니다.');
     } finally {
       setCommentSaving(false);
     }
@@ -259,158 +256,93 @@ export default function ChannelDetailPage() {
   }
 
   return (
-    <div className="sanctuaryPage">
-      <div className="sanctuaryPageInner">
+    <div style={page}>
+      <div style={pageInner}>
         <TopBar title="교회 채널" backTo="/channels" hideAuthActions />
 
-        <Card className="glassHeroCard">
-          <div className="profileHero">
-            <div style={{ minWidth: 0 }}>
-              <div style={eyebrowStyle}>CHANNEL DETAIL</div>
-              <CardTitle>{channel?.name ?? '교회 채널'}</CardTitle>
-              <CardDesc>{heroDescription}</CardDesc>
+        <Card pad style={heroCard}>
+          <div style={heroTop}>
+            <div style={heroCopy}>
+              <div style={badgeMint}>CHANNEL DETAIL</div>
+              <div style={heroTitle}>{channel?.name ?? '교회 채널'}</div>
+              <div style={heroDesc}>{channel?.description ?? '홈 기준 폭과 카드 밀도로 다시 맞추고, 채널 전용 배경 없이 공지·기도·댓글 흐름을 정리했습니다.'}</div>
             </div>
-
-            <div style={rolePillStyle}>{channel?.myRole ?? '미가입'}</div>
+            <div style={roleChip}>{channel?.myRole ?? '미가입'}</div>
           </div>
 
-          <div className="stack12" />
+          <div style={heroPillRow}>
+            <span style={heroMintPill}>{isMember ? '채널 참여 중' : '가입 후 글쓰기 가능'}</span>
+            <span style={tab === 'notice' ? heroPeachPill : heroSkyPill}>{boardLabel} 게시판</span>
+          </div>
 
-          <div className="glassStatGrid">
+          <div style={summaryGrid}>
             {summaryItems.map((item) => (
               <SummaryTile key={item.label} label={item.label} value={item.value} subValue={item.subValue} tone={item.tone} />
             ))}
           </div>
 
-          <div className="stack12" />
-
-          <div style={heroPillRowStyle}>
-            <span style={heroMintPillStyle}>{isMember ? '채널 참여 중' : '가입 후 글쓰기 가능'}</span>
-            <span style={tab === 'notice' ? heroPeachPillStyle : heroSkyPillStyle}>{boardLabel} 게시판</span>
-            <span style={heroNeutralPillStyle}>목록 카드와 규격 통일</span>
-          </div>
-
-          <div className="stack12" />
-
-          <div style={heroActionGridStyle}>
-            <Button variant="primary" size="lg" wide onClick={openComposerForCurrentTab}>
-              {boardLabel} 글 작성하기
+          <div style={actionGrid}>
+            <Button variant="primary" size="md" onClick={openComposerForCurrentTab}>
+              {boardLabel} 글 작성
             </Button>
-            <Button variant="secondary" size="lg" wide onClick={loadAll}>
+            <Button variant="secondary" size="md" onClick={loadAll}>
               새로고침
             </Button>
           </div>
 
           {!isMember && channel ? (
-            <>
-              <div className="stack12" />
-              <div style={joinBoxStyle}>
-                <div style={joinTitleStyle}>초대코드로 채널 가입</div>
-                <div style={joinDescStyle}>가입 후에는 공지와 기도제목 작성, 댓글 참여까지 한 흐름으로 이어집니다.</div>
-                <div className="stack10" />
-                <input
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value)}
-                  placeholder="예) ABC123"
-                  className="glassInput"
-                />
-                <div className="stack10" />
-                <Button variant="primary" size="lg" wide onClick={submitJoin}>
-                  가입하기
-                </Button>
-              </div>
-            </>
+            <div style={joinCard}>
+              <div style={joinTitle}>초대코드로 채널 가입</div>
+              <div style={joinDesc}>가입 후 공지 작성, 기도제목 나눔, 댓글 참여가 가능합니다.</div>
+              <div className="stack10" />
+              <input value={joinCode} onChange={(e) => setJoinCode(e.target.value)} placeholder="예) ABC123" className="glassInput" />
+              <div className="stack10" />
+              <Button variant="primary" size="lg" wide onClick={submitJoin}>
+                가입하기
+              </Button>
+            </div>
           ) : null}
         </Card>
 
-        <div className="stack12" />
-
         {err ? <div className="uiErrorBox">{err}</div> : null}
 
-        <Card className="glassHeroCard">
-          <div className="sectionHeadRow">
-            <div>
-              <div style={sectionEyebrowStyle}>BOARD GUIDE</div>
-              <CardTitle>{boardLabel} 게시판</CardTitle>
-              <CardDesc>{boardDesc}</CardDesc>
-            </div>
+        <Card pad style={sectionCard}>
+          <SectionHeader eyebrow="BOARD" title={`${boardLabel} 게시판`} desc={boardDesc} />
+
+          <div style={tabGaugeGrid}>
+            <GaugeTabButton label="공지" title="공지 보드" hint="예배 · 모임 · 전달사항" tone="peach" active={tab === 'notice'} onClick={() => setTab('notice')} />
+            <GaugeTabButton label="기도" title="기도 보드" hint="기도제목 · 응답 · 댓글" tone="mint" active={tab === 'prayer'} onClick={() => setTab('prayer')} />
           </div>
-
-          <div className="stack12" />
-
-          <div style={infoGridStyle}>
-            <InfoCard tone="peach" title="공지" desc="예배와 모임 일정, 전달사항을 한눈에 확인하는 공간이에요." />
-            <InfoCard tone="mint" title="기도" desc="중보기도 제목과 응답을 이어서 나누며 공동체 흐름을 살려요." />
-          </div>
-
-          <div className="stack12" />
-
-          <div style={tabGaugeGridStyle}>
-            <GaugeTabButton
-              label="공지"
-              title="공지 보드"
-              hint="예배 · 모임 · 전달사항"
-              tone="peach"
-              active={tab === 'notice'}
-              onClick={() => setTab('notice')}
-            />
-            <GaugeTabButton
-              label="기도"
-              title="기도 보드"
-              hint="기도제목 · 응답 · 댓글"
-              tone="mint"
-              active={tab === 'prayer'}
-              onClick={() => setTab('prayer')}
-            />
-          </div>
-
-          <div className="stack12" />
-
-          <Button variant="ghost" size="md" wide onClick={openComposerForCurrentTab}>
-            새 글 작성
-          </Button>
         </Card>
 
-        <div className="stack12" />
+        <Card pad style={sectionCard}>
+          <SectionHeader eyebrow="POSTS" title="게시글 목록" desc={loading ? '게시글을 불러오는 중이에요.' : `${posts.length}개의 ${boardLabel} 글을 확인할 수 있어요.`} />
 
-        <Card className="glassHeroCard">
-          <div className="sectionHeadRow">
-            <div>
-              <div style={sectionEyebrowStyle}>POSTS</div>
-              <CardTitle>게시글 목록</CardTitle>
-              <CardDesc>{loading ? '게시글을 불러오는 중이에요.' : `${posts.length}개의 ${boardLabel} 글을 확인할 수 있어요.`}</CardDesc>
-            </div>
-          </div>
-
-          <div className="stack12" />
-
-          <div style={cardListStyle}>
+          <div style={cardList}>
             {loading ? (
               <div className="glassSkeletonStack">
-                <SkeletonPost />
-                <SkeletonPost />
-                <SkeletonPost />
+                <div className="glassSkeletonBlock" style={{ height: 118, borderRadius: 22 }} />
+                <div className="glassSkeletonBlock" style={{ height: 118, borderRadius: 22 }} />
+                <div className="glassSkeletonBlock" style={{ height: 118, borderRadius: 22 }} />
               </div>
             ) : posts.length === 0 ? (
               <div className="glassEmpty">아직 게시글이 없습니다. 첫 번째 {boardLabel} 글을 남겨보세요.</div>
             ) : (
               posts.map((post) => (
-                <button key={post.id} type="button" style={listCardButtonStyle} onClick={() => openComments(post)}>
-                  <div style={listCardTopStyle}>
-                    <div style={listCardTitleWrapStyle}>
-                      <div style={post.boardType === 'notice' ? listCardBadgePeachStyle : listCardBadgeMintStyle}>
-                        {post.boardType === 'notice' ? '공지' : '기도'}
-                      </div>
-                      <div style={listCardTitleStyle}>{post.title || (post.boardType === 'notice' ? '공지 제목' : '기도제목')}</div>
+                <button key={post.id} type="button" style={listCardButton} onClick={() => openComments(post)}>
+                  <div style={listCardTop}>
+                    <div style={listCardTitleWrap}>
+                      <div style={post.boardType === 'notice' ? rowBadgePeach : rowBadgeMint}>{post.boardType === 'notice' ? '공지' : '기도'}</div>
+                      <div style={listCardTitle}>{post.title || (post.boardType === 'notice' ? '공지 제목' : '기도제목')}</div>
                     </div>
-                    <div style={postTimeStyle}>{formatTime(post.createdAt)}</div>
+                    <div style={postTime}>{formatTime(post.createdAt)}</div>
                   </div>
 
-                  <div style={listCardDescStyle}>{post.content}</div>
+                  <div style={listCardDesc}>{post.content}</div>
 
-                  <div style={listCardMetaStyle}>
-                    <span style={authorPillStyle}>{post.authorName}</span>
-                    <span style={metaPillNeutralStyle}>댓글 보기 ›</span>
+                  <div style={listCardMeta}>
+                    <span style={authorPill}>{post.authorName}</span>
+                    <span style={metaPillNeutral}>댓글 보기 ›</span>
                   </div>
                 </button>
               ))
@@ -419,9 +351,9 @@ export default function ChannelDetailPage() {
         </Card>
 
         <BottomSheet open={composerOpen} onClose={() => setComposerOpen(false)}>
-          <div style={sheetEyebrowStyle}>{tab === 'notice' ? 'NOTICE POST' : 'PRAYER POST'}</div>
+          <div style={sheetEyebrow}>{tab === 'notice' ? 'NOTICE POST' : 'PRAYER POST'}</div>
           <div className="sheetTitle">새 글 작성</div>
-          <div style={sheetDescStyle}>홈과 같은 차분한 톤으로 공지나 기도제목을 남겨보세요.</div>
+          <div style={sheetDesc}>홈 시트 톤과 같은 밀도로 공지나 기도제목을 남길 수 있습니다.</div>
           <div className="stack10" />
 
           <Field label="제목(선택)">
@@ -431,10 +363,10 @@ export default function ChannelDetailPage() {
           <div className="stack10" />
 
           <Field label="내용">
-            <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="내용을 입력하세요" className="glassTextarea" />
+            <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="내용을 입력하세요" className="glassTextarea" style={{ minHeight: 100 }} />
           </Field>
 
-          <div className="stack10" />
+          <div className="stack12" />
 
           <Button variant="primary" size="lg" wide onClick={submitPost} disabled={saving}>
             {saving ? '등록 중…' : '등록'}
@@ -442,37 +374,35 @@ export default function ChannelDetailPage() {
         </BottomSheet>
 
         <BottomSheet open={commentsOpen} onClose={() => setCommentsOpen(false)}>
-          <div style={sheetEyebrowStyle}>COMMENTS</div>
+          <div style={sheetEyebrow}>COMMENTS</div>
           <div className="sheetTitle">댓글 나눔</div>
           {activePost ? (
-            <div style={commentHeroCardStyle}>
-              <div style={commentHeroTopStyle}>
-                <span style={activePost.boardType === 'notice' ? heroPeachPillStyle : heroMintPillStyle}>
-                  {activePost.boardType === 'notice' ? '공지' : '기도'}
-                </span>
-                <span style={heroNeutralPillStyle}>{commentsLoading ? '불러오는 중' : `${comments.length}개 댓글`}</span>
+            <div style={commentHeroCard}>
+              <div style={commentHeroTop}>
+                <span style={activePost.boardType === 'notice' ? heroPeachPill : heroMintPill}>{activePost.boardType === 'notice' ? '공지' : '기도'}</span>
+                <span style={heroNeutralPill}>{commentsLoading ? '불러오는 중' : `${comments.length}개 댓글`}</span>
               </div>
-              <div style={commentHeroTitleStyle}>{activePost.title ?? '댓글'}</div>
-              <div style={commentHeroDescStyle}>{activePost.content}</div>
+              <div style={commentHeroTitle}>{activePost.title ?? '댓글'}</div>
+              <div style={commentHeroDesc}>{activePost.content}</div>
             </div>
           ) : null}
 
           <div className="stack10" />
 
-          <div style={cardListStyle}>
+          <div style={cardList}>
             {commentsLoading ? (
-              <>
-                <CommentSkeleton />
-                <CommentSkeleton />
-              </>
+              <div className="glassSkeletonStack">
+                <div className="glassSkeletonBlock" style={{ height: 88, borderRadius: 18 }} />
+                <div className="glassSkeletonBlock" style={{ height: 88, borderRadius: 18 }} />
+              </div>
             ) : comments.length === 0 ? (
               <div className="glassEmpty">아직 댓글이 없습니다. 첫 번째 댓글로 마음을 나눠보세요.</div>
             ) : (
               comments.map((comment) => (
-                <div key={comment.id} style={commentCardStyle}>
-                  <div style={commentTopStyle}>
-                    <div style={commentAuthorStyle}>{comment.authorName}</div>
-                    <div style={commentTimeStyle}>{formatTime(comment.createdAt)}</div>
+                <div key={comment.id} style={commentCard}>
+                  <div style={commentTop}>
+                    <div style={commentAuthor}>{comment.authorName}</div>
+                    <div style={commentTime}>{formatTime(comment.createdAt)}</div>
                   </div>
                   <div style={commentTextStyle}>{comment.content}</div>
                 </div>
@@ -482,17 +412,11 @@ export default function ChannelDetailPage() {
 
           <div className="stack12" />
 
-          <div style={commentEditorCardStyle}>
-            <div style={commentEditorTitleStyle}>댓글 입력</div>
-            <div style={commentEditorDescStyle}>짧게 공감이나 기도 응답을 남겨보세요.</div>
+          <div style={commentEditorCard}>
+            <div style={commentEditorTitle}>댓글 입력</div>
+            <div style={commentEditorDesc}>짧게 공감이나 기도 응답을 남겨보세요.</div>
             <div className="stack10" />
-            <textarea
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              placeholder="댓글을 입력하세요"
-              className="glassTextarea"
-              style={{ minHeight: 88 }}
-            />
+            <textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="댓글을 입력하세요" className="glassTextarea" style={{ minHeight: 88 }} />
           </div>
 
           <div className="stack10" />
@@ -502,6 +426,16 @@ export default function ChannelDetailPage() {
           </Button>
         </BottomSheet>
       </div>
+    </div>
+  );
+}
+
+function SectionHeader({ eyebrow, title, desc }: { eyebrow: string; title: string; desc: string }) {
+  return (
+    <div style={sectionHeader}>
+      <div style={sectionEyebrow}>{eyebrow}</div>
+      <div style={sectionTitle}>{title}</div>
+      <div style={sectionDesc}>{desc}</div>
     </div>
   );
 }
@@ -518,19 +452,10 @@ function SummaryTile({
   tone: Tone;
 }) {
   return (
-    <div style={{ ...summaryTileStyle, ...getToneCardStyle(tone) }}>
-      <div style={summaryLabelStyle}>{label}</div>
-      <div style={summaryValueStyle}>{value}</div>
-      <div style={summarySubStyle}>{subValue}</div>
-    </div>
-  );
-}
-
-function InfoCard({ tone, title, desc }: { tone: Tone; title: string; desc: string }) {
-  return (
-    <div style={{ ...infoCardStyle, ...getToneCardStyle(tone) }}>
-      <div style={infoTitleStyle}>{title}</div>
-      <div style={infoDescStyle}>{desc}</div>
+    <div style={{ ...summaryTile, ...getToneCardStyle(tone) }}>
+      <div style={summaryLabel}>{label}</div>
+      <div style={summaryValue}>{value}</div>
+      <div style={summarySub}>{subValue}</div>
     </div>
   );
 }
@@ -558,17 +483,17 @@ function GaugeTabButton({
   const percent = active ? 100 : 22;
 
   return (
-    <button type="button" onClick={onClick} style={{ ...gaugeTabButtonStyle, border: `1px solid ${border}` }}>
-      <div style={gaugeTrackStyle}>
-        <div style={{ ...gaugeFillStyle, width: `${percent}%`, background: fill }} />
+    <button type="button" onClick={onClick} style={{ ...gaugeTabButton, border: `1px solid ${border}` }}>
+      <div style={gaugeTrack}>
+        <div style={{ ...gaugeFill, width: `${percent}%`, background: fill }} />
       </div>
-      <div style={gaugeContentStyle}>
-        <div style={gaugeTopRowStyle}>
-          <div style={gaugeLabelStyle}>{label}</div>
-          <div style={{ ...gaugeBadgeStyle, background: badgeBg, color: badgeColor }}>{active ? 'ON' : 'OFF'}</div>
+      <div style={gaugeContent}>
+        <div style={gaugeTopRow}>
+          <div style={gaugeLabel}>{label}</div>
+          <div style={{ ...gaugeBadge, background: badgeBg, color: badgeColor }}>{active ? 'ON' : 'OFF'}</div>
         </div>
-        <div style={{ ...gaugeValueStyle, color: valueColor }}>{title}</div>
-        <div style={gaugeHintStyle}>{hint}</div>
+        <div style={{ ...gaugeValue, color: valueColor }}>{title}</div>
+        <div style={gaugeHint}>{hint}</div>
       </div>
     </button>
   );
@@ -581,14 +506,6 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       {children}
     </label>
   );
-}
-
-function SkeletonPost() {
-  return <div className="glassSkeletonBlock" style={{ height: 138 }} />;
-}
-
-function CommentSkeleton() {
-  return <div className="glassSkeletonBlock" style={{ height: 102, borderRadius: 22 }} />;
 }
 
 function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
@@ -612,9 +529,7 @@ function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () =
 
 function formatTime(ts: number) {
   const d = new Date(ts);
-  return `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(
-    d.getHours()
-  ).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 function getToneCardStyle(tone: Tone): CSSProperties {
@@ -642,63 +557,90 @@ function getToneCardStyle(tone: Tone): CSSProperties {
   }
 }
 
-const eyebrowStyle: CSSProperties = {
-  marginBottom: 8,
-  fontSize: 11,
-  fontWeight: 900,
-  letterSpacing: '0.08em',
-  color: '#82a39a'
+const page: CSSProperties = {
+  minHeight: '100dvh',
+  padding: '12px 14px 30px',
+  background: 'transparent'
 };
 
-const rolePillStyle: CSSProperties = {
+const pageInner: CSSProperties = {
+  width: '100%',
+  maxWidth: 430,
+  margin: '0 auto'
+};
+
+const heroCard: CSSProperties = {
+  borderRadius: 24,
+  background: 'rgba(255,255,255,0.78)',
+  border: '1px solid rgba(255,255,255,0.56)',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)',
+  backdropFilter: 'blur(16px)',
+  marginBottom: 12
+};
+
+const heroTop: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 12,
+  flexWrap: 'wrap'
+};
+
+const heroCopy: CSSProperties = {
+  minWidth: 0,
+  flex: 1
+};
+
+const badgeMint: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
-  minHeight: 34,
+  minHeight: 28,
+  padding: '0 10px',
+  borderRadius: 999,
+  background: 'rgba(114,215,199,0.14)',
+  border: '1px solid rgba(114,215,199,0.22)',
+  color: '#2b7f72',
+  fontSize: 12,
+  fontWeight: 800,
+  marginBottom: 10
+};
+
+const heroTitle: CSSProperties = {
+  fontSize: 27,
+  fontWeight: 800,
+  color: '#24313a',
+  letterSpacing: '-0.02em',
+  lineHeight: 1.18
+};
+
+const heroDesc: CSSProperties = {
+  marginTop: 8,
+  color: '#64727b',
+  fontSize: 14,
+  lineHeight: 1.6
+};
+
+const roleChip: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 32,
   padding: '0 12px',
   borderRadius: 999,
-  background: 'rgba(255,255,255,0.52)',
-  border: '1px solid rgba(255,255,255,0.56)',
-  color: '#4dbdaa',
+  background: 'rgba(255,255,255,0.58)',
+  border: '1px solid rgba(255,255,255,0.6)',
+  color: '#5d6b73',
   fontSize: 12,
   fontWeight: 800
 };
 
-const summaryTileStyle: CSSProperties = {
-  padding: 16,
-  borderRadius: 20,
-  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4)'
-};
-
-const summaryLabelStyle: CSSProperties = {
-  color: '#6c7881',
-  fontSize: 12,
-  fontWeight: 700
-};
-
-const summaryValueStyle: CSSProperties = {
-  marginTop: 8,
-  color: '#24313a',
-  fontSize: 22,
-  fontWeight: 800,
-  lineHeight: 1.1,
-  letterSpacing: '-0.03em'
-};
-
-const summarySubStyle: CSSProperties = {
-  marginTop: 8,
-  color: '#6a7780',
-  fontSize: 12,
-  fontWeight: 700,
-  lineHeight: 1.45
-};
-
-const heroPillRowStyle: CSSProperties = {
+const heroPillRow: CSSProperties = {
   display: 'flex',
   gap: 8,
-  flexWrap: 'wrap'
+  flexWrap: 'wrap',
+  marginTop: 14
 };
 
-const heroMintPillStyle: CSSProperties = {
+const heroMintPill: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 30,
@@ -711,7 +653,7 @@ const heroMintPillStyle: CSSProperties = {
   fontWeight: 800
 };
 
-const heroPeachPillStyle: CSSProperties = {
+const heroPeachPill: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 30,
@@ -724,7 +666,7 @@ const heroPeachPillStyle: CSSProperties = {
   fontWeight: 800
 };
 
-const heroSkyPillStyle: CSSProperties = {
+const heroSkyPill: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 30,
@@ -737,7 +679,7 @@ const heroSkyPillStyle: CSSProperties = {
   fontWeight: 800
 };
 
-const heroNeutralPillStyle: CSSProperties = {
+const heroNeutralPill: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 30,
@@ -750,148 +692,188 @@ const heroNeutralPillStyle: CSSProperties = {
   fontWeight: 800
 };
 
-const heroActionGridStyle: CSSProperties = {
+const summaryGrid: CSSProperties = {
   display: 'grid',
-  gap: 10
+  gridTemplateColumns: '1fr 1fr',
+  gap: 10,
+  marginTop: 14
 };
 
-const joinBoxStyle: CSSProperties = {
+const summaryTile: CSSProperties = {
+  padding: '14px 14px 12px',
+  borderRadius: 18,
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4)'
+};
+
+const summaryLabel: CSSProperties = {
+  color: '#6c7881',
+  fontSize: 12,
+  fontWeight: 700
+};
+
+const summaryValue: CSSProperties = {
+  marginTop: 8,
+  color: '#24313a',
+  fontSize: 22,
+  fontWeight: 800,
+  lineHeight: 1.1,
+  letterSpacing: '-0.03em'
+};
+
+const summarySub: CSSProperties = {
+  marginTop: 8,
+  color: '#6a7780',
+  fontSize: 12,
+  fontWeight: 700,
+  lineHeight: 1.45
+};
+
+const actionGrid: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 10,
+  marginTop: 14
+};
+
+const joinCard: CSSProperties = {
+  marginTop: 14,
   padding: '14px 14px 12px',
   borderRadius: 18,
   background: 'rgba(248,250,251,0.72)',
   border: '1px solid rgba(227,233,237,0.92)'
 };
 
-const joinTitleStyle: CSSProperties = {
+const joinTitle: CSSProperties = {
   color: '#24313a',
   fontSize: 16,
   fontWeight: 800
 };
 
-const joinDescStyle: CSSProperties = {
+const joinDesc: CSSProperties = {
   marginTop: 6,
   color: '#6d7881',
   fontSize: 13,
   lineHeight: 1.55
 };
 
-const sectionEyebrowStyle: CSSProperties = {
+const sectionCard: CSSProperties = {
+  marginBottom: 12,
+  borderRadius: 22,
+  background: 'rgba(255,255,255,0.74)',
+  border: '1px solid rgba(255,255,255,0.56)',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)'
+};
+
+const sectionHeader: CSSProperties = {
+  padding: '2px 2px 12px'
+};
+
+const sectionEyebrow: CSSProperties = {
   fontSize: 11,
   fontWeight: 900,
   letterSpacing: '0.08em',
   color: '#83a39a'
 };
 
-const infoGridStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: 10
-};
-
-const infoCardStyle: CSSProperties = {
-  minWidth: 0,
-  padding: '14px 14px 12px',
-  borderRadius: 18,
-  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.38)'
-};
-
-const infoTitleStyle: CSSProperties = {
-  color: '#24313a',
-  fontSize: 15,
-  fontWeight: 800
-};
-
-const infoDescStyle: CSSProperties = {
+const sectionTitle: CSSProperties = {
   marginTop: 6,
-  color: '#617078',
-  fontSize: 13,
-  lineHeight: 1.55
+  fontSize: 22,
+  fontWeight: 800,
+  color: '#24313a'
 };
 
-const tabGaugeGridStyle: CSSProperties = {
+const sectionDesc: CSSProperties = {
+  marginTop: 6,
+  color: '#6b7780',
+  fontSize: 14,
+  lineHeight: 1.6
+};
+
+const tabGaugeGrid: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr',
   gap: 10
 };
 
-const gaugeTabButtonStyle: CSSProperties = {
+const gaugeTabButton: CSSProperties = {
   position: 'relative',
   overflow: 'hidden',
+  minHeight: 112,
+  borderRadius: 20,
+  background: 'rgba(255,255,255,0.62)',
   textAlign: 'left',
-  width: '100%',
-  minHeight: 116,
-  padding: 16,
-  borderRadius: 22,
-  background: 'linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.66))',
-  boxShadow: '0 12px 28px rgba(77,90,110,0.08)',
-  cursor: 'pointer'
+  cursor: 'pointer',
+  padding: 0
 };
 
-const gaugeTrackStyle: CSSProperties = {
+const gaugeTrack: CSSProperties = {
   position: 'absolute',
   inset: 0,
-  pointerEvents: 'none'
+  overflow: 'hidden'
 };
 
-const gaugeFillStyle: CSSProperties = {
-  height: '100%',
-  borderRadius: 22,
-  transition: 'width 180ms ease'
+const gaugeFill: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  width: '0%'
 };
 
-const gaugeContentStyle: CSSProperties = {
+const gaugeContent: CSSProperties = {
   position: 'relative',
-  zIndex: 1
+  zIndex: 1,
+  padding: '14px 14px 12px'
 };
 
-const gaugeTopRowStyle: CSSProperties = {
+const gaugeTopRow: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
   gap: 8
 };
 
-const gaugeLabelStyle: CSSProperties = {
-  color: '#617078',
+const gaugeLabel: CSSProperties = {
+  color: '#68757e',
   fontSize: 12,
   fontWeight: 800
 };
 
-const gaugeBadgeStyle: CSSProperties = {
+const gaugeBadge: CSSProperties = {
+  minHeight: 24,
+  padding: '0 8px',
+  borderRadius: 999,
   display: 'inline-flex',
   alignItems: 'center',
-  minHeight: 28,
-  padding: '0 10px',
-  borderRadius: 999,
   fontSize: 11,
-  fontWeight: 800
+  fontWeight: 800,
+  whiteSpace: 'nowrap'
 };
 
-const gaugeValueStyle: CSSProperties = {
-  marginTop: 12,
-  fontSize: 18,
+const gaugeValue: CSSProperties = {
+  marginTop: 10,
+  fontSize: 22,
   fontWeight: 800,
-  lineHeight: 1.25,
+  lineHeight: 1.05,
   letterSpacing: '-0.02em'
 };
 
-const gaugeHintStyle: CSSProperties = {
+const gaugeHint: CSSProperties = {
   marginTop: 8,
-  color: '#68757e',
-  fontSize: 13,
-  lineHeight: 1.5
+  color: '#6f7c85',
+  fontSize: 12,
+  fontWeight: 700,
+  lineHeight: 1.45
 };
 
-const cardListStyle: CSSProperties = {
+const cardList: CSSProperties = {
   display: 'grid',
   gap: 12
 };
 
-const listCardButtonStyle: CSSProperties = {
+const listCardButton: CSSProperties = {
   textAlign: 'left',
   width: '100%',
-  minHeight: 138,
-  padding: 18,
+  minHeight: 118,
+  padding: 16,
   borderRadius: 22,
   border: '1px solid rgba(255,255,255,0.58)',
   background: 'linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.66))',
@@ -899,31 +881,31 @@ const listCardButtonStyle: CSSProperties = {
   cursor: 'pointer'
 };
 
-const listCardTopStyle: CSSProperties = {
+const listCardTop: CSSProperties = {
   display: 'flex',
   alignItems: 'flex-start',
   justifyContent: 'space-between',
   gap: 12
 };
 
-const listCardTitleWrapStyle: CSSProperties = {
+const listCardTitleWrap: CSSProperties = {
   minWidth: 0,
   flex: 1
 };
 
-const listCardBadgeMintStyle: CSSProperties = {
+const rowBadgeMint: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 24,
   padding: '0 8px',
   borderRadius: 999,
-  background: 'rgba(114,215,199,0.12)',
+  background: 'rgba(114,215,199,0.14)',
   color: '#2f7f73',
   fontSize: 11,
   fontWeight: 800
 };
 
-const listCardBadgePeachStyle: CSSProperties = {
+const rowBadgePeach: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 24,
@@ -935,32 +917,38 @@ const listCardBadgePeachStyle: CSSProperties = {
   fontWeight: 800
 };
 
-const listCardTitleStyle: CSSProperties = {
+const listCardTitle: CSSProperties = {
   marginTop: 8,
-  color: '#24313a',
   fontSize: 17,
   fontWeight: 800,
-  lineHeight: 1.35,
-  letterSpacing: '-0.02em'
+  color: '#24313a',
+  letterSpacing: '-0.02em',
+  lineHeight: 1.35
 };
 
-const listCardDescStyle: CSSProperties = {
-  marginTop: 12,
+const postTime: CSSProperties = {
+  color: '#91a0a8',
+  fontSize: 12,
+  fontWeight: 700,
+  whiteSpace: 'nowrap'
+};
+
+const listCardDesc: CSSProperties = {
+  marginTop: 10,
   color: '#53626b',
   fontSize: 14,
-  lineHeight: 1.7,
+  lineHeight: 1.6,
   whiteSpace: 'pre-wrap'
 };
 
-const listCardMetaStyle: CSSProperties = {
-  marginTop: 14,
+const listCardMeta: CSSProperties = {
   display: 'flex',
-  alignItems: 'center',
   gap: 8,
-  flexWrap: 'wrap'
+  flexWrap: 'wrap',
+  marginTop: 12
 };
 
-const authorPillStyle: CSSProperties = {
+const authorPill: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 30,
@@ -973,7 +961,7 @@ const authorPillStyle: CSSProperties = {
   fontWeight: 800
 };
 
-const metaPillNeutralStyle: CSSProperties = {
+const metaPillNeutral: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 30,
@@ -986,110 +974,100 @@ const metaPillNeutralStyle: CSSProperties = {
   fontWeight: 800
 };
 
-const postTimeStyle: CSSProperties = {
-  color: '#8a959d',
-  fontSize: 12,
-  fontWeight: 700,
-  whiteSpace: 'nowrap'
-};
-
-const sheetEyebrowStyle: CSSProperties = {
+const sheetEyebrow: CSSProperties = {
   fontSize: 11,
   fontWeight: 900,
   letterSpacing: '0.08em',
   color: '#82a39a'
 };
 
-const sheetDescStyle: CSSProperties = {
+const sheetDesc: CSSProperties = {
   marginTop: 8,
   color: '#6e7b84',
   fontSize: 13,
-  lineHeight: 1.55,
-  whiteSpace: 'pre-wrap'
+  lineHeight: 1.55
 };
 
-const commentHeroCardStyle: CSSProperties = {
-  padding: 16,
-  borderRadius: 22,
-  background: 'linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.66))',
-  border: '1px solid rgba(255,255,255,0.58)',
-  boxShadow: '0 12px 28px rgba(77,90,110,0.08)'
+const commentHeroCard: CSSProperties = {
+  marginTop: 10,
+  padding: 14,
+  borderRadius: 18,
+  background: 'rgba(255,255,255,0.62)',
+  border: '1px solid rgba(255,255,255,0.56)'
 };
 
-const commentHeroTopStyle: CSSProperties = {
+const commentHeroTop: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
+  justifyContent: 'space-between',
   gap: 8,
   flexWrap: 'wrap'
 };
 
-const commentHeroTitleStyle: CSSProperties = {
-  marginTop: 12,
+const commentHeroTitle: CSSProperties = {
+  marginTop: 10,
   color: '#24313a',
-  fontSize: 17,
+  fontSize: 16,
   fontWeight: 800,
-  lineHeight: 1.35,
-  letterSpacing: '-0.02em'
+  lineHeight: 1.35
 };
 
-const commentHeroDescStyle: CSSProperties = {
-  marginTop: 10,
-  color: '#53626b',
+const commentHeroDesc: CSSProperties = {
+  marginTop: 8,
+  color: '#5d6b73',
   fontSize: 14,
-  lineHeight: 1.7,
+  lineHeight: 1.6,
   whiteSpace: 'pre-wrap'
 };
 
-const commentCardStyle: CSSProperties = {
-  padding: 16,
-  borderRadius: 22,
-  background: 'linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.66))',
-  border: '1px solid rgba(255,255,255,0.58)',
-  boxShadow: '0 12px 28px rgba(77,90,110,0.08)'
+const commentCard: CSSProperties = {
+  padding: 14,
+  borderRadius: 18,
+  border: '1px solid rgba(255,255,255,0.56)',
+  background: 'rgba(255,255,255,0.56)'
 };
 
-const commentTopStyle: CSSProperties = {
+const commentTop: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
   gap: 8
 };
 
-const commentAuthorStyle: CSSProperties = {
+const commentAuthor: CSSProperties = {
   color: '#24313a',
   fontSize: 13,
   fontWeight: 800
 };
 
-const commentTimeStyle: CSSProperties = {
-  color: '#8a959d',
+const commentTime: CSSProperties = {
+  color: '#92a0a8',
   fontSize: 12,
   fontWeight: 700
 };
 
 const commentTextStyle: CSSProperties = {
   marginTop: 8,
-  color: '#54616a',
+  color: '#55636b',
   fontSize: 14,
   lineHeight: 1.6,
   whiteSpace: 'pre-wrap'
 };
 
-const commentEditorCardStyle: CSSProperties = {
-  padding: 16,
-  borderRadius: 22,
-  background: 'linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.66))',
-  border: '1px solid rgba(255,255,255,0.58)',
-  boxShadow: '0 12px 28px rgba(77,90,110,0.08)'
+const commentEditorCard: CSSProperties = {
+  padding: 14,
+  borderRadius: 18,
+  background: 'rgba(248,250,251,0.72)',
+  border: '1px solid rgba(227,233,237,0.92)'
 };
 
-const commentEditorTitleStyle: CSSProperties = {
+const commentEditorTitle: CSSProperties = {
   color: '#24313a',
   fontSize: 15,
   fontWeight: 800
 };
 
-const commentEditorDescStyle: CSSProperties = {
+const commentEditorDesc: CSSProperties = {
   marginTop: 6,
   color: '#6d7881',
   fontSize: 13,

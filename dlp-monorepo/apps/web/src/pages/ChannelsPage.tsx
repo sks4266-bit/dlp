@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import TopBar from '../components/layout/TopBar';
 import { apiFetch } from '../lib/api';
 import Button from '../ui/Button';
-import { Card, CardTitle, CardDesc } from '../ui/Card';
+import { Card } from '../ui/Card';
 
 type Channel = {
   id: string;
@@ -13,8 +13,6 @@ type Channel = {
   createdAt: number;
   score?: number;
 };
-
-type Tone = 'mint' | 'peach' | 'sky' | 'neutral';
 
 export default function ChannelsPage() {
   const nav = useNavigate();
@@ -83,7 +81,7 @@ export default function ChannelsPage() {
       }
 
       if (!res.ok) {
-        window.alert('생성 실패');
+        window.alert('생성에 실패했습니다.');
         return;
       }
 
@@ -99,79 +97,41 @@ export default function ChannelsPage() {
   }
 
   return (
-    <div className="sanctuaryPage">
-      <div className="sanctuaryPageInner">
+    <div style={page}>
+      <div style={pageInner}>
         <TopBar title="교회 채널" backTo="/" hideAuthActions />
 
-        <Card className="glassHeroCard">
-          <div className="profileHero">
-            <div style={{ minWidth: 0 }}>
-              <div style={eyebrowStyle}>FELLOWSHIP</div>
-              <CardTitle>공지와 기도제목을 한 톤으로 모아보세요</CardTitle>
-              <CardDesc>홈과 같은 간격과 카드 톤으로 추천 채널, 전체 채널, 생성 흐름까지 자연스럽게 이어지도록 정리했어요.</CardDesc>
-            </div>
+        <Card pad style={heroCard}>
+          <div style={badgePeach}>FELLOWSHIP</div>
+          <div style={heroTitle}>공지와 기도제목을 한곳에</div>
+          <div style={heroDesc}>업로드한 홈 화면 기준 폭과 카드 밀도로 다시 맞추고, 채널 전용 배경 없이 차분한 홈 톤으로 통일했습니다.</div>
+
+          <div style={statRow}>
+            <StatChip label="추천" value={`${reco.length}`} tone="mint" />
+            <StatChip label="전체" value={`${all.length}`} tone="peach" />
           </div>
 
-          <div className="stack12" />
-
-          <div className="glassStatGrid">
-            <SummaryTile label="추천 채널" value={`${reco.length}개`} subValue="먼저 보면 좋은 공동체" tone="mint" />
-            <SummaryTile label="전체 채널" value={`${all.length}개`} subValue="전체 탐색 가능" tone="peach" />
-            <SummaryTile label="새 채널" value="즉시 생성" subValue="설명과 함께 등록" tone="sky" />
-            <SummaryTile label="탐색 흐름" value="홈 톤 유지" subValue="목록과 상세 완전 통일" tone="neutral" />
-          </div>
-
-          <div className="stack12" />
-
-          <div style={heroPillRowStyle}>
-            <span style={heroMintPillStyle}>추천 · 전체 채널 한 번에 탐색</span>
-            <span style={heroPeachPillStyle}>상세 페이지와 카드 규격 통일</span>
-            <span style={heroNeutralPillStyle}>배경 제거 · 홈 사이즈 유지</span>
-          </div>
-
-          <div className="stack12" />
-
-          <div style={heroActionGridStyle}>
-            <Button type="button" variant="primary" size="lg" wide onClick={() => setCreateOpen(true)}>
+          <div style={heroActions}>
+            <Button type="button" variant="primary" size="md" onClick={() => setCreateOpen(true)}>
               새 채널 만들기
             </Button>
-            <Button type="button" variant="secondary" size="lg" wide onClick={load}>
+            <Button type="button" variant="secondary" size="md" onClick={load}>
               새로고침
             </Button>
           </div>
         </Card>
 
-        <div className="stack12" />
-
         {err ? <div className="uiErrorBox">{err}</div> : null}
 
-        <SectionBlock
-          eyebrow="RECOMMENDED"
-          title="추천 채널"
-          desc="가장 먼저 살펴보면 좋은 공동체 채널입니다."
-          loading={loading}
-          emptyText="추천할 채널이 없습니다."
-          channels={reco.slice(0, 10)}
-          onClick={(channelId) => nav(`/channels/${channelId}`)}
-        />
+        <SectionBlock eyebrow="RECOMMENDED" title="추천 채널" desc="먼저 살펴보면 좋은 공동체 채널입니다." loading={loading} emptyText="추천할 채널이 없습니다." channels={reco.slice(0, 10)} onClick={(channelId) => nav(`/channels/${channelId}`)} />
 
-        <div className="stack12" />
-
-        <SectionBlock
-          eyebrow="ALL CHANNELS"
-          title="전체 채널"
-          desc="목록과 상세 카드의 높이, 간격, 그림자를 같은 규격으로 맞췄어요."
-          loading={loading}
-          emptyText="등록된 채널이 없습니다."
-          channels={all.slice(0, 20)}
-          onClick={(channelId) => nav(`/channels/${channelId}`)}
-        />
+        <SectionBlock eyebrow="ALL CHANNELS" title="전체 채널" desc="목록 카드 높이·간격·그림자를 상세 페이지와 동일 규격으로 맞췄습니다." loading={loading} emptyText="등록된 채널이 없습니다." channels={all.slice(0, 20)} onClick={(channelId) => nav(`/channels/${channelId}`)} />
       </div>
 
       <Sheet open={createOpen} onClose={() => setCreateOpen(false)}>
-        <div style={sheetEyebrowStyle}>CREATE CHANNEL</div>
+        <div style={sheetEyebrow}>CREATE CHANNEL</div>
         <div className="sheetTitle">새 채널 만들기</div>
-        <div style={sheetDescStyle}>홈과 같은 부드러운 톤으로 공지 · 기도 채널을 바로 시작해보세요.</div>
+        <div style={sheetDesc}>홈 시트 톤과 같은 높이·간격으로 정리했습니다.</div>
 
         <div className="stack10" />
 
@@ -185,7 +145,7 @@ export default function ChannelsPage() {
           <input value={desc} onChange={(e) => setDesc(e.target.value)} className="glassInput" placeholder="예) 주보 · 공지 · 기도제목 공유" />
         </Field>
 
-        <div className="stack10" />
+        <div className="stack12" />
 
         <Button type="button" variant="primary" size="lg" wide onClick={onCreate} disabled={createSaving}>
           {createSaving ? '생성 중…' : '생성'}
@@ -213,23 +173,18 @@ function SectionBlock({
   onClick: (channelId: string) => void;
 }) {
   return (
-    <Card className="glassHeroCard">
-      <div className="sectionHeadRow">
-        <div>
-          <div style={sectionEyebrowStyle}>{eyebrow}</div>
-          <CardTitle>{title}</CardTitle>
-          <CardDesc>{desc}</CardDesc>
-        </div>
+    <Card pad style={sectionCard}>
+      <div style={sectionHeader}>
+        <div style={sectionEyebrow}>{eyebrow}</div>
+        <div style={sectionTitle}>{title}</div>
+        <div style={sectionDesc}>{desc}</div>
       </div>
 
-      <div className="stack12" />
-
-      <div style={cardListStyle}>
+      <div style={list}>
         {loading ? (
           <div className="glassSkeletonStack">
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
+            <div className="glassSkeletonBlock" style={{ height: 118, borderRadius: 22 }} />
+            <div className="glassSkeletonBlock" style={{ height: 118, borderRadius: 22 }} />
           </div>
         ) : channels.length === 0 ? (
           <div className="glassEmpty">{emptyText}</div>
@@ -241,49 +196,38 @@ function SectionBlock({
   );
 }
 
-function SummaryTile({
-  label,
-  value,
-  subValue,
-  tone
-}: {
-  label: string;
-  value: string;
-  subValue: string;
-  tone: Tone;
-}) {
-  return (
-    <div style={{ ...summaryTileStyle, ...getToneCardStyle(tone) }}>
-      <div style={summaryLabelStyle}>{label}</div>
-      <div style={summaryValueStyle}>{value}</div>
-      <div style={summarySubStyle}>{subValue}</div>
-    </div>
-  );
-}
-
 function ChannelRow({ channel, onClick }: { channel: Channel; onClick: () => void }) {
   return (
-    <button type="button" style={listCardButtonStyle} onClick={onClick}>
-      <div style={listCardTopStyle}>
-        <div style={listCardTitleWrapStyle}>
-          <div style={listCardBadgeStyle}>교회 채널</div>
-          <div style={listCardTitleStyle}>{channel.name}</div>
+    <button type="button" style={listCardButton} onClick={onClick}>
+      <div style={listCardTop}>
+        <div style={listCardTitleWrap}>
+          <div style={rowBadge}>교회 채널</div>
+          <div style={listCardTitle}>{channel.name}</div>
         </div>
-        <div style={listCardArrowStyle}>›</div>
+        <div style={rowArrow}>›</div>
       </div>
-
-      <div style={listCardDescStyle}>{channel.description ?? '설명 없음'}</div>
-
-      <div style={listCardMetaStyle}>
-        <span style={authorPillStyle}>초대코드 {channel.inviteCode}</span>
-        {typeof channel.score === 'number' ? <span style={metaPillNeutralStyle}>추천점수 {channel.score}</span> : null}
+      <div style={listCardDesc}>{channel.description ?? '설명 없음'}</div>
+      <div style={listCardMeta}>
+        <span style={metaPillMint}>초대코드 {channel.inviteCode}</span>
+        {typeof channel.score === 'number' ? <span style={metaPillNeutral}>추천점수 {channel.score}</span> : null}
       </div>
     </button>
   );
 }
 
-function SkeletonCard() {
-  return <div className="glassSkeletonBlock" style={{ height: 138 }} />;
+function StatChip({ label, value, tone }: { label: string; value: string; tone: 'mint' | 'peach' }) {
+  return (
+    <div
+      style={{
+        ...statChip,
+        background: tone === 'mint' ? 'rgba(114,215,199,0.14)' : 'rgba(243,180,156,0.16)',
+        borderColor: tone === 'mint' ? 'rgba(114,215,199,0.24)' : 'rgba(243,180,156,0.24)'
+      }}
+    >
+      <div style={statLabel}>{label}</div>
+      <div style={statValue}>{value}</div>
+    </div>
+  );
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -314,135 +258,133 @@ function Sheet({ open, onClose, children }: { open: boolean; onClose: () => void
   );
 }
 
-function getToneCardStyle(tone: Tone): CSSProperties {
-  switch (tone) {
-    case 'mint':
-      return {
-        background: 'linear-gradient(180deg, rgba(114,215,199,0.18), rgba(255,255,255,0.62))',
-        border: '1px solid rgba(114,215,199,0.28)'
-      };
-    case 'peach':
-      return {
-        background: 'linear-gradient(180deg, rgba(243,200,181,0.24), rgba(255,255,255,0.62))',
-        border: '1px solid rgba(243,200,181,0.34)'
-      };
-    case 'sky':
-      return {
-        background: 'linear-gradient(180deg, rgba(223,243,250,0.7), rgba(255,255,255,0.64))',
-        border: '1px solid rgba(191,229,243,0.68)'
-      };
-    default:
-      return {
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.74), rgba(255,255,255,0.6))',
-        border: '1px solid rgba(255,255,255,0.56)'
-      };
-  }
-}
-
-const eyebrowStyle: CSSProperties = {
-  marginBottom: 8,
-  fontSize: 11,
-  fontWeight: 900,
-  letterSpacing: '0.08em',
-  color: '#82a39a'
+const page: CSSProperties = {
+  minHeight: '100dvh',
+  padding: '12px 14px 30px',
+  background: 'transparent'
 };
 
-const sectionEyebrowStyle: CSSProperties = {
+const pageInner: CSSProperties = {
+  width: '100%',
+  maxWidth: 430,
+  margin: '0 auto'
+};
+
+const heroCard: CSSProperties = {
+  borderRadius: 24,
+  background: 'rgba(255,255,255,0.78)',
+  border: '1px solid rgba(255,255,255,0.56)',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)',
+  backdropFilter: 'blur(16px)',
+  marginBottom: 12
+};
+
+const badgePeach: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 28,
+  padding: '0 10px',
+  borderRadius: 999,
+  background: 'rgba(243,180,156,0.18)',
+  border: '1px solid rgba(243,180,156,0.26)',
+  color: '#a05f48',
+  fontSize: 12,
+  fontWeight: 800,
+  marginBottom: 10
+};
+
+const heroTitle: CSSProperties = {
+  fontSize: 27,
+  fontWeight: 800,
+  color: '#24313a',
+  lineHeight: 1.18,
+  letterSpacing: '-0.02em'
+};
+
+const heroDesc: CSSProperties = {
+  marginTop: 8,
+  color: '#64727b',
+  fontSize: 14,
+  lineHeight: 1.6
+};
+
+const statRow: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 10,
+  marginTop: 14
+};
+
+const statChip: CSSProperties = {
+  padding: '14px 14px 12px',
+  borderRadius: 18,
+  border: '1px solid transparent'
+};
+
+const statLabel: CSSProperties = {
+  fontSize: 12,
+  color: '#68757e',
+  fontWeight: 800
+};
+
+const statValue: CSSProperties = {
+  marginTop: 8,
+  fontSize: 22,
+  lineHeight: 1,
+  fontWeight: 800,
+  color: '#24313a'
+};
+
+const heroActions: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 10,
+  marginTop: 14
+};
+
+const sectionCard: CSSProperties = {
+  marginBottom: 12,
+  borderRadius: 22,
+  background: 'rgba(255,255,255,0.74)',
+  border: '1px solid rgba(255,255,255,0.56)',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)'
+};
+
+const sectionHeader: CSSProperties = {
+  padding: '2px 2px 12px'
+};
+
+const sectionEyebrow: CSSProperties = {
   fontSize: 11,
   fontWeight: 900,
   letterSpacing: '0.08em',
   color: '#83a39a'
 };
 
-const summaryTileStyle: CSSProperties = {
-  padding: 16,
-  borderRadius: 20,
-  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4)'
-};
-
-const summaryLabelStyle: CSSProperties = {
-  color: '#6c7881',
-  fontSize: 12,
-  fontWeight: 700
-};
-
-const summaryValueStyle: CSSProperties = {
-  marginTop: 8,
-  color: '#24313a',
+const sectionTitle: CSSProperties = {
+  marginTop: 6,
   fontSize: 22,
   fontWeight: 800,
-  lineHeight: 1.1,
-  letterSpacing: '-0.03em'
+  color: '#24313a'
 };
 
-const summarySubStyle: CSSProperties = {
-  marginTop: 8,
-  color: '#6a7780',
-  fontSize: 12,
-  fontWeight: 700,
-  lineHeight: 1.45
+const sectionDesc: CSSProperties = {
+  marginTop: 6,
+  color: '#6b7780',
+  fontSize: 14,
+  lineHeight: 1.6
 };
 
-const heroPillRowStyle: CSSProperties = {
-  display: 'flex',
-  gap: 8,
-  flexWrap: 'wrap'
-};
-
-const heroMintPillStyle: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  minHeight: 30,
-  padding: '0 12px',
-  borderRadius: 999,
-  background: 'rgba(114,215,199,0.14)',
-  border: '1px solid rgba(114,215,199,0.24)',
-  color: '#2f7f73',
-  fontSize: 12,
-  fontWeight: 800
-};
-
-const heroPeachPillStyle: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  minHeight: 30,
-  padding: '0 12px',
-  borderRadius: 999,
-  background: 'rgba(243,180,156,0.16)',
-  border: '1px solid rgba(243,180,156,0.24)',
-  color: '#9d6550',
-  fontSize: 12,
-  fontWeight: 800
-};
-
-const heroNeutralPillStyle: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  minHeight: 30,
-  padding: '0 12px',
-  borderRadius: 999,
-  background: 'rgba(255,255,255,0.52)',
-  border: '1px solid rgba(255,255,255,0.56)',
-  color: '#6e7b84',
-  fontSize: 12,
-  fontWeight: 800
-};
-
-const heroActionGridStyle: CSSProperties = {
-  display: 'grid',
-  gap: 10
-};
-
-const cardListStyle: CSSProperties = {
+const list: CSSProperties = {
   display: 'grid',
   gap: 12
 };
 
-const listCardButtonStyle: CSSProperties = {
+const listCardButton: CSSProperties = {
   textAlign: 'left',
   width: '100%',
-  minHeight: 138,
-  padding: 18,
+  minHeight: 118,
+  padding: 16,
   borderRadius: 22,
   border: '1px solid rgba(255,255,255,0.58)',
   background: 'linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.66))',
@@ -450,19 +392,19 @@ const listCardButtonStyle: CSSProperties = {
   cursor: 'pointer'
 };
 
-const listCardTopStyle: CSSProperties = {
+const listCardTop: CSSProperties = {
   display: 'flex',
   alignItems: 'flex-start',
   justifyContent: 'space-between',
   gap: 12
 };
 
-const listCardTitleWrapStyle: CSSProperties = {
+const listCardTitleWrap: CSSProperties = {
   minWidth: 0,
   flex: 1
 };
 
-const listCardBadgeStyle: CSSProperties = {
+const rowBadge: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 24,
@@ -474,38 +416,37 @@ const listCardBadgeStyle: CSSProperties = {
   fontWeight: 800
 };
 
-const listCardTitleStyle: CSSProperties = {
+const listCardTitle: CSSProperties = {
   marginTop: 8,
-  color: '#24313a',
   fontSize: 17,
   fontWeight: 800,
-  lineHeight: 1.35,
-  letterSpacing: '-0.02em'
+  color: '#24313a',
+  letterSpacing: '-0.02em',
+  lineHeight: 1.35
 };
 
-const listCardArrowStyle: CSSProperties = {
+const rowArrow: CSSProperties = {
   fontSize: 22,
   color: '#89a6a0',
   fontWeight: 700
 };
 
-const listCardDescStyle: CSSProperties = {
-  marginTop: 12,
+const listCardDesc: CSSProperties = {
+  marginTop: 10,
   color: '#53626b',
   fontSize: 14,
-  lineHeight: 1.7,
+  lineHeight: 1.6,
   whiteSpace: 'pre-wrap'
 };
 
-const listCardMetaStyle: CSSProperties = {
-  marginTop: 14,
+const listCardMeta: CSSProperties = {
   display: 'flex',
-  alignItems: 'center',
   gap: 8,
-  flexWrap: 'wrap'
+  flexWrap: 'wrap',
+  marginTop: 12
 };
 
-const authorPillStyle: CSSProperties = {
+const metaPillMint: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 30,
@@ -518,7 +459,7 @@ const authorPillStyle: CSSProperties = {
   fontWeight: 800
 };
 
-const metaPillNeutralStyle: CSSProperties = {
+const metaPillNeutral: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 30,
@@ -531,17 +472,16 @@ const metaPillNeutralStyle: CSSProperties = {
   fontWeight: 800
 };
 
-const sheetEyebrowStyle: CSSProperties = {
+const sheetEyebrow: CSSProperties = {
   fontSize: 11,
   fontWeight: 900,
   letterSpacing: '0.08em',
   color: '#82a39a'
 };
 
-const sheetDescStyle: CSSProperties = {
+const sheetDesc: CSSProperties = {
   marginTop: 8,
   color: '#6e7b84',
   fontSize: 13,
-  lineHeight: 1.55,
-  whiteSpace: 'pre-wrap'
+  lineHeight: 1.55
 };
