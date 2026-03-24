@@ -11,6 +11,7 @@ export type UrgentTickerItem = {
 type Props = {
   items: UrgentTickerItem[];
   intervalMs?: number;
+  resumeDelayMs?: number;
   heightPx?: 40 | 44 | 52;
   onItemClick?: (id: string) => void;
 };
@@ -18,9 +19,11 @@ type Props = {
 export default function UrgentPrayerTicker({
   items,
   intervalMs = 5200,
+  resumeDelayMs,
   heightPx = 40,
   onItemClick
 }: Props) {
+  void resumeDelayMs;
   const safeItems = useMemo(() => (Array.isArray(items) ? items.filter((item) => !!item?.content?.trim()) : []), [items]);
   const count = safeItems.length;
   const [index, setIndex] = useState(0);
