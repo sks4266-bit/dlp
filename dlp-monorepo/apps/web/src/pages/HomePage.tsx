@@ -52,6 +52,11 @@ export default function HomePage() {
   const progressRatio = Math.max(0, Math.min(100, (todayCompleted / totalToday) * 100));
   const performance = home?.homePerformance ?? null;
   const overallPercent = home?.mcheyneProgress?.percent ?? 0;
+  const attendancePercent = getAttendancePercent(performance?.attendanceDays ?? 0);
+  const weeklyPercent = clampPercent(((performance?.weekSubmittedCount ?? 0) / 7) * 100);
+  const gratitudePercent = performance
+    ? clampPercent((performance.gratitudeCount / getGratitudeGoalDays(performance.gratitudeMonth)) * 100)
+    : 0;
 
   const readings = useMemo(() => {
     if (!home?.mcheyneToday) return [];
@@ -276,7 +281,7 @@ export default function HomePage() {
             <div>
               <div style={sectionEyebrow}>PERFORMANCE</div>
               <div style={sectionHeadingSmall}>성과 통계</div>
-              <div style={statsDesc}>홈 흐름에 맞춰 출석, DLP, 감사일기, 말씀읽기 성과를 한 번에 보여줘요.</div>
+              <div style={statsDesc}>퍼센트만큼 채워지는 버튼형 게이지로 이번 흐름을 바로 확인하고, 눌러서 상세 화면으로 이동할 수 있어요.</div>
             </div>
 
             <button type="button" style={statsLinkBtn} onClick={() => (me ? nav('/me') : goLogin('/me'))}>
@@ -287,14 +292,42 @@ export default function HomePage() {
           {me && performance ? (
             <>
               <div style={statsGrid}>
-                <StatMetric label="누적 출석" value={`${performance.attendanceDays}일`} tone="mint" />
-                <StatMetric label="이번 주 DLP" value={`${performance.weekSubmittedCount}/7`} tone="peach" />
-                <StatMetric label="이번 달 감사" value={`${performance.gratitudeCount}개`} tone="mint" />
-                <StatMetric label="말씀 읽기" value={`${overallPercent}%`} tone="peach" />
+                <GaugeMetricButton
+                  label="누적 출석"
+                  value={`${performance.attendanceDays}일`}
+                  percent={attendancePercent}
+                  hint="365일 목표 기준"
+                  tone="mint"
+                  onClick={() => nav('/me')}
+                />
+                <GaugeMetricButton
+                  label="이번 주 DLP"
+                  value={`${performance.weekSubmittedCount}/7`}
+                  percent={weeklyPercent}
+                  hint="주간 제출 리듬"
+                  tone="peach"
+                  onClick={() => nav('/me')}
+                />
+                <GaugeMetricButton
+                  label="이번 달 감사"
+                  value={`${performance.gratitudeCount}개`}
+                  percent={gratitudePercent}
+                  hint={`${formatMonthLabel(performance.gratitudeMonth)} 기록률`}
+                  tone="mint"
+                  onClick={() => nav('/gratitude')}
+                />
+                <GaugeMetricButton
+                  label="말씀 읽기"
+                  value={`${overallPercent}%`}
+                  percent={overallPercent}
+                  hint={`오늘 ${todayCompleted}/4 완료`}
+                  tone="peach"
+                  onClick={() => nav('/mcheyne-calendar')}
+                />
               </div>
 
               <div style={statsFootNote}>
-                감사일기 집계월 {formatMonthLabel(performance.gratitudeMonth)} · 오늘 말씀 {todayCompleted}/4
+                감사일기 집계월 {formatMonthLabel(performance.gratitudeMonth)} · 버튼을 누르면 각 페이지로 바로 이동합니다.
               </div>
             </>
           ) : (
@@ -419,16 +452,63 @@ function formatMonthLabel(value: string) {
   return `${year}.${month}`;
 }
 
-function StatMetric({ label, value, tone }: { label: string; value: string; tone: 'mint' | 'peach' }) {
-  const bg = tone === 'mint' ? 'rgba(114,215,199,0.14)' : 'rgba(243,180,156,0.16)';
-  const border = tone === 'mint' ? 'rgba(114,215,199,0.24)' : 'rgba(243,180,156,0.24)';
-  const valueColor = tone === 'mint' ? '#2f7f73' : '#9d6550';
+function clampPercent(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function getAttendancePercent(days: number) {
+  return clampPercent((days / 365) * 100);
+}
+
+function getGratitudeGoalDays(monthLabel: string) {
+  const [year, month] = monthLabel.split('-').map(Number);
+  if (!year || !month) return 31;
+
+  const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const isCurrentMonth = now.getUTCFullYear() === year && now.getUTCMonth() + 1 === month;
+
+  if (isCurrentMonth) {
+    return now.getUTCDate();
+  }
+
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+function GaugeMetricButton({
+  label,
+  value,
+  percent,
+  hint,
+  tone,
+  onClick
+}: {
+  label: string;
+  value: string;
+  percent: number;
+  hint: string;
+  tone: 'mint' | 'peach';
+  onClick: () => void;
+}) {
+  const fill = tone === 'mint' ? 'linear-gradient(90deg, rgba(114,215,199,0.28), rgba(114,215,199,0.14))' : 'linear-gradient(90deg, rgba(243,180,156,0.28), rgba(243,180,156,0.14))';
+  const border = tone === 'mint' ? 'rgba(114,215,199,0.26)' : 'rgba(243,180,156,0.26)';
+  const badgeBg = tone === 'mint' ? 'rgba(114,215,199,0.18)' : 'rgba(243,180,156,0.18)';
+  const badgeColor = tone === 'mint' ? '#2f7f73' : '#9d6550';
+  const valueColor = tone === 'mint' ? '#245f56' : '#8d5a47';
 
   return (
-    <div style={{ ...metricCard, background: bg, border: `1px solid ${border}` }}>
-      <div style={metricLabel}>{label}</div>
-      <div style={{ ...metricValue, color: valueColor }}>{value}</div>
-    </div>
+    <button type="button" onClick={onClick} style={{ ...metricButton, border: `1px solid ${border}` }}>
+      <div style={metricFillTrack}>
+        <div style={{ ...metricFillBar, width: `${clampPercent(percent)}%`, background: fill }} />
+      </div>
+      <div style={metricContent}>
+        <div style={metricTopRow}>
+          <div style={metricLabel}>{label}</div>
+          <div style={{ ...metricPercentBadge, background: badgeBg, color: badgeColor }}>{clampPercent(percent)}%</div>
+        </div>
+        <div style={{ ...metricValue, color: valueColor }}>{value}</div>
+        <div style={metricHint}>{hint}</div>
+      </div>
+    </button>
   );
 }
 
@@ -861,24 +941,73 @@ const statsGrid: CSSProperties = {
   marginTop: 14
 };
 
-const metricCard: CSSProperties = {
+const metricButton: CSSProperties = {
+  position: 'relative',
+  overflow: 'hidden',
   minWidth: 0,
+  padding: 0,
   borderRadius: 18,
+  background: 'rgba(255,255,255,0.74)',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.52)',
+  textAlign: 'left',
+  cursor: 'pointer'
+};
+
+const metricFillTrack: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  overflow: 'hidden'
+};
+
+const metricFillBar: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  borderRadius: 18,
+  transition: 'width 0.25s ease'
+};
+
+const metricContent: CSSProperties = {
+  position: 'relative',
+  zIndex: 1,
   padding: '14px 12px'
+};
+
+const metricTopRow: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 8
 };
 
 const metricLabel: CSSProperties = {
   fontSize: 12,
-  fontWeight: 700,
-  color: '#6d7881'
+  fontWeight: 800,
+  color: '#5e6c74'
+};
+
+const metricPercentBadge: CSSProperties = {
+  minHeight: 24,
+  padding: '0 8px',
+  borderRadius: 999,
+  fontSize: 11,
+  fontWeight: 800,
+  whiteSpace: 'nowrap'
 };
 
 const metricValue: CSSProperties = {
-  marginTop: 8,
+  marginTop: 10,
   fontSize: 20,
   fontWeight: 800,
   letterSpacing: '-0.02em',
   lineHeight: 1.1
+};
+
+const metricHint: CSSProperties = {
+  marginTop: 8,
+  fontSize: 11,
+  fontWeight: 700,
+  color: '#748189',
+  lineHeight: 1.4
 };
 
 const statsFootNote: CSSProperties = {

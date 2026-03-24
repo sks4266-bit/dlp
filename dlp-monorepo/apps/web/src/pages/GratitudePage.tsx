@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import TopBar from '../components/layout/TopBar';
 import { apiFetch } from '../lib/api';
@@ -24,6 +24,8 @@ type Entry = {
   createdAt: number;
 };
 
+const weekLabels = ['일', '월', '화', '수', '목', '금', '토'];
+
 export default function GratitudePage() {
   const nav = useNavigate();
   const loc = useLocation();
@@ -47,6 +49,9 @@ export default function GratitudePage() {
     const [y, m] = month.split('-').map(Number);
     return { year: y, mon: m };
   }, [month]);
+
+  const today = useMemo(() => kstNow(), []);
+  const todayDate = ymdFromParts(today.getUTCFullYear(), today.getUTCMonth() + 1, today.getUTCDate());
 
   const firstDow = useMemo(() => {
     const firstDay = new Date(Date.UTC(year, mon - 1, 1));
@@ -125,24 +130,35 @@ export default function GratitudePage() {
   return (
     <div className="sanctuaryPage">
       <div className="sanctuaryPageInner">
-        <TopBar title="감사일기" backTo="/me" />
+        <TopBar title="감사일기" backTo="/" />
 
         <Card className="glassHeroCard">
-          <div className="sectionHeadRow">
+          <div style={heroHeadStyle}>
             <div>
+              <div style={eyebrowStyle}>GRATITUDE JOURNAL</div>
               <CardTitle>이번 달 감사 기록</CardTitle>
               <CardDesc>날짜를 눌러 한 줄 감사일기를 바로 작성하거나 수정해 보세요.</CardDesc>
             </div>
 
-            <div className="toolbarRow">
-              <input
-                type="month"
-                value={month}
-                onChange={(e) => setMonth(e.target.value)}
-                className="glassInput glassInputMonth"
-              />
+            <div style={heroCountBadgeStyle}>{loading ? '…' : `${items.length}개 기록`}</div>
+          </div>
+
+          <div className="stack12" />
+
+          <div style={heroToolbarStyle}>
+            <input
+              type="month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              className="glassInput glassInputMonth"
+            />
+
+            <div style={heroActionGridStyle}>
               <Button variant="ghost" onClick={() => setMonth(ym(kstNow()))}>
                 이번달
+              </Button>
+              <Button variant="secondary" onClick={() => openEditor(todayDate)}>
+                오늘 기록하기
               </Button>
             </div>
           </div>
@@ -153,11 +169,18 @@ export default function GratitudePage() {
         {err ? <div className="uiErrorBox">{err}</div> : null}
 
         <Card>
-          <div className="sectionMiniTitle">달력</div>
-          <div className="stack8" />
+          <div style={cardHeadStyle}>
+            <div>
+              <CardTitle>달력</CardTitle>
+              <CardDesc>색이 있는 날짜는 기록이 저장된 날입니다.</CardDesc>
+            </div>
+            <div style={miniPillStyle}>{month}</div>
+          </div>
+
+          <div className="stack12" />
 
           <div className="miniWeekHeader">
-            {['일', '월', '화', '수', '목', '금', '토'].map((dayLabel) => (
+            {weekLabels.map((dayLabel) => (
               <div key={dayLabel}>{dayLabel}</div>
             ))}
           </div>
@@ -171,6 +194,7 @@ export default function GratitudePage() {
               const day = index + 1;
               const date = ymdFromParts(year, mon, day);
               const hasEntry = itemMap.has(date);
+              const isToday = date === todayDate;
 
               return (
                 <button
@@ -178,25 +202,24 @@ export default function GratitudePage() {
                   type="button"
                   onClick={() => openEditor(date)}
                   className={['gratitudeDayCell', hasEntry ? 'gratitudeDayCellOn' : ''].join(' ')}
+                  style={isToday ? todayCellStyle : undefined}
                   aria-label={`${date} 감사일기 ${hasEntry ? '작성됨' : '미작성'}`}
                 >
-                  {day}
+                  <span>{day}</span>
+                  {hasEntry ? <span style={entryDotStyle} /> : null}
                 </button>
               );
             })}
           </div>
-
-          <div className="stack10" />
-          <CardDesc>색이 있는 날짜는 기록이 저장된 날입니다.</CardDesc>
         </Card>
 
         <div className="stack12" />
 
         <Card>
-          <div className="sectionHeadRow">
+          <div style={cardHeadStyle}>
             <div>
               <CardTitle>이번 달 기록</CardTitle>
-              <CardDesc>{loading ? '불러오는 중…' : `${items.length}개 기록`}</CardDesc>
+              <CardDesc>{loading ? '불러오는 중…' : `${items.length}개의 감사가 저장되어 있어요.`}</CardDesc>
             </div>
           </div>
 
@@ -205,12 +228,15 @@ export default function GratitudePage() {
           {loading ? (
             <div className="glassEmpty">불러오는 중…</div>
           ) : items.length === 0 ? (
-            <div className="glassEmpty">이번 달 기록이 없습니다.</div>
+            <div className="glassEmpty">이번 달 기록이 없습니다. 오늘의 감사를 남겨보세요.</div>
           ) : (
             <div className="glassList">
-              {items.slice(0, 20).map((item) => (
+              {items.slice(0, 31).map((item) => (
                 <button key={item.id} type="button" className="glassListItem" onClick={() => openEditor(item.date)}>
-                  <div className="glassListDate">{item.date}</div>
+                  <div style={listTopStyle}>
+                    <div className="glassListDate">{item.date}</div>
+                    <div style={listChipStyle}>{item.date === todayDate ? '오늘' : '기록'}</div>
+                  </div>
                   <div className="glassListContent">{item.content}</div>
                 </button>
               ))}
@@ -219,7 +245,9 @@ export default function GratitudePage() {
         </Card>
 
         <BottomSheet open={editorOpen} onClose={() => setEditorOpen(false)}>
+          <div style={sheetEyebrowStyle}>WRITE GRATITUDE</div>
           <div className="sheetTitle">감사일기 · {editorDate}</div>
+          <div style={sheetDescStyle}>짧게 적어도 괜찮아요. 오늘 감사한 일을 자연스럽게 남겨보세요.</div>
           <div className="stack10" />
           <textarea
             value={content}
@@ -227,10 +255,12 @@ export default function GratitudePage() {
             placeholder="예) 오늘도 건강을 지켜주셔서 감사합니다"
             className="glassTextarea"
           />
-          <div className="stack10" />
-          <Button variant="primary" wide size="lg" disabled={saving} onClick={saveEntry}>
-            {saving ? '저장 중…' : '저장'}
-          </Button>
+          <div style={sheetFooterStyle}>
+            <div style={countStyle}>{content.length}자</div>
+            <Button variant="primary" size="lg" disabled={saving} onClick={saveEntry}>
+              {saving ? '저장 중…' : '저장'}
+            </Button>
+          </div>
         </BottomSheet>
       </div>
     </div>
@@ -255,3 +285,125 @@ function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () =
     </div>
   );
 }
+
+const eyebrowStyle: CSSProperties = {
+  marginBottom: 8,
+  fontSize: 11,
+  fontWeight: 900,
+  letterSpacing: '0.08em',
+  color: '#82a39a'
+};
+
+const heroHeadStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 12
+};
+
+const heroCountBadgeStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 32,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'rgba(114,215,199,0.14)',
+  border: '1px solid rgba(114,215,199,0.24)',
+  color: '#2f7f73',
+  fontSize: 12,
+  fontWeight: 800,
+  whiteSpace: 'nowrap'
+};
+
+const heroToolbarStyle: CSSProperties = {
+  display: 'grid',
+  gap: 10
+};
+
+const heroActionGridStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 10
+};
+
+const cardHeadStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 10
+};
+
+const miniPillStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 28,
+  padding: '0 10px',
+  borderRadius: 999,
+  background: 'rgba(243,180,156,0.16)',
+  border: '1px solid rgba(243,180,156,0.24)',
+  color: '#9d6550',
+  fontSize: 12,
+  fontWeight: 800,
+  whiteSpace: 'nowrap'
+};
+
+const todayCellStyle: CSSProperties = {
+  boxShadow: '0 0 0 2px rgba(114,215,199,0.22) inset'
+};
+
+const entryDotStyle: CSSProperties = {
+  width: 6,
+  height: 6,
+  borderRadius: 999,
+  background: 'currentColor',
+  opacity: 0.72,
+  marginTop: 4
+};
+
+const listTopStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 8
+};
+
+const listChipStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 24,
+  padding: '0 8px',
+  borderRadius: 999,
+  background: 'rgba(114,215,199,0.12)',
+  color: '#2f7f73',
+  fontSize: 11,
+  fontWeight: 800,
+  whiteSpace: 'nowrap'
+};
+
+const sheetEyebrowStyle: CSSProperties = {
+  fontSize: 11,
+  fontWeight: 900,
+  letterSpacing: '0.08em',
+  color: '#82a39a'
+};
+
+const sheetDescStyle: CSSProperties = {
+  marginTop: 8,
+  color: '#6e7b84',
+  fontSize: 13,
+  lineHeight: 1.55
+};
+
+const sheetFooterStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 12,
+  marginTop: 12
+};
+
+const countStyle: CSSProperties = {
+  color: '#87939b',
+  fontSize: 12,
+  fontWeight: 700
+};

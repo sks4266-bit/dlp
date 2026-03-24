@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import TopBar from '../components/layout/TopBar';
@@ -15,6 +15,8 @@ type MeStats = {
     days: { date: string; hasDlp: boolean }[];
   };
 };
+
+const weekLabels = ['월', '화', '수', '목', '금', '토', '일'];
 
 export default function MePage() {
   const nav = useNavigate();
@@ -177,12 +179,15 @@ export default function MePage() {
         <Card className="glassHeroCard">
           <div className="profileHero">
             <div>
+              <div style={eyebrowStyle}>MY ACCOUNT</div>
               <CardTitle>{me.name}</CardTitle>
-              <CardDesc>@{me.username}</CardDesc>
+              <CardDesc>@{me.username} · 개인 정보와 신앙 생활 흐름을 여기서 정리할 수 있어요.</CardDesc>
             </div>
 
             <div className="profileRoleChip">{me.isAdmin ? 'ADMIN' : '일반 사용자'}</div>
           </div>
+
+          <div className="stack12" />
 
           <div className="profileMetaGrid">
             <MetaBox label="휴대폰" value={me.phone ?? '-'} />
@@ -194,31 +199,44 @@ export default function MePage() {
 
         <Card>
           <CardTitle>신앙 생활 요약</CardTitle>
-          <CardDesc>홈 성과 통계와 연결되는 누적 출석 및 이번 주 DLP 제출 현황입니다.</CardDesc>
+          <CardDesc>홈 성과 통계와 같은 기준으로 누적 출석과 이번 주 DLP 제출 흐름을 보여줍니다.</CardDesc>
 
           <div className="stack12" />
 
           <div className="glassStatGrid">
-            <StatCard label="누적 출석일" value={String(stats?.attendanceDays ?? '-')} />
-            <StatCard label="이번 주 제출" value={stats ? `${stats.week.submittedCount}/7` : '-'} />
+            <StatCard label="누적 출석일" value={String(stats?.attendanceDays ?? '-')} helper="전체 누적 기록" />
+            <StatCard label="이번 주 제출" value={stats ? `${stats.week.submittedCount}/7` : '-'} helper="주간 DLP 기준" />
           </div>
 
           <div className="stack12" />
 
-          <div className="sectionMiniTitle">
-            이번 주 제출 현황 ({stats?.week.start ?? '—'} ~ {stats?.week.end ?? '—'})
-          </div>
+          <div style={summaryPanelStyle}>
+            <div className="sectionMiniTitle">
+              이번 주 제출 현황 ({stats?.week.start ?? '—'} ~ {stats?.week.end ?? '—'})
+            </div>
 
-          <div className="stack8" />
+            <div className="stack8" />
 
-          <div className="weekDots">
-            {(stats?.week.days ?? Array.from({ length: 7 }).map((_, i) => ({ date: String(i), hasDlp: false }))).map((dayItem, idx) => (
-              <div
-                key={idx}
-                title={String(dayItem.date)}
-                className={['weekDot', dayItem.hasDlp ? 'weekDotOn' : ''].filter(Boolean).join(' ')}
-              />
-            ))}
+            <div style={weekLabelRowStyle}>
+              {weekLabels.map((label) => (
+                <div key={label} style={weekLabelStyle}>
+                  {label}
+                </div>
+              ))}
+            </div>
+
+            <div className="weekDots">
+              {(stats?.week.days ?? Array.from({ length: 7 }).map((_, i) => ({ date: String(i), hasDlp: false }))).map((dayItem, idx) => (
+                <div key={idx} style={weekDotWrapStyle}>
+                  <div
+                    title={String(dayItem.date)}
+                    className={['weekDot', dayItem.hasDlp ? 'weekDotOn' : ''].filter(Boolean).join(' ')}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div style={weekGuideStyle}>색이 채워진 날은 해당 날짜에 DLP가 제출된 날입니다.</div>
           </div>
         </Card>
 
@@ -226,11 +244,11 @@ export default function MePage() {
 
         <Card>
           <CardTitle>바로가기</CardTitle>
-          <CardDesc>감사일기와 계정 기능을 여기서 바로 실행할 수 있어요.</CardDesc>
+          <CardDesc>자주 쓰는 계정 기능을 여기서 빠르게 실행할 수 있어요.</CardDesc>
 
           <div className="stack12" />
 
-          <div style={{ display: 'grid', gap: 10 }}>
+          <div style={actionGridStyle}>
             <Button variant="secondary" size="lg" wide onClick={() => nav('/gratitude')}>
               감사일기 페이지 열기
             </Button>
@@ -244,7 +262,7 @@ export default function MePage() {
 
         <Card>
           <CardTitle>내정보 수정</CardTitle>
-          <CardDesc>연락처와 출석교회를 최신 상태로 유지해 주세요.</CardDesc>
+          <CardDesc>이름, 연락처, 출석교회를 최신 상태로 유지해 주세요.</CardDesc>
 
           <div className="stack12" />
 
@@ -260,13 +278,19 @@ export default function MePage() {
               onChange={(e) => setEditPhone(e.target.value)}
               className="glassInput"
               inputMode="tel"
+              placeholder="010-0000-0000"
             />
           </Field>
 
           <div className="stack10" />
 
           <Field label="출석교회">
-            <input value={editChurch} onChange={(e) => setEditChurch(e.target.value)} className="glassInput" />
+            <input
+              value={editChurch}
+              onChange={(e) => setEditChurch(e.target.value)}
+              className="glassInput"
+              placeholder="출석교회 이름"
+            />
           </Field>
 
           <div className="stack12" />
@@ -315,6 +339,12 @@ export default function MePage() {
 
           <div className="stack12" />
 
+          <div style={dangerNoticeStyle}>
+            탈퇴 후에는 내정보, 감사일기, DLP/맥체인 진행 기록이 함께 삭제되며 복구할 수 없습니다.
+          </div>
+
+          <div className="stack12" />
+
           <Field label="현재 비밀번호 확인">
             <input
               value={deletePw}
@@ -354,11 +384,77 @@ function MetaBox({ label, value }: { label: string; value: string }) {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function StatCard({ label, value, helper }: { label: string; value: string; helper: string }) {
   return (
     <div className="glassStatCard">
       <div className="glassStatLabel">{label}</div>
       <div className="glassStatValue">{value}</div>
+      <div style={statHelperStyle}>{helper}</div>
     </div>
   );
 }
+
+const eyebrowStyle: CSSProperties = {
+  marginBottom: 8,
+  fontSize: 11,
+  fontWeight: 900,
+  letterSpacing: '0.08em',
+  color: '#82a39a'
+};
+
+const summaryPanelStyle: CSSProperties = {
+  padding: '14px 14px 12px',
+  borderRadius: 18,
+  background: 'rgba(248,250,251,0.72)',
+  border: '1px solid rgba(227,233,237,0.92)'
+};
+
+const weekLabelRowStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+  gap: 8,
+  marginBottom: 8
+};
+
+const weekLabelStyle: CSSProperties = {
+  textAlign: 'center',
+  color: '#8a959d',
+  fontSize: 11,
+  fontWeight: 700
+};
+
+const weekDotWrapStyle: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'center'
+};
+
+const weekGuideStyle: CSSProperties = {
+  marginTop: 10,
+  color: '#7a878f',
+  fontSize: 12,
+  lineHeight: 1.45
+};
+
+const actionGridStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 10
+};
+
+const statHelperStyle: CSSProperties = {
+  marginTop: 6,
+  color: '#7b8790',
+  fontSize: 11,
+  fontWeight: 700,
+  lineHeight: 1.4
+};
+
+const dangerNoticeStyle: CSSProperties = {
+  padding: '12px 14px',
+  borderRadius: 16,
+  background: 'rgba(255, 241, 239, 0.82)',
+  border: '1px solid rgba(235, 138, 127, 0.22)',
+  color: '#9d5d57',
+  fontSize: 13,
+  lineHeight: 1.55
+};
