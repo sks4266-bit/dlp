@@ -95,7 +95,7 @@ export default function UrgentPrayersPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deleteLoadingId, setDeleteLoadingId] = useState<string | null>(null);
 
-  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const rowRefs = useRef<Record<string, HTMLElement | null>>({});
 
   function goLogin() {
     const next = `${location.pathname}${location.search}`;
