@@ -14,6 +14,20 @@ type Channel = {
   score?: number;
 };
 
+async function readErrorMessage(res: Response, fallback: string) {
+  try {
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('application/json')) {
+      const j = await res.json().catch(() => null);
+      return j?.message || j?.error || fallback;
+    }
+    const text = await res.text().catch(() => '');
+    return text?.trim() || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export default function ChannelsPage() {
   const nav = useNavigate();
 
@@ -46,10 +60,18 @@ export default function ChannelsPage() {
         return;
       }
 
-      if (!r1.ok || !r2.ok) throw new Error('불러오기에 실패했습니다.');
+      if (!r1.ok) {
+        throw new Error(await readErrorMessage(r1, '추천 채널을 불러오지 못했습니다.'));
+      }
+      if (!r2.ok) {
+        throw new Error(await readErrorMessage(r2, '채널 목록을 불러오지 못했습니다.'));
+      }
 
-      setReco(await r1.json());
-      setAll(await r2.json());
+      const recoData = await r1.json();
+      const allData = await r2.json();
+
+      setReco(Array.isArray(recoData) ? recoData : []);
+      setAll(Array.isArray(allData) ? allData : []);
     } catch (e: any) {
       setErr(e?.message ?? '불러오기에 실패했습니다.');
     } finally {
@@ -84,8 +106,7 @@ export default function ChannelsPage() {
       }
 
       if (!res.ok) {
-        alert('생성 실패');
-        return;
+        throw new Error(await readErrorMessage(res, '채널 생성에 실패했습니다.'));
       }
 
       const data = await res.json();
@@ -94,6 +115,8 @@ export default function ChannelsPage() {
       setDesc('');
       await load();
       nav(`/channels/${data.id}`);
+    } catch (e: any) {
+      alert(e?.message ?? '채널 생성에 실패했습니다.');
     } finally {
       setCreateSaving(false);
     }
@@ -113,16 +136,16 @@ export default function ChannelsPage() {
         />
 
         <Card style={heroCard}>
-          <div style={badgeMint}>FELLOWSHIP</div>
+          <div style={heroBadge}>FELLOWSHIP</div>
           <div style={heroTitle}>공지와 기도제목을 같은 톤으로 모아보세요</div>
           <div style={heroDesc}>
-            추천 채널과 전체 채널을 한 화면에서 자연스럽게 탐색하고,
-            필요하면 바로 새 채널을 만들 수 있도록 정리했습니다.
+            추천 채널과 전체 채널을 한 화면에서 자연스럽게 탐색하고, 필요하면 바로 새 채널을
+            만들 수 있도록 정리했습니다.
           </div>
 
           <div style={{ height: 16 }} />
 
-          <div style={heroSummary}>
+          <div style={statRow}>
             <StatChip label="추천" value={String(reco.length)} tint="mint" />
             <StatChip label="전체" value={String(all.length)} tint="peach" />
           </div>
@@ -142,7 +165,7 @@ export default function ChannelsPage() {
         {err ? <ErrorBox text={err} onRetry={load} /> : null}
 
         <Card style={sectionCard}>
-          <div style={sectionHeader}>
+          <div style={sectionHead}>
             <div>
               <CardEyebrow>RECOMMENDED</CardEyebrow>
               <CardTitle>추천 채널</CardTitle>
@@ -172,7 +195,7 @@ export default function ChannelsPage() {
         <div style={{ height: 12 }} />
 
         <Card style={sectionCard}>
-          <div style={sectionHeader}>
+          <div style={sectionHead}>
             <div>
               <CardEyebrow>ALL CHANNELS</CardEyebrow>
               <CardTitle>전체 채널</CardTitle>
@@ -203,10 +226,10 @@ export default function ChannelsPage() {
 
       <Sheet open={createOpen} onClose={() => setCreateOpen(false)}>
         <div style={sheetHeader}>
-          <div>
-            <div style={sheetEyebrow}>CREATE CHANNEL</div>
-            <div style={sheetTitle}>새 채널 만들기</div>
-            <div style={sheetDesc}>교회 공지, 기도 나눔, 공동체 소식을 위한 공간을 추가합니다.</div>
+          <div style={sheetEyebrow}>CREATE CHANNEL</div>
+          <div style={sheetTitle}>새 채널 만들기</div>
+          <div style={sheetDesc}>
+            교회 공지, 기도 나눔, 공동체 소식을 위한 공간을 추가합니다.
           </div>
         </div>
 
@@ -235,7 +258,14 @@ export default function ChannelsPage() {
         <div style={{ height: 14 }} />
 
         <div style={actionGrid}>
-          <Button type="button" variant="primary" size="lg" wide onClick={onCreate} disabled={createSaving}>
+          <Button
+            type="button"
+            variant="primary"
+            size="lg"
+            wide
+            onClick={onCreate}
+            disabled={createSaving}
+          >
             {createSaving ? '생성 중…' : '생성'}
           </Button>
           <Button type="button" variant="ghost" wide onClick={() => setCreateOpen(false)}>
@@ -261,13 +291,9 @@ function StatChip({
       style={{
         ...statChip,
         background:
-          tint === 'mint'
-            ? 'rgba(114,215,199,0.16)'
-            : 'rgba(243,180,156,0.16)',
+          tint === 'mint' ? 'rgba(114,215,199,0.16)' : 'rgba(243,180,156,0.16)',
         borderColor:
-          tint === 'mint'
-            ? 'rgba(114,215,199,0.26)'
-            : 'rgba(243,180,156,0.26)'
+          tint === 'mint' ? 'rgba(114,215,199,0.26)' : 'rgba(243,180,156,0.26)'
       }}
     >
       <div style={statLabel}>{label}</div>
@@ -286,7 +312,7 @@ function ChannelRow({
   return (
     <button type="button" style={rowBtn} onClick={onClick}>
       <div style={rowTop}>
-        <div>
+        <div style={{ minWidth: 0 }}>
           <div style={rowTitle}>{channel.name}</div>
           <div style={rowDesc}>{channel.description ?? '설명 없음'}</div>
         </div>
@@ -303,20 +329,11 @@ function ChannelRow({
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label style={field}>
-      <div style={fieldLabel}>{label}</div>
-      {children}
-    </label>
-  );
-}
-
 function EmptyState({ text }: { text: string }) {
   return (
-    <div style={emptyCard}>
+    <Card style={emptyCard}>
       <div style={emptyText}>{text}</div>
-    </div>
+    </Card>
   );
 }
 
@@ -327,6 +344,15 @@ function SkeletonCard() {
       <div style={skeletonLineMd} />
       <div style={skeletonLineSm} />
     </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label style={field}>
+      <div style={fieldLabel}>{label}</div>
+      {children}
+    </label>
   );
 }
 
@@ -373,7 +399,7 @@ const heroCard: CSSProperties = {
   boxShadow: '0 20px 42px rgba(77,90,110,0.10)'
 };
 
-const badgeMint: CSSProperties = {
+const heroBadge: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   height: 28,
@@ -403,7 +429,7 @@ const heroDesc: CSSProperties = {
   lineHeight: 1.65
 };
 
-const heroSummary: CSSProperties = {
+const statRow: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr',
   gap: 10
@@ -436,4 +462,225 @@ const heroActions: CSSProperties = {
   marginTop: 16
 };
 
-const sectionCard:
+const sectionCard: CSSProperties = {
+  borderRadius: 24
+};
+
+const sectionHead: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: 12,
+  alignItems: 'flex-start'
+};
+
+const list: CSSProperties = {
+  display: 'grid',
+  gap: 12
+};
+
+const rowBtn: CSSProperties = {
+  textAlign: 'left',
+  width: '100%',
+  padding: 18,
+  borderRadius: 22,
+  border: '1px solid rgba(255,255,255,0.62)',
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.64))',
+  boxShadow: '0 14px 32px rgba(77,90,110,0.08)'
+};
+
+const rowTop: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 12
+};
+
+const rowTitle: CSSProperties = {
+  fontSize: 18,
+  fontWeight: 800,
+  color: '#24313a'
+};
+
+const rowArrow: CSSProperties = {
+  fontSize: 22,
+  color: '#89a6a0',
+  fontWeight: 700,
+  flexShrink: 0
+};
+
+const rowDesc: CSSProperties = {
+  marginTop: 8,
+  color: '#5f6b73',
+  fontSize: 14,
+  lineHeight: 1.6
+};
+
+const rowMeta: CSSProperties = {
+  display: 'flex',
+  gap: 8,
+  flexWrap: 'wrap',
+  marginTop: 12
+};
+
+const metaPill: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  height: 30,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'rgba(114,215,199,0.12)',
+  border: '1px solid rgba(114,215,199,0.2)',
+  color: '#55746d',
+  fontSize: 12,
+  fontWeight: 800
+};
+
+const emptyCard: CSSProperties = {
+  borderRadius: 22,
+  textAlign: 'center'
+};
+
+const emptyText: CSSProperties = {
+  color: '#78848c',
+  fontSize: 14,
+  lineHeight: 1.6
+};
+
+const skeletonCard: CSSProperties = {
+  padding: 18,
+  borderRadius: 22,
+  border: '1px solid rgba(255,255,255,0.62)',
+  background: 'rgba(255,255,255,0.62)'
+};
+
+const skeletonLineLg: CSSProperties = {
+  width: '52%',
+  height: 18,
+  borderRadius: 999,
+  background: 'rgba(200,210,216,0.55)'
+};
+
+const skeletonLineMd: CSSProperties = {
+  width: '74%',
+  height: 12,
+  borderRadius: 999,
+  background: 'rgba(200,210,216,0.42)',
+  marginTop: 12
+};
+
+const skeletonLineSm: CSSProperties = {
+  width: '32%',
+  height: 12,
+  borderRadius: 999,
+  background: 'rgba(200,210,216,0.35)',
+  marginTop: 10
+};
+
+const errorCard: CSSProperties = {
+  borderRadius: 24,
+  border: '1px solid rgba(232,162,150,0.38)',
+  background: 'rgba(255,244,241,0.82)',
+  marginBottom: 12
+};
+
+const errorTitle: CSSProperties = {
+  color: '#8e4f4f',
+  fontSize: 16,
+  fontWeight: 800
+};
+
+const errorText: CSSProperties = {
+  marginTop: 8,
+  color: '#7c6666',
+  fontSize: 14,
+  lineHeight: 1.55
+};
+
+const sheetBackdrop: CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(32,39,43,0.36)',
+  display: 'flex',
+  alignItems: 'flex-end',
+  justifyContent: 'center',
+  padding: 12,
+  zIndex: 1000
+};
+
+const sheet: CSSProperties = {
+  width: '100%',
+  maxWidth: 430,
+  borderRadius: 28,
+  background: 'rgba(255,255,255,0.92)',
+  border: '1px solid rgba(255,255,255,0.72)',
+  boxShadow: '0 20px 48px rgba(31,42,51,0.18)',
+  backdropFilter: 'blur(18px)',
+  padding: '10px 16px 18px'
+};
+
+const sheetHandleWrap: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'center',
+  padding: '4px 0 8px'
+};
+
+const sheetHandle: CSSProperties = {
+  width: 54,
+  height: 6,
+  borderRadius: 999,
+  background: 'rgba(129,141,148,0.28)'
+};
+
+const sheetHeader: CSSProperties = {
+  display: 'grid',
+  gap: 6,
+  padding: '4px 4px 0'
+};
+
+const sheetEyebrow: CSSProperties = {
+  fontSize: 11,
+  fontWeight: 900,
+  letterSpacing: '0.08em',
+  color: '#83a39a'
+};
+
+const sheetTitle: CSSProperties = {
+  fontSize: 22,
+  fontWeight: 800,
+  color: '#24313a'
+};
+
+const sheetDesc: CSSProperties = {
+  color: '#6c7780',
+  fontSize: 14,
+  lineHeight: 1.55
+};
+
+const field: CSSProperties = {
+  display: 'grid',
+  gap: 8
+};
+
+const fieldLabel: CSSProperties = {
+  fontSize: 13,
+  fontWeight: 800,
+  color: '#3d4a52'
+};
+
+const input: CSSProperties = {
+  width: '100%',
+  height: 52,
+  borderRadius: 18,
+  border: '1px solid rgba(202,212,220,0.9)',
+  background: 'rgba(255,255,255,0.82)',
+  padding: '0 16px',
+  fontSize: 15,
+  color: '#24313a',
+  outline: 'none'
+};
+
+const actionGrid: CSSProperties = {
+  display: 'grid',
+  gap: 10,
+  marginTop: 4
+};
