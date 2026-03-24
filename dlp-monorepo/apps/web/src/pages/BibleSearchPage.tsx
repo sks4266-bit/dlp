@@ -1,13 +1,29 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode
+} from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import TopBar from '../components/layout/TopBar';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../auth/AuthContext';
+import Button from '../ui/Button';
+import { Card, CardDesc, CardEyebrow, CardTitle } from '../ui/Card';
 
-// Korean Protestant 66-book canonical order (for stable sorting)
+// Korean Protestant 66-book canonical order
 const CANON = [
-  '창세기','출애굽기','레위기','민수기','신명기','여호수아','사사기','룻기','사무엘상','사무엘하','열왕기상','열왕기하','역대상','역대하','에스라','느헤미야','에스더','욥기','시편','잠언','전도서','아가','이사야','예레미야','예레미야애가','에스겔','다니엘','호세아','요엘','아모스','오바댜','요나','미가','나훔','하박국','스바냐','학개','스가랴','말라기',
-  '마태복음','마가복음','누가복음','요한복음','사도행전','로마서','고린도전서','고린도후서','갈라디아서','에베소서','빌립보서','골로새서','데살로니가전서','데살로니가후서','디모데전서','디모데후서','디도서','빌레몬서','히브리서','야고보서','베드로전서','베드로후서','요한일서','요한이서','요한삼서','유다서','요한계시록'
+  '창세기', '출애굽기', '레위기', '민수기', '신명기', '여호수아', '사사기', '룻기',
+  '사무엘상', '사무엘하', '열왕기상', '열왕기하', '역대상', '역대하', '에스라', '느헤미야',
+  '에스더', '욥기', '시편', '잠언', '전도서', '아가', '이사야', '예레미야', '예레미야애가',
+  '에스겔', '다니엘', '호세아', '요엘', '아모스', '오바댜', '요나', '미가', '나훔',
+  '하박국', '스바냐', '학개', '스가랴', '말라기', '마태복음', '마가복음', '누가복음',
+  '요한복음', '사도행전', '로마서', '고린도전서', '고린도후서', '갈라디아서', '에베소서',
+  '빌립보서', '골로새서', '데살로니가전서', '데살로니가후서', '디모데전서', '디모데후서',
+  '디도서', '빌레몬서', '히브리서', '야고보서', '베드로전서', '베드로후서', '요한일서',
+  '요한이서', '요한삼서', '유다서', '요한계시록'
 ] as const;
 
 const canonIndex = new Map<string, number>(CANON.map((b, i) => [b, i]));
@@ -63,7 +79,6 @@ function highlightText(text: string, needles: string[]) {
   if (!list.length) return text;
 
   const sorted = list.slice().sort((a, b) => b.length - a.length);
-
   let nodes: any[] = [text];
   let keySeq = 0;
 
@@ -87,9 +102,8 @@ function highlightText(text: string, needles: string[]) {
       for (let i = 0; i < parts.length; i++) {
         if (parts[i]) next.push(parts[i]);
         if (i < matches.length) {
-          const k = `m-${needle}-${keySeq++}`;
           next.push(
-            <span key={k} style={mark}>
+            <span key={`mark-${needle}-${keySeq++}`} style={mark}>
               {matches[i]}
             </span>
           );
@@ -110,13 +124,17 @@ function rateLimitReasonLabel(payload: any) {
     return code;
   };
 
-  const exceeded = Array.isArray(payload?.exceeded) ? payload.exceeded.map((x: any) => String(x)) : [];
+  const exceeded = Array.isArray(payload?.exceeded)
+    ? payload.exceeded.map((x: any) => String(x))
+    : [];
   if (exceeded.length) return exceeded.map(mapCode).join(' · ');
 
   const reason = String(payload?.reason ?? '');
   if (reason === 'ACCOUNT_LIMIT') return mapCode('ACCOUNT');
   if (reason === 'DEVICE_LIMIT') return mapCode('DEVICE');
-  if (reason === 'ACCOUNT_AND_DEVICE_LIMIT') return `${mapCode('ACCOUNT')} · ${mapCode('DEVICE')}`;
+  if (reason === 'ACCOUNT_AND_DEVICE_LIMIT') {
+    return `${mapCode('ACCOUNT')} · ${mapCode('DEVICE')}`;
+  }
   if (reason === 'ANON_LIMIT') return '익명 요청이 너무 많아요';
 
   return '';
@@ -168,11 +186,13 @@ export default function BibleSearchPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [offset, setOffset] = useState(0);
+
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [nowTick, setNowTick] = useState(() => Date.now());
   const [autoRetry, setAutoRetry] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [toast, setToast] = useState<null | { msg: string; kind: 'ok' | 'warn' }>(null);
+
   const retryPlanRef = useRef<
     | null
     | { kind: 'search'; q: string; offset: number }
@@ -185,7 +205,9 @@ export default function BibleSearchPage() {
   const [ctxLoading, setCtxLoading] = useState(false);
   const [ctxErr, setCtxErr] = useState<string | null>(null);
   const [ctxData, setCtxData] = useState<ContextPayload | null>(null);
-  const [ctxFocus, setCtxFocus] = useState<{ book: string; c: number; v: number } | null>(null);
+  const [ctxFocus, setCtxFocus] = useState<{ book: string; c: number; v: number } | null>(
+    null
+  );
 
   const limit = 20;
 
@@ -210,12 +232,16 @@ export default function BibleSearchPage() {
     }
 
     setRecent((prev) => upsertRecent(prev, query));
-
     setLoading(true);
     setError(null);
 
     try {
-      const url = `/api/bible/search?${new URLSearchParams({ q: query, limit: String(limit), offset: String(nextOffset) }).toString()}`;
+      const url = `/api/bible/search?${new URLSearchParams({
+        q: query,
+        limit: String(limit),
+        offset: String(nextOffset)
+      }).toString()}`;
+
       const res = await apiFetch(url);
       const j = await res.json().catch(() => ({}));
 
@@ -227,20 +253,24 @@ export default function BibleSearchPage() {
       if (res.status === 429) {
         const resetAt = Number(res.headers.get('X-RateLimit-Reset') ?? 0);
         const waitMs = resetAt ? Math.max(1000, resetAt - Date.now()) : 30_000;
+
         setCooldownUntil(Date.now() + waitMs);
         retryPlanRef.current = { kind: 'search', q: query, offset: nextOffset };
 
         const label = rateLimitReasonLabel(j);
         const reasonLabel = label ? ` (${label})` : '';
         const loginHint = !authLoading && !isAuthed ? ' 로그인하면 제한이 완화될 수 있어요.' : '';
-        const baseMsg = j?.message || `요청이 너무 많습니다.${reasonLabel} ${Math.ceil(waitMs / 1000)}초 후 다시 시도해주세요.`;
-        setError(`${baseMsg}${loginHint}`);
+        const baseMsg =
+          j?.message ||
+          `요청이 너무 많습니다.${reasonLabel} ${Math.ceil(waitMs / 1000)}초 후 다시 시도해주세요.`;
 
+        setError(`${baseMsg}${loginHint}`);
         setData(null);
         return false;
       }
 
       if (!res.ok) throw new Error(j?.message || j?.error || 'SEARCH_FAILED');
+
       setData(j);
       setOffset(nextOffset);
       lastAutoRunRef.current = query;
@@ -262,7 +292,13 @@ export default function BibleSearchPage() {
     setCtxFocus({ book: it.book, c: it.c, v: it.v });
 
     try {
-      const url = `/api/bible/context?${new URLSearchParams({ book: it.book, c: String(it.c), v: String(it.v), radius: '3' }).toString()}`;
+      const url = `/api/bible/context?${new URLSearchParams({
+        book: it.book,
+        c: String(it.c),
+        v: String(it.v),
+        radius: '3'
+      }).toString()}`;
+
       const res = await apiFetch(url);
       const j = await res.json().catch(() => ({}));
 
@@ -274,18 +310,23 @@ export default function BibleSearchPage() {
       if (res.status === 429) {
         const resetAt = Number(res.headers.get('X-RateLimit-Reset') ?? 0);
         const waitMs = resetAt ? Math.max(1000, resetAt - Date.now()) : 10_000;
+
         setCooldownUntil(Date.now() + waitMs);
         retryPlanRef.current = { kind: 'context', it };
 
         const label = rateLimitReasonLabel(j);
         const reasonLabel = label ? ` (${label})` : '';
         const loginHint = !authLoading && !isAuthed ? ' 로그인하면 제한이 완화될 수 있어요.' : '';
-        const baseMsg = j?.message || `요청이 너무 많습니다.${reasonLabel} ${Math.ceil(waitMs / 1000)}초 후 다시 시도해주세요.`;
+        const baseMsg =
+          j?.message ||
+          `요청이 너무 많습니다.${reasonLabel} ${Math.ceil(waitMs / 1000)}초 후 다시 시도해주세요.`;
+
         setCtxErr(`${baseMsg}${loginHint}`);
         return false;
       }
 
       if (!res.ok) throw new Error(j?.message || j?.error || 'CONTEXT_FAILED');
+
       setCtxData(j);
       return true;
     } catch (e: any) {
@@ -328,9 +369,10 @@ export default function BibleSearchPage() {
     setRetrying(true);
 
     const p = plan.kind === 'search' ? run(plan.q, plan.offset) : openContext(plan.it);
+
     Promise.resolve(p)
       .then((ok) => {
-        if (ok) setToast({ msg: '성공했어요', kind: 'ok' });
+        if (ok) setToast({ msg: '재시도 성공', kind: 'ok' });
         else setToast({ msg: '다시 제한됨', kind: 'warn' });
       })
       .catch(() => {
@@ -361,6 +403,12 @@ export default function BibleSearchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 1500);
+    return () => clearTimeout(id);
+  }, [toast]);
+
   const needles = useMemo(() => {
     if (data?.kind === 'text' && data.parsed?.terms?.length) return data.parsed.terms;
     return tokenizeNeedles(q);
@@ -379,214 +427,255 @@ export default function BibleSearchPage() {
       });
   }, [data]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const id = setTimeout(() => setToast(null), 1500);
-    return () => clearTimeout(id);
-  }, [toast]);
-
   const showCooldown = isCooling || retrying;
 
   return (
-    <div>
-      <TopBar title="성경 검색" backTo="/" />
+    <div className="sanctuaryPage">
+      <div className="sanctuaryPageInner">
+        <TopBar title="성경 검색" backTo="/" />
 
-      {toast ? (
-        <div style={toastWrap}>
-          <div style={toast.kind === 'ok' ? toastOk : toastWarn}>{toast.msg}</div>
-        </div>
-      ) : null}
+        {toast ? (
+          <div style={toastWrap}>
+            <div style={toast.kind === 'ok' ? toastOk : toastWarn}>{toast.msg}</div>
+          </div>
+        ) : null}
 
-      <section style={card}>
-        <div style={{ fontWeight: 950 }}>단어/구절 검색</div>
-        <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') run(q, 0);
-            }}
-            placeholder="예) 믿음 / 태초 / 하나님 은혜 / 믿음 OR 소망"
-            style={input}
-          />
-          <button type="button" style={ghostBtn} onClick={() => run(q, 0)} disabled={loading || isCooling}>
-            {isCooling ? `${cooldownSec}s` : loading ? '…' : '검색'}
-          </button>
-        </div>
-        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', lineHeight: 1.45 }}>
-          지원: <b>정규화 검색</b>(공백/구두점 무시 + 단순 조사 제거) · <b>AND</b>(공백) · <b>OR</b>(<code>|</code> / OR / 또는)
-          <span style={{ marginLeft: 8 }}>(입력 멈춤 350ms 후 자동검색)</span>
-        </div>
+        <Card style={heroCard}>
+          <div style={badgeMint}>BIBLE SEARCH</div>
+          <div style={heroTitle}>단어와 구절로 성경을 빠르게 찾아보세요</div>
+          <div style={heroDesc}>
+            단어 검색, OR 검색, 구절 직접 입력, 문맥 보기까지 한 흐름으로 정리했습니다.
+          </div>
 
-        {showCooldown ? (
-          <div style={cooldownBox}>
-            <div>
-              {retrying ? (
-                <>재시도 중입니다… 잠시만요.</>
-              ) : (
-                <>
-                  요청이 많아 잠시 대기 중입니다. <b>{cooldownSec}초</b> 후 다시 시도해주세요.
-                </>
-              )}
-            </div>
+          <div style={{ height: 14 }} />
 
-            {!authLoading && !isAuthed ? (
-              <div style={{ marginTop: 6, color: 'var(--muted)' }}>
-                로그인하면 제한이 완화될 수 있어요.
+          <div style={searchRow}>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') run(q, 0);
+              }}
+              placeholder="예) 믿음 / 태초 / 하나님 은혜 / 믿음 OR 소망 / 요한복음 3:16"
+              style={searchInput}
+            />
+            <Button
+              variant="primary"
+              onClick={() => run(q, 0)}
+              disabled={loading || isCooling}
+            >
+              {isCooling ? `${cooldownSec}s` : loading ? '검색 중…' : '검색'}
+            </Button>
+          </div>
+
+          <div style={guideText}>
+            지원: 정규화 검색 · AND(공백) · OR(<code>|</code> / OR / 또는)
+            <span style={{ marginLeft: 8 }}>입력 후 350ms 멈추면 자동 검색</span>
+          </div>
+
+          {showCooldown ? (
+            <div style={cooldownBox}>
+              <div style={cooldownTitle}>
+                {retrying
+                  ? '재시도 중입니다… 잠시만요.'
+                  : `요청이 많아 잠시 대기 중입니다. ${cooldownSec}초 후 다시 시도해주세요.`}
               </div>
-            ) : null}
-
-            <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                style={ghostBtn}
-                onClick={() => setAutoRetry((v) => !v)}
-                disabled={retrying}
-              >
-                {retrying ? '재시도 중…' : autoRetry ? `자동 재시도까지 ${cooldownSec}초 (취소)` : `${cooldownSec}초 후 자동 재시도`}
-              </button>
 
               {!authLoading && !isAuthed ? (
-                <button type="button" style={ghostBtn} onClick={goLogin}>
-                  로그인
-                </button>
+                <div style={cooldownDesc}>로그인하면 제한이 완화될 수 있어요.</div>
               ) : null}
-            </div>
-          </div>
-        ) : null}
 
-        {recent.length ? (
-          <div style={{ marginTop: 10 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 900 }}>최근 검색</div>
-              <button
-                type="button"
-                style={tinyBtn}
-                onClick={() => {
-                  setRecent([]);
-                  try {
-                    localStorage.removeItem(RECENT_KEY);
-                  } catch {
-                    // ignore
-                  }
-                }}
-              >
-                지우기
-              </button>
+              <div style={cooldownActions}>
+                <Button
+                  variant="ghost"
+                  onClick={() => setAutoRetry((v) => !v)}
+                  disabled={retrying}
+                >
+                  {retrying
+                    ? '재시도 중…'
+                    : autoRetry
+                      ? `자동 재시도 ${cooldownSec}초 (취소)`
+                      : `${cooldownSec}초 후 자동 재시도`}
+                </Button>
+
+                {!authLoading && !isAuthed ? (
+                  <Button variant="secondary" onClick={goLogin}>
+                    로그인
+                  </Button>
+                ) : null}
+              </div>
             </div>
-            <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {recent.slice(0, 8).map((x) => (
-                <button
-                  key={x}
-                  type="button"
-                  style={chip}
+          ) : null}
+
+          {recent.length ? (
+            <div style={{ marginTop: 14 }}>
+              <div style={recentHead}>
+                <div style={recentTitle}>최근 검색</div>
+                <Button
+                  variant="ghost"
                   onClick={() => {
-                    setQ(x);
-                    run(x, 0);
+                    setRecent([]);
+                    try {
+                      localStorage.removeItem(RECENT_KEY);
+                    } catch {
+                      // ignore
+                    }
                   }}
                 >
-                  {x}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-      </section>
-
-      <div style={{ height: 12 }} />
-
-      {error ? <div style={errorBox}>오류: {error}</div> : null}
-
-      {data?.kind === 'ref' ? (
-        <section style={card}>
-          <div style={{ fontWeight: 950, fontSize: 16 }}>{data.ref}</div>
-          <div style={{ height: 10 }} />
-          <pre style={textBox}>{highlightText(data.text, needles)}</pre>
-        </section>
-      ) : null}
-
-      {data?.kind === 'text' ? (
-        <>
-          <section style={card}>
-            <div style={{ fontWeight: 950 }}>검색 결과</div>
-            <div style={{ marginTop: 6, fontSize: 12, color: 'var(--muted)' }}>
-              {data.total}개 중 {data.offset + 1}~{Math.min(data.offset + data.items.length, data.total)}
-              <span style={{ marginLeft: 8 }}>(정렬: 구절 번호 순)</span>
-            </div>
-
-            {data.parsed ? (
-              <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', lineHeight: 1.4 }}>
-                해석: <b>{data.parsed.mode.toUpperCase()}</b> · 토큰 {data.parsed.terms.length}개
-                <div style={{ marginTop: 4 }}>
-                  {data.parsed.groups.map((g, i) => (
-                    <div key={i}>
-                      {data.parsed!.mode === 'or' ? `OR-${i + 1}: ` : 'AND: '}
-                      {g.join(' + ')}
-                    </div>
-                  ))}
-                </div>
+                  지우기
+                </Button>
               </div>
-            ) : null}
-          </section>
 
-          <div style={{ height: 10 }} />
+              <div style={chipWrap}>
+                {recent.slice(0, 8).map((x) => (
+                  <button
+                    key={x}
+                    type="button"
+                    style={chip}
+                    onClick={() => {
+                      setQ(x);
+                      run(x, 0);
+                    }}
+                  >
+                    {x}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </Card>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
-            {sortedItems.map((it) => {
-              const snippet = it.snippet || '';
-              return (
-                <button key={`${it.book}-${it.c}-${it.v}`} type="button" style={rowBtn} onClick={() => openContext(it)}>
-                  <div style={{ fontWeight: 950 }}>{it.book} {it.c}:{it.v}</div>
+        <div style={{ height: 12 }} />
 
-                  {snippet ? (
-                    <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.45, color: 'var(--text)' }}>
-                      {highlightText(snippet, needles)}
-                    </div>
-                  ) : null}
+        {error ? <ErrorBox text={error} /> : null}
 
-                  <div style={{ marginTop: snippet ? 6 : 4, fontSize: 12, lineHeight: 1.45, color: 'var(--muted)' }}>
-                    {highlightText(it.t, needles)}
+        {data?.kind === 'ref' ? (
+          <>
+            <Card style={resultHeadCard}>
+              <CardEyebrow>REFERENCE</CardEyebrow>
+              <CardTitle>{data.ref}</CardTitle>
+              <CardDesc>직접 입력한 본문 결과입니다.</CardDesc>
+            </Card>
+
+            <div style={{ height: 10 }} />
+
+            <Card style={resultCard}>
+              <pre style={textBox}>{highlightText(data.text, needles)}</pre>
+            </Card>
+          </>
+        ) : null}
+
+        {data?.kind === 'text' ? (
+          <>
+            <Card style={resultHeadCard}>
+              <div style={resultHeadTop}>
+                <div>
+                  <CardEyebrow>SEARCH RESULT</CardEyebrow>
+                  <CardTitle>검색 결과</CardTitle>
+                  <CardDesc>
+                    {data.total}개 중 {data.offset + 1}~{Math.min(data.offset + data.items.length, data.total)}개
+                  </CardDesc>
+                </div>
+                <div style={summaryPill}>정렬: 구절 번호 순</div>
+              </div>
+
+              {data.parsed ? (
+                <div style={parsedBox}>
+                  <div style={parsedTitle}>
+                    해석: <b>{data.parsed.mode.toUpperCase()}</b> · 토큰 {data.parsed.terms.length}개
                   </div>
+                  <div style={{ marginTop: 6 }}>
+                    {data.parsed.groups.map((g, i) => (
+                      <div key={i} style={parsedLine}>
+                        {data.parsed!.mode === 'or' ? `OR-${i + 1}: ` : 'AND: '}
+                        {g.join(' + ')}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </Card>
 
-                  <div style={{ marginTop: 6, fontSize: 11, color: 'var(--muted)' }}>탭하면 앞뒤 3절 문맥을 보여줍니다.</div>
-                </button>
-              );
-            })}
-          </div>
+            <div style={{ height: 10 }} />
 
-          <div style={{ height: 12 }} />
+            <div style={cardsStack}>
+              {sortedItems.map((it) => {
+                const snippet = it.snippet || '';
+                return (
+                  <button
+                    key={`${it.book}-${it.c}-${it.v}`}
+                    type="button"
+                    style={readingCard}
+                    onClick={() => openContext(it)}
+                  >
+                    <div style={readingHead}>
+                      <div>
+                        <div style={readingRef}>
+                          {it.book} {it.c}:{it.v}
+                        </div>
+                      </div>
+                      <div style={openHint}>문맥 보기</div>
+                    </div>
 
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button type="button" style={ghostBtnWide} disabled={loading || isCooling || offset <= 0} onClick={() => run(q, Math.max(0, offset - limit))}>
-              이전
-            </button>
-            <button type="button" style={ghostBtnWide} disabled={loading || isCooling || offset + limit >= data.total} onClick={() => run(q, offset + limit)}>
-              다음
-            </button>
-          </div>
-        </>
-      ) : null}
+                    {snippet ? (
+                      <div style={snippetBox}>{highlightText(snippet, needles)}</div>
+                    ) : null}
+
+                    <div style={verseBox}>{highlightText(it.t, needles)}</div>
+
+                    <div style={cardHint}>탭하면 앞뒤 3절 문맥을 보여줍니다.</div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ height: 12 }} />
+
+            <div style={pagerRow}>
+              <Button
+                variant="ghost"
+                wide
+                disabled={loading || isCooling || offset <= 0}
+                onClick={() => run(q, Math.max(0, offset - limit))}
+              >
+                이전
+              </Button>
+              <Button
+                variant="ghost"
+                wide
+                disabled={loading || isCooling || offset + limit >= data.total}
+                onClick={() => run(q, offset + limit)}
+              >
+                다음
+              </Button>
+            </div>
+          </>
+        ) : null}
+      </div>
 
       <BottomSheet open={ctxOpen} onClose={() => setCtxOpen(false)}>
-        <div style={{ fontWeight: 950, fontSize: 16 }}>문맥 보기 (앞뒤 3절)</div>
-        {ctxFocus ? (
-          <div style={{ marginTop: 6, fontSize: 12, color: 'var(--muted)', fontWeight: 900 }}>
-            {ctxFocus.book} {ctxFocus.c}:{ctxFocus.v}
-          </div>
-        ) : null}
+        <div style={sheetTitleWrap}>
+          <div style={sheetEyebrow}>CONTEXT</div>
+          <div style={sheetTitle}>문맥 보기 (앞뒤 3절)</div>
+          {ctxFocus ? (
+            <div style={sheetDesc}>
+              {ctxFocus.book} {ctxFocus.c}:{ctxFocus.v}
+            </div>
+          ) : null}
+        </div>
 
-        <div style={{ height: 10 }} />
+        <div style={{ height: 12 }} />
 
-        {ctxLoading ? <div style={{ color: 'var(--muted)' }}>불러오는 중…</div> : null}
-        {ctxErr ? <div style={errorBox}>오류: {ctxErr}</div> : null}
+        {ctxLoading ? <div style={loadingText}>불러오는 중…</div> : null}
+        {ctxErr ? <ErrorBox text={ctxErr} /> : null}
 
         {ctxData ? (
           <div style={previewBox}>
             {ctxData.verses.map((x) => {
               const focused = x.c === ctxData.focus.c && x.v === ctxData.focus.v;
               return (
-                <div key={`${x.c}:${x.v}`} style={{ lineHeight: 1.65 }}>
-                  <span style={{ fontWeight: 950, marginRight: 6 }}>{x.v}</span>
+                <div key={`${x.c}:${x.v}`} style={previewLine}>
+                  <span style={verseNum}>{x.v}</span>
                   <span style={focused ? focusLine : undefined}>{highlightText(x.t, needles)}</span>
                 </div>
               );
@@ -594,12 +683,12 @@ export default function BibleSearchPage() {
           </div>
         ) : null}
 
-        <div style={{ height: 10 }} />
+        <div style={{ height: 12 }} />
 
         {ctxFocus ? (
-          <button
-            type="button"
-            style={ghostBtnWide}
+          <Button
+            variant="primary"
+            wide
             onClick={() => {
               const ref = `${ctxFocus.book} ${ctxFocus.c}:${ctxFocus.v}`;
               nav(`/bible?${new URLSearchParams({ ref }).toString()}`);
@@ -607,213 +696,462 @@ export default function BibleSearchPage() {
             }}
           >
             전체 본문 열기
-          </button>
+          </Button>
         ) : null}
       </BottomSheet>
     </div>
   );
 }
 
-function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: any }) {
+function BottomSheet({
+  open,
+  onClose,
+  children
+}: {
+  open: boolean;
+  onClose: () => void;
+  children: ReactNode;
+}) {
   if (!open) return null;
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.35)',
-        display: 'flex',
-        alignItems: 'flex-end',
-        justifyContent: 'center',
-        padding: 12,
-        zIndex: 1000
-      }}
+      style={sheetBackdrop}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: 520,
-          borderRadius: 18,
-          background: 'var(--card)',
-          border: '1px solid var(--border)',
-          padding: 14,
-          boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
-          color: 'var(--text)'
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
-          <div style={{ width: 46, height: 5, borderRadius: 999, background: 'var(--border)' }} />
+      <div onClick={(e) => e.stopPropagation()} style={sheetPanel}>
+        <div style={sheetHandleWrap}>
+          <div style={sheetHandle} />
         </div>
         {children}
         <div style={{ height: 10 }} />
-        <button type="button" onClick={onClose} style={{ ...ghostBtnWide, width: '100%' }}>
+        <Button variant="ghost" wide onClick={onClose}>
           닫기
-        </button>
+        </Button>
       </div>
     </div>
   );
 }
 
-const card: React.CSSProperties = {
-  padding: 14,
-  borderRadius: 14,
-  border: '1px solid var(--border)',
-  background: 'var(--card)',
-  color: 'var(--text)'
+function ErrorBox({ text }: { text: string }) {
+  return (
+    <Card style={errorCard}>
+      <div style={errorTitle}>오류가 발생했습니다</div>
+      <div style={errorText}>{text}</div>
+    </Card>
+  );
+}
+
+const heroCard: CSSProperties = {
+  borderRadius: 28,
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.80), rgba(255,255,255,0.68))',
+  border: '1px solid rgba(255,255,255,0.56)',
+  boxShadow: '0 20px 42px rgba(77,90,110,0.10)'
 };
 
-const input: React.CSSProperties = {
-  flex: 1,
-  height: 40,
+const badgeMint: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  height: 28,
   padding: '0 12px',
-  borderRadius: 12,
-  border: '1px solid var(--border)',
-  background: 'var(--card)',
-  color: 'var(--text)',
+  borderRadius: 999,
+  background: 'rgba(114,215,199,0.14)',
+  border: '1px solid rgba(114,215,199,0.24)',
+  color: '#2b7f72',
+  fontSize: 11,
+  fontWeight: 900,
+  letterSpacing: '0.08em'
+};
+
+const heroTitle: CSSProperties = {
+  marginTop: 12,
+  color: '#24313a',
+  fontSize: 28,
+  lineHeight: 1.18,
+  fontWeight: 800,
+  letterSpacing: '-0.02em'
+};
+
+const heroDesc: CSSProperties = {
+  marginTop: 10,
+  color: '#66737b',
+  fontSize: 14,
+  lineHeight: 1.65
+};
+
+const searchRow: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr) auto',
+  gap: 10,
+  alignItems: 'center'
+};
+
+const searchInput: CSSProperties = {
+  minWidth: 0,
+  minHeight: 48,
+  padding: '0 16px',
+  borderRadius: 16,
+  border: '1px solid rgba(255,255,255,0.58)',
+  background: 'rgba(255,255,255,0.68)',
+  color: '#33424b',
+  fontWeight: 700,
+  outline: 'none'
+};
+
+const guideText: CSSProperties = {
+  marginTop: 10,
+  color: '#718089',
+  fontSize: 12,
+  lineHeight: 1.55
+};
+
+const cooldownBox: CSSProperties = {
+  marginTop: 12,
+  padding: 14,
+  borderRadius: 18,
+  border: '1px solid rgba(255,255,255,0.56)',
+  background: 'rgba(255,255,255,0.48)'
+};
+
+const cooldownTitle: CSSProperties = {
+  color: '#4c5a63',
+  fontSize: 13,
+  lineHeight: 1.55,
   fontWeight: 800
 };
 
-const ghostBtn: React.CSSProperties = {
-  height: 40,
-  padding: '0 12px',
-  borderRadius: 12,
-  border: '1px solid var(--border)',
-  background: 'var(--card)',
-  color: 'var(--text)',
+const cooldownDesc: CSSProperties = {
+  marginTop: 6,
+  color: '#718089',
+  fontSize: 12,
+  lineHeight: 1.5
+};
+
+const cooldownActions: CSSProperties = {
+  marginTop: 10,
+  display: 'flex',
+  gap: 8,
+  flexWrap: 'wrap'
+};
+
+const recentHead: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: 10
+};
+
+const recentTitle: CSSProperties = {
+  color: '#6e7b84',
+  fontSize: 12,
   fontWeight: 900
 };
 
-const ghostBtnWide: React.CSSProperties = {
-  flex: 1,
-  height: 44,
-  borderRadius: 14,
-  border: '1px solid var(--border)',
-  background: 'var(--card)',
-  color: 'var(--text)',
-  fontWeight: 950
+const chipWrap: CSSProperties = {
+  marginTop: 8,
+  display: 'flex',
+  gap: 8,
+  flexWrap: 'wrap'
 };
 
-const rowBtn: React.CSSProperties = {
-  textAlign: 'left',
+const chip: CSSProperties = {
+  height: 34,
+  padding: '0 12px',
+  borderRadius: 999,
+  border: '1px solid rgba(255,255,255,0.62)',
+  background: 'rgba(255,255,255,0.58)',
+  color: '#44525b',
+  fontSize: 12,
+  fontWeight: 800
+};
+
+const resultHeadCard: CSSProperties = {
+  borderRadius: 24
+};
+
+const resultCard: CSSProperties = {
+  borderRadius: 24
+};
+
+const resultHeadTop: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'flex-start',
+  gap: 12,
+  flexWrap: 'wrap'
+};
+
+const summaryPill: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 32,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'rgba(114,215,199,0.12)',
+  border: '1px solid rgba(114,215,199,0.24)',
+  color: '#2b7f72',
+  fontSize: 12,
+  fontWeight: 800
+};
+
+const parsedBox: CSSProperties = {
+  marginTop: 12,
   padding: 12,
-  borderRadius: 14,
-  border: '1px solid var(--border)',
-  background: 'var(--card)',
-  color: 'var(--text)'
+  borderRadius: 16,
+  background: 'rgba(255,255,255,0.48)',
+  border: '1px solid rgba(255,255,255,0.50)'
 };
 
-const textBox: React.CSSProperties = {
+const parsedTitle: CSSProperties = {
+  color: '#4f5e67',
+  fontSize: 12,
+  lineHeight: 1.5,
+  fontWeight: 800
+};
+
+const parsedLine: CSSProperties = {
+  color: '#718089',
+  fontSize: 12,
+  lineHeight: 1.45
+};
+
+const cardsStack: CSSProperties = {
+  display: 'grid',
+  gap: 10
+};
+
+const readingCard: CSSProperties = {
+  textAlign: 'left',
+  width: '100%',
+  padding: 16,
+  borderRadius: 22,
+  border: '1px solid rgba(255,255,255,0.58)',
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.64))',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)'
+};
+
+const readingHead: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: 12,
+  alignItems: 'flex-start'
+};
+
+const readingRef: CSSProperties = {
+  color: '#24313a',
+  fontSize: 18,
+  fontWeight: 800,
+  lineHeight: 1.2
+};
+
+const openHint: CSSProperties = {
+  color: '#2b7f72',
+  fontSize: 12,
+  fontWeight: 800,
+  whiteSpace: 'nowrap'
+};
+
+const snippetBox: CSSProperties = {
+  marginTop: 10,
+  padding: 12,
+  borderRadius: 16,
+  background: 'rgba(114,215,199,0.08)',
+  border: '1px solid rgba(114,215,199,0.18)',
+  color: '#33424b',
+  fontSize: 13,
+  lineHeight: 1.6
+};
+
+const verseBox: CSSProperties = {
+  marginTop: 10,
+  padding: 12,
+  borderRadius: 16,
+  background: 'rgba(255,255,255,0.52)',
+  border: '1px solid rgba(255,255,255,0.48)',
+  color: '#5a6971',
+  fontSize: 13,
+  lineHeight: 1.6
+};
+
+const cardHint: CSSProperties = {
+  marginTop: 8,
+  color: '#809099',
+  fontSize: 11,
+  fontWeight: 700
+};
+
+const pagerRow: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 10
+};
+
+const textBox: CSSProperties = {
   margin: 0,
   whiteSpace: 'pre-wrap',
-  fontSize: 13,
-  lineHeight: 1.6,
-  color: 'var(--text)',
-  padding: 12,
-  borderRadius: 12,
-  border: '1px solid var(--border)',
-  background: 'var(--soft)',
+  fontSize: 14,
+  lineHeight: 1.75,
+  color: '#33424b',
+  padding: 14,
+  borderRadius: 18,
+  background: 'rgba(255,255,255,0.52)',
+  border: '1px solid rgba(255,255,255,0.48)',
   maxHeight: 620,
   overflow: 'auto'
 };
 
-const previewBox: React.CSSProperties = {
-  padding: 10,
-  borderRadius: 12,
-  border: '1px solid var(--border)',
-  background: 'var(--soft)',
-  fontSize: 13,
-  color: 'var(--text)'
+const errorCard: CSSProperties = {
+  borderRadius: 22,
+  border: '1px solid rgba(232,162,150,0.38)',
+  background: 'rgba(255,244,241,0.84)',
+  marginBottom: 12
 };
 
-const cooldownBox: React.CSSProperties = {
-  marginTop: 10,
-  padding: 10,
-  borderRadius: 14,
-  border: '1px solid var(--border)',
-  background: 'var(--soft)',
-  color: 'var(--text)',
-  fontSize: 12,
-  fontWeight: 900
+const errorTitle: CSSProperties = {
+  color: '#8e4f4f',
+  fontSize: 16,
+  fontWeight: 800
 };
 
-const errorBox: React.CSSProperties = {
+const errorText: CSSProperties = {
+  marginTop: 8,
+  color: '#7c6666',
+  fontSize: 14,
+  lineHeight: 1.55
+};
+
+const previewBox: CSSProperties = {
   padding: 12,
-  borderRadius: 14,
-  border: '1px solid var(--danger-border)',
-  background: 'var(--danger-bg)',
-  color: 'var(--danger-text)',
-  fontWeight: 900
+  borderRadius: 18,
+  border: '1px solid rgba(255,255,255,0.48)',
+  background: 'rgba(255,255,255,0.50)',
+  color: '#33424b'
 };
 
-const focusLine: React.CSSProperties = {
-  background: 'rgba(255, 230, 0, 0.25)',
-  padding: '0 3px',
+const previewLine: CSSProperties = {
+  lineHeight: 1.7,
+  fontSize: 14
+};
+
+const verseNum: CSSProperties = {
+  display: 'inline-block',
+  minWidth: 20,
+  color: '#2b7f72',
+  fontWeight: 900,
+  marginRight: 6
+};
+
+const focusLine: CSSProperties = {
+  background: 'rgba(255, 236, 167, 0.72)',
+  padding: '0 4px',
   borderRadius: 6
 };
 
-const chip: React.CSSProperties = {
-  height: 30,
-  padding: '0 10px',
-  borderRadius: 999,
-  border: '1px solid var(--border)',
-  background: 'var(--soft)',
-  color: 'var(--text)',
-  fontSize: 12,
-  fontWeight: 900
+const loadingText: CSSProperties = {
+  color: '#718089',
+  fontSize: 14,
+  lineHeight: 1.5
 };
 
-const tinyBtn: React.CSSProperties = {
-  height: 28,
-  padding: '0 10px',
-  borderRadius: 10,
-  border: '1px solid var(--border)',
-  background: 'var(--card)',
-  color: 'var(--muted)',
-  fontSize: 12,
-  fontWeight: 900
-};
-
-const mark: React.CSSProperties = {
-  background: 'rgba(255, 230, 0, 0.35)',
-  padding: '0 3px',
+const mark: CSSProperties = {
+  background: 'rgba(255, 236, 167, 0.76)',
+  color: '#2f3a41',
   borderRadius: 6,
-  fontWeight: 950
+  padding: '0 3px'
 };
 
-const toastWrap: React.CSSProperties = {
+const toastWrap: CSSProperties = {
   position: 'fixed',
-  left: 0,
-  right: 0,
-  top: 10,
+  left: '50%',
+  top: 16,
+  transform: 'translateX(-50%)',
+  zIndex: 1200,
+  width: 'calc(100% - 28px)',
+  maxWidth: 430
+};
+
+const toastBase: CSSProperties = {
+  padding: '12px 14px',
+  borderRadius: 16,
+  boxShadow: '0 18px 36px rgba(77,90,110,0.14)',
+  fontSize: 13,
+  fontWeight: 800,
+  textAlign: 'center',
+  backdropFilter: 'blur(14px)',
+  WebkitBackdropFilter: 'blur(14px)'
+};
+
+const toastOk: CSSProperties = {
+  ...toastBase,
+  color: '#245e55',
+  background: 'rgba(232,249,245,0.92)',
+  border: '1px solid rgba(114,215,199,0.34)'
+};
+
+const toastWarn: CSSProperties = {
+  ...toastBase,
+  color: '#7a5b33',
+  background: 'rgba(255,247,226,0.94)',
+  border: '1px solid rgba(240,202,122,0.38)'
+};
+
+const sheetBackdrop: CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(25, 32, 39, 0.26)',
+  display: 'flex',
+  alignItems: 'flex-end',
+  justifyContent: 'center',
+  padding: 12,
+  zIndex: 1100
+};
+
+const sheetPanel: CSSProperties = {
+  width: '100%',
+  maxWidth: 430,
+  borderRadius: 28,
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.86))',
+  border: '1px solid rgba(255,255,255,0.62)',
+  padding: 16,
+  boxShadow: '0 24px 48px rgba(52, 63, 74, 0.18)'
+};
+
+const sheetHandleWrap: CSSProperties = {
   display: 'flex',
   justifyContent: 'center',
-  pointerEvents: 'none',
-  zIndex: 50
+  marginBottom: 10
 };
 
-const toastBase: React.CSSProperties = {
-  padding: '8px 12px',
+const sheetHandle: CSSProperties = {
+  width: 48,
+  height: 5,
   borderRadius: 999,
-  fontSize: 12,
-  fontWeight: 950,
-  border: '1px solid var(--border)',
-  background: 'var(--card)',
-  color: 'var(--text)',
-  boxShadow: '0 8px 20px rgba(0,0,0,0.18)'
+  background: 'rgba(139,153,165,0.35)'
 };
 
-const toastOk: React.CSSProperties = {
-  ...toastBase,
-  border: '1px solid rgba(34, 197, 94, 0.35)',
-  background: 'rgba(34, 197, 94, 0.10)'
+const sheetTitleWrap: CSSProperties = {
+  display: 'grid',
+  gap: 6
 };
 
-const toastWarn: React.CSSProperties = {
-  ...toastBase,
-  border: '1px solid rgba(245, 158, 11, 0.45)',
-  background: 'rgba(245, 158, 11, 0.10)'
+const sheetEyebrow: CSSProperties = {
+  color: '#83a39a',
+  fontSize: 11,
+  fontWeight: 900,
+  letterSpacing: '0.08em'
+};
+
+const sheetTitle: CSSProperties = {
+  color: '#24313a',
+  fontSize: 22,
+  fontWeight: 800,
+  lineHeight: 1.2
+};
+
+const sheetDesc: CSSProperties = {
+  color: '#6d7982',
+  fontSize: 13,
+  fontWeight: 700
 };
