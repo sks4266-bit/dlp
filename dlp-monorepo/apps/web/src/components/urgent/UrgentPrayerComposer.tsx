@@ -51,37 +51,45 @@ export default function UrgentPrayerComposer({ onDone, onUnauthorized }: Props) 
 
   return (
     <div style={wrapStyle}>
-      <div style={eyebrowStyle}>URGENT PRAYER</div>
-      <div style={titleStyle}>지금 함께 기도할 제목을 편하게 나눠주세요</div>
-      <div style={descStyle}>한 문장으로 간단히 적으면 실명으로 등록되고, 24시간 동안 공동체가 바로 함께 기도할 수 있어요.</div>
+      <div style={heroCard}>
+        <div style={eyebrowStyle}>URGENT PRAYER</div>
+        <div style={titleStyle}>지금 함께 기도할 제목을 나눠주세요</div>
+        <div style={descStyle}>홈 화면 톤과 같은 유리 질감 카드 위에서, 공동체가 바로 이해할 수 있도록 한 문장으로 또렷하게 작성하면 좋아요.</div>
 
-      <div style={chipRowStyle}>
-        <span style={chipStyle}>실명 표시</span>
-        <span style={chipStyle}>24시간 노출</span>
-        <span style={chipStyle}>한 건씩 작성</span>
+        <div style={chipRowStyle}>
+          <span style={chipPeach}>실명 표시</span>
+          <span style={chipMint}>24시간 노출</span>
+          <span style={chipNeutral}>한 번에 한 건</span>
+        </div>
       </div>
 
-      <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder="예) 수술을 앞둔 성도님을 위해 오늘 함께 기도 부탁드립니다."
-        style={textareaStyle}
-        maxLength={280}
-      />
+      <div style={editorCard}>
+        <label className="glassField" style={fieldReset}>
+          <div className="glassFieldLabel">기도 제목</div>
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="예) 수술을 앞둔 성도님이 평안 가운데 준비하고 회복할 수 있도록 함께 기도해주세요."
+            className="glassTextarea"
+            style={{ minHeight: 144 }}
+            maxLength={280}
+          />
+        </label>
 
-      <div style={exampleBoxStyle}>
-        <div style={exampleTitleStyle}>작성 팁</div>
-        <div style={exampleTextStyle}>누가 보아도 바로 이해되도록, 상황과 기도 포인트를 짧고 자연스럽게 적어주면 좋아요.</div>
+        <div style={exampleBoxStyle}>
+          <div style={exampleTitleStyle}>작성 팁</div>
+          <div style={exampleTextStyle}>누가, 어떤 상황인지 너무 길지 않게 적고, 함께 기도해주길 원하는 포인트를 자연스럽게 덧붙이면 더 읽기 쉬워집니다.</div>
+        </div>
+
+        {err ? <div style={errorStyle}>{err}</div> : null}
+
+        <div style={footerStyle}>
+          <div style={countStyle}>{content.length}/280</div>
+          <Button type="button" variant="primary" size="lg" onClick={submit} disabled={loading || content.trim().length === 0}>
+            {loading ? '등록 중…' : '기도제목 올리기'}
+          </Button>
+        </div>
       </div>
-
-      <div style={footerStyle}>
-        <div style={countStyle}>{content.length}/280</div>
-        <Button type="button" variant="primary" size="lg" onClick={submit} disabled={loading || content.trim().length === 0}>
-          {loading ? '등록 중…' : '기도제목 올리기'}
-        </Button>
-      </div>
-
-      {err ? <div style={errorStyle}>{err}</div> : null}
     </div>
   );
 }
@@ -89,6 +97,10 @@ export default function UrgentPrayerComposer({ onDone, onUnauthorized }: Props) 
 const wrapStyle: CSSProperties = {
   display: 'grid',
   gap: 12
+};
+
+const heroCard: CSSProperties = {
+  padding: '2px 0 0'
 };
 
 const eyebrowStyle: CSSProperties = {
@@ -99,14 +111,16 @@ const eyebrowStyle: CSSProperties = {
 };
 
 const titleStyle: CSSProperties = {
+  marginTop: 6,
   color: '#27343c',
-  fontSize: 20,
+  fontSize: 22,
   fontWeight: 800,
-  lineHeight: 1.35,
+  lineHeight: 1.28,
   letterSpacing: '-0.02em'
 };
 
 const descStyle: CSSProperties = {
+  marginTop: 8,
   color: '#697780',
   fontSize: 14,
   lineHeight: 1.6
@@ -115,35 +129,53 @@ const descStyle: CSSProperties = {
 const chipRowStyle: CSSProperties = {
   display: 'flex',
   flexWrap: 'wrap',
-  gap: 8
+  gap: 8,
+  marginTop: 12
 };
 
-const chipStyle: CSSProperties = {
+const chipBase: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 28,
   padding: '0 10px',
   borderRadius: 999,
-  background: 'rgba(243,180,156,0.16)',
-  border: '1px solid rgba(243,180,156,0.26)',
-  color: '#9b644f',
   fontSize: 12,
   fontWeight: 800
 };
 
-const textareaStyle: CSSProperties = {
-  width: '100%',
-  minHeight: 132,
-  borderRadius: 18,
-  border: '1px solid rgba(231, 216, 205, 0.96)',
-  background: 'rgba(255,255,255,0.82)',
-  padding: '14px 15px',
-  fontSize: 15,
-  lineHeight: 1.6,
-  color: '#33424b',
-  resize: 'none',
-  outline: 'none',
-  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.55)'
+const chipPeach: CSSProperties = {
+  ...chipBase,
+  background: 'rgba(243,180,156,0.16)',
+  border: '1px solid rgba(243,180,156,0.26)',
+  color: '#9b644f'
+};
+
+const chipMint: CSSProperties = {
+  ...chipBase,
+  background: 'rgba(114,215,199,0.14)',
+  border: '1px solid rgba(114,215,199,0.24)',
+  color: '#2f7f73'
+};
+
+const chipNeutral: CSSProperties = {
+  ...chipBase,
+  background: 'rgba(255,255,255,0.7)',
+  border: '1px solid rgba(221,230,235,0.9)',
+  color: '#6b7780'
+};
+
+const editorCard: CSSProperties = {
+  padding: 14,
+  borderRadius: 20,
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.86), rgba(248,251,252,0.76))',
+  border: '1px solid rgba(255,255,255,0.62)',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)',
+  display: 'grid',
+  gap: 12
+};
+
+const fieldReset: CSSProperties = {
+  margin: 0
 };
 
 const exampleBoxStyle: CSSProperties = {
