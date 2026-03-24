@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode
+} from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import UrgentPrayerTicker, { type UrgentTickerItem } from '../components/UrgentPrayerTicker';
 import { apiFetch } from '../lib/api';
@@ -8,10 +15,75 @@ import TopBar from '../components/layout/TopBar';
 import Button from '../ui/Button';
 import { Card, CardDesc, CardTitle } from '../ui/Card';
 
+async function safeReadJson(res: Response) {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+async function readErrorMessage(res: Response, fallback: string) {
+  const contentType = res.headers.get('content-type') || '';
+
+  try {
+    if (contentType.includes('application/json')) {
+      const json = await res.json();
+      if (typeof json === 'string') return json;
+
+      if (json && typeof json === 'object') {
+        const message =
+          typeof (json as { message?: unknown }).message === 'string'
+            ? (json as { message: string }).message
+            : typeof (json as { error?: unknown }).error === 'string'
+              ? (json as { error: string }).error
+              : null;
+
+        if (message) return message;
+      }
+    } else {
+      const text = await res.text();
+      if (text?.trim()) return text.trim();
+    }
+  } catch {
+    // ignore
+  }
+
+  return fallback;
+}
+
+function formatTime(ts: number) {
+  const d = new Date(ts);
+  return `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(
+    2,
+    '0'
+  )} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function formatRemainText(expiresAt: number) {
+  const diff = expiresAt - Date.now();
+  if (diff <= 0) return '노출 종료';
+
+  const minutes = Math.floor(diff / 1000 / 60);
+  if (minutes < 60) return `${minutes}분 남음`;
+
+  const hours = Math.floor(minutes / 60);
+  const remainMinutes = minutes % 60;
+  if (remainMinutes === 0) return `${hours}시간 남음`;
+  return `${hours}시간 ${remainMinutes}분 남음`;
+}
+
+function isExpired(expiresAt: number) {
+  return expiresAt <= Date.now();
+}
+
 export default function UrgentPrayersPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const highlightId = useMemo(() => new URLSearchParams(location.search).get('highlight'), [location.search]);
+  const highlightId = useMemo(
+    () => new URLSearchParams(location.search).get('highlight'),
+    [location.search]
+  );
 
   const { me, loading: authLoading, refreshMe } = useAuth();
   const isAdmin = !!me?.isAdmin;
@@ -19,6 +91,7 @@ export default function UrgentPrayersPage() {
   const [items, setItems] = useState<UrgentTickerItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deleteLoadingId, setDeleteLoadingId] = useState<string | null>(null);
 
@@ -29,45 +102,29 @@ export default function UrgentPrayersPage() {
     navigate(`/login?${new URLSearchParams({ next }).toString()}`);
   }
 
-  async function readErrorMessage(res: Response) {
-    const contentType = res.headers.get('content-type') || '';
-
-    try {
-      if (contentType.includes('application/json')) {
-        const data = await res.json();
-        if (typeof data === 'string') return data;
-        if (data?.error) return String(data.error);
-        if (data?.message) return String(data.message);
-        return `HTTP ${res.status}`;
-      }
-
-      const text = await res.text();
-      return text?.trim() || `HTTP ${res.status}`;
-    } catch {
-      return `HTTP ${res.status}`;
-    }
-  }
-
-  async function reload() {
+  async function reload({ preserveNotice = true }: { preserveNotice?: boolean } = {}) {
     setLoading(true);
     setError(null);
+    if (!preserveNotice) setNotice(null);
 
     try {
       const res = await apiFetch('/api/urgent-prayers');
-      if (!res.ok) throw new Error(await readErrorMessage(res));
+      if (!res.ok) {
+        throw new Error(await readErrorMessage(res, '긴급기도를 불러오지 못했습니다.'));
+      }
 
-      const data = await res.json();
-      setItems(Array.isArray(data) ? data : []);
-    } catch (e: any) {
-      setError(e?.message ?? '긴급기도를 불러오지 못했습니다.');
+      const json = await safeReadJson(res);
+      setItems(Array.isArray(json) ? (json as UrgentTickerItem[]) : []);
+    } catch (e) {
       setItems([]);
+      setError(e instanceof Error ? e.message : '긴급기도를 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    reload();
+    void reload({ preserveNotice: false });
   }, []);
 
   useEffect(() => {
@@ -76,13 +133,23 @@ export default function UrgentPrayersPage() {
     if (!el) return;
 
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
     el.animate(
       [
-        { backgroundColor: 'rgba(243, 180, 156, 0.22)' },
-        { backgroundColor: 'rgba(243, 180, 156, 0.08)' },
-        { backgroundColor: 'transparent' }
+        {
+          transform: 'translateY(0px)',
+          backgroundColor: 'rgba(243,180,156,0.18)'
+        },
+        {
+          transform: 'translateY(-1px)',
+          backgroundColor: 'rgba(243,180,156,0.08)'
+        },
+        {
+          transform: 'translateY(0px)',
+          backgroundColor: 'transparent'
+        }
       ],
-      { duration: 1200, easing: 'ease-out' }
+      { duration: 1100, easing: 'ease-out' }
     );
   }, [highlightId, items.length]);
 
@@ -99,18 +166,25 @@ export default function UrgentPrayersPage() {
   }
 
   async function handleDelete(id: string) {
-    const ok = confirm('이 긴급기도를 삭제할까요? (운영진 전용)');
+    const ok = window.confirm('이 긴급기도를 삭제할까요? (운영진 전용)');
     if (!ok) return;
 
-    const reason = prompt('삭제 사유를 입력하세요(필수, 최대 120자)');
-    if (!reason?.trim()) return;
+    const reasonInput = window.prompt('삭제 사유를 입력하세요(필수, 최대 120자)');
+    const reason = reasonInput?.trim();
+
+    if (!reason) {
+      setError('삭제 사유를 입력해야 합니다.');
+      return;
+    }
 
     setDeleteLoadingId(id);
+    setError(null);
+    setNotice(null);
 
     try {
       const res = await apiFetch(`/api/admin/urgent-prayers/${id}/delete`, {
         method: 'POST',
-        body: JSON.stringify({ reason: reason.trim() })
+        body: JSON.stringify({ reason: reason.slice(0, 120) })
       });
 
       if (res.status === 401) {
@@ -119,18 +193,18 @@ export default function UrgentPrayersPage() {
       }
 
       if (res.status === 403) {
-        alert('운영진 권한이 필요합니다.');
+        setError('운영진 권한이 필요합니다.');
         return;
       }
 
       if (!res.ok) {
-        alert(await readErrorMessage(res));
-        return;
+        throw new Error(await readErrorMessage(res, '삭제에 실패했습니다.'));
       }
 
+      setNotice('긴급기도가 삭제되었습니다.');
       await reload();
-    } catch (e: any) {
-      alert(e?.message ?? '삭제에 실패했습니다.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '삭제에 실패했습니다.');
     } finally {
       setDeleteLoadingId(null);
     }
@@ -152,36 +226,54 @@ export default function UrgentPrayersPage() {
   }
 
   return (
-    <div style={page}>
-      <div style={pageInner}>
+    <div className="sanctuaryPage">
+      <div className="sanctuaryPageInner">
         <TopBar
           title="긴급기도"
           backTo="/"
           right={
-            <Button type="button" variant="secondary" size="md" onClick={openComposer}>
+            <Button type="button" variant="secondary" onClick={openComposer}>
               + 작성
             </Button>
           }
         />
 
-        <Card pad style={heroCard}>
-          <div style={heroTop}>
-            <div style={heroCopy}>
-              <div style={badgePeach}>URGENT PRAYER</div>
-              <CardTitle style={heroTitle}>지금 함께 기도할 제목</CardTitle>
-              <CardDesc style={heroDesc}>
-                모든 교회가 함께 보는 공통 게시판입니다. 등록된 글은 <b>24시간</b> 동안 노출되며,
-                운영진만 삭제할 수 있습니다.
+        <Card className="glassHeroCard">
+          <div style={heroHead}>
+            <div style={{ minWidth: 0 }}>
+              <div style={badgePeach}>
+                <SirenIcon />
+                URGENT PRAYER
+              </div>
+
+              <CardTitle>지금 함께 기도할 제목</CardTitle>
+              <CardDesc>
+                모든 교회가 함께 보는 공통 게시판입니다. 등록된 글은 <b>24시간</b> 동안
+                노출되며, 운영진만 삭제할 수 있습니다.
               </CardDesc>
             </div>
 
-            <div style={heroMetaBox}>
-              <div style={heroMetaMain}>{items.length}</div>
-              <div style={heroMetaLabel}>현재 제목</div>
+            <div style={heroSide}>
+              <div style={heroCount}>{items.length}</div>
+              <div style={heroCountLabel}>현재 제목</div>
             </div>
           </div>
 
-          <div style={tickerSection}>
+          <div className="stack12" />
+
+          <div style={metaRow}>
+            <MetaChip icon={<ClockIcon />} label="유효 24시간" tone="peach" />
+            <MetaChip icon={<PeopleIcon />} label="교회 공용 게시판" tone="mint" />
+            <MetaChip
+              icon={<ShieldIcon />}
+              label={isAdmin ? '운영진 삭제 가능' : '운영진 관리'}
+              tone="neutral"
+            />
+          </div>
+
+          <div className="stack12" />
+
+          <div style={tickerWrap}>
             <UrgentPrayerTicker
               items={items}
               intervalMs={3200}
@@ -191,29 +283,64 @@ export default function UrgentPrayersPage() {
             />
           </div>
 
+          <div className="stack12" />
+
           <div style={heroActions}>
             <Button type="button" variant="primary" size="lg" wide onClick={openComposer}>
               긴급기도 작성하기
             </Button>
-          </div>
 
-          <div style={heroFoot}>
-            <span style={heroFootText}>등록 후 전체 교회에 즉시 공유됩니다.</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="lg"
+              wide
+              onClick={() => {
+                if (!me) {
+                  goLogin();
+                  return;
+                }
+                navigate('/urgent-prayers/new');
+              }}
+            >
+              전체화면으로 작성하기
+            </Button>
           </div>
         </Card>
 
-        <div style={{ height: 14 }} />
+        <div className="stack12" />
 
-        {loading ? <Skeleton /> : null}
-        {!loading && error ? <ErrorBox message={error} onRetry={reload} /> : null}
+        {error ? <NoticeBox tone="error" text={error} /> : null}
+        {notice ? <NoticeBox tone="success" text={notice} /> : null}
+
+        {loading ? (
+          <div style={skeletonStack}>
+            <SkeletonCard lines={2} />
+            <div className="stack12" />
+            <SkeletonCard lines={3} />
+            <div className="stack12" />
+            <SkeletonCard lines={3} />
+          </div>
+        ) : null}
 
         {!loading && !error && items.length === 0 ? (
-          <Card pad style={emptyCard}>
-            <div style={emptyEmoji}>🙏</div>
-            <div style={emptyTitle}>현재 등록된 긴급기도가 없습니다.</div>
-            <div style={emptyDesc}>필요한 기도제목이 생기면 바로 작성해서 함께 나눠보세요.</div>
-            <div style={{ marginTop: 14 }}>
-              <Button type="button" variant="secondary" size="md" wide onClick={openComposer}>
+          <Card>
+            <div style={emptyWrap}>
+              <div style={emptyEmoji}>🙏</div>
+              <div style={emptyTitle}>현재 등록된 긴급기도가 없습니다.</div>
+              <div style={emptyDesc}>
+                필요한 기도제목이 생기면 바로 작성해서 함께 나눌 수 있어요.
+              </div>
+
+              <div className="stack12" />
+
+              <Button
+                type="button"
+                variant="secondary"
+                size="lg"
+                wide
+                onClick={openComposer}
+              >
                 첫 기도제목 작성하기
               </Button>
             </div>
@@ -221,75 +348,105 @@ export default function UrgentPrayersPage() {
         ) : null}
 
         {!loading && !error && items.length > 0 ? (
-          <div style={list}>
-            {items.map((it, idx) => (
-              <Card
-                key={it.id}
-                pad
-                style={{
-                  ...itemCard,
-                  ...(idx === 0 ? firstItemCard : null)
-                }}
-              >
-                <div
-                  ref={(el) => {
-                    rowRefs.current[it.id] = el;
-                  }}
-                >
-                  <div style={itemHead}>
-                    <div style={itemHeadLeft}>
-                      <div style={authorBadge}>{it.authorName}</div>
-                      <div style={timeText}>{formatTime(it.createdAt)}</div>
+          <Card>
+            <div style={sectionTop}>
+              <div>
+                <CardTitle>긴급기도 목록</CardTitle>
+                <CardDesc>
+                  최근 등록된 순서대로 확인할 수 있고, 티커를 눌러 해당 항목으로 바로
+                  이동할 수 있습니다.
+                </CardDesc>
+              </div>
+              <div style={sectionBadgePeach}>Board</div>
+            </div>
+
+            <div className="stack12" />
+
+            <div style={listWrap}>
+              {items.map((item, index) => {
+                const expired = isExpired(item.expiresAt);
+
+                return (
+                  <article
+                    key={item.id}
+                    ref={(el) => {
+                      rowRefs.current[item.id] = el;
+                    }}
+                    style={{
+                      ...itemCard,
+                      ...(index === 0 ? itemCardLatest : null)
+                    }}
+                  >
+                    <div style={itemHead}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={itemAuthorRow}>
+                          <div style={authorBadge}>{item.authorName}</div>
+                          <div style={timeText}>{formatTime(item.createdAt)}</div>
+                        </div>
+
+                        <div style={statusRow}>
+                          <StatusChip
+                            label={expired ? '노출 종료' : formatRemainText(item.expiresAt)}
+                            tone={expired ? 'neutral' : 'peach'}
+                          />
+                          {index === 0 ? <StatusChip label="최신" tone="mint" /> : null}
+                        </div>
+                      </div>
+
+                      {isAdmin ? (
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="md"
+                          disabled={deleteLoadingId === item.id}
+                          onClick={() => void handleDelete(item.id)}
+                        >
+                          {deleteLoadingId === item.id ? '삭제 중…' : '삭제'}
+                        </Button>
+                      ) : null}
                     </div>
 
-                    {isAdmin ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="md"
-                        onClick={() => handleDelete(it.id)}
-                        disabled={deleteLoadingId === it.id}
-                      >
-                        {deleteLoadingId === it.id ? '삭제 중…' : '삭제'}
-                      </Button>
-                    ) : null}
-                  </div>
+                    <div className="stack10" />
 
-                  <div style={contentText}>{it.content}</div>
-
-                  <div style={metaRow}>
-                    <div style={metaChip}>24시간 노출</div>
-                    {idx === 0 ? <div style={latestChip}>최신</div> : null}
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
+                    <div style={contentBox}>{item.content}</div>
+                  </article>
+                );
+              })}
+            </div>
+          </Card>
         ) : null}
 
-        <div style={{ height: 14 }} />
+        <div className="stack12" />
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="lg"
-          wide
-          onClick={() => {
-            if (!me) {
-              goLogin();
-              return;
-            }
-            navigate('/urgent-prayers/new');
-          }}
-        >
-          전체화면으로 작성하기
-        </Button>
+        <Card>
+          <div style={sectionTop}>
+            <div>
+              <CardTitle>안내</CardTitle>
+              <CardDesc>
+                긴급기도는 교회 전체가 함께 보는 게시판이므로 한 번에 한 가지 제목을 짧고
+                분명하게 작성해 주세요.
+              </CardDesc>
+            </div>
+            <div style={sectionBadgeMint}>Guide</div>
+          </div>
+
+          <div className="stack10" />
+
+          <div style={helperPanel}>
+            <div style={helperTitle}>작성 팁</div>
+            <div style={helperDesc}>
+              작성자 표시는 <strong>실명</strong>으로 보이고, 게시글은 <strong>24시간</strong>{' '}
+              동안 노출됩니다. 운영 정책상 삭제는 운영진만 가능합니다.
+            </div>
+          </div>
+        </Card>
 
         <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)}>
           <UrgentPrayerComposer
             onUnauthorized={goLogin}
             onDone={async (newId) => {
               setSheetOpen(false);
+              setNotice('긴급기도가 등록되었습니다.');
               await reload();
               navigate(`/urgent-prayers?highlight=${encodeURIComponent(newId)}`);
             }}
@@ -320,210 +477,345 @@ function BottomSheet({
 
         {children}
 
-        <div style={{ marginTop: 14 }}>
-          <Button type="button" variant="secondary" size="lg" wide onClick={onClose}>
-            닫기
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
+        <div className="stack12" />
 
-function Skeleton() {
-  return (
-    <div style={skeletonStack}>
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} style={skeletonBlock} />
-      ))}
-
-      <style>
-        {`
-          @keyframes urgentPrayerShimmer {
-            0% { background-position: 0% 0; }
-            100% { background-position: 200% 0; }
-          }
-        `}
-      </style>
-    </div>
-  );
-}
-
-function ErrorBox({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <Card pad style={errorCard}>
-      <div style={errorTitle}>불러오기 오류</div>
-      <div style={errorText}>{message}</div>
-      <div style={{ marginTop: 12 }}>
-        <Button type="button" variant="secondary" size="md" onClick={onRetry}>
-          다시 시도
+        <Button type="button" variant="secondary" size="lg" wide onClick={onClose}>
+          닫기
         </Button>
       </div>
-    </Card>
+    </div>
   );
 }
 
-function formatTime(ts: number) {
-  const d = new Date(ts);
-  return `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(
-    2,
-    '0'
-  )} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+function MetaChip({
+  icon,
+  label,
+  tone = 'neutral'
+}: {
+  icon: ReactNode;
+  label: string;
+  tone?: 'mint' | 'peach' | 'neutral';
+}) {
+  const toneStyle =
+    tone === 'mint' ? metaMint : tone === 'peach' ? metaPeach : metaNeutral;
+
+  return (
+    <div style={{ ...metaChip, ...toneStyle }}>
+      <span style={metaIcon}>{icon}</span>
+      <span>{label}</span>
+    </div>
+  );
 }
 
-const page: CSSProperties = {
-  minHeight: '100dvh',
-  padding: '12px 14px 30px',
-  background: 'transparent'
-};
+function StatusChip({
+  label,
+  tone
+}: {
+  label: string;
+  tone: 'mint' | 'peach' | 'neutral';
+}) {
+  const toneStyle =
+    tone === 'mint' ? statusMint : tone === 'peach' ? statusPeach : statusNeutral;
 
-const pageInner: CSSProperties = {
-  width: '100%',
-  maxWidth: 430,
-  margin: '0 auto'
-};
+  return <div style={{ ...statusChip, ...toneStyle }}>{label}</div>;
+}
 
-const heroCard: CSSProperties = {
-  borderRadius: 24,
-  background: 'linear-gradient(180deg, rgba(255,247,242,0.92), rgba(255,243,238,0.80))',
-  border: '1px solid rgba(243,180,156,0.28)',
-  boxShadow: '0 12px 28px rgba(204,151,126,0.12)',
-  backdropFilter: 'blur(16px)'
-};
+function NoticeBox({
+  tone,
+  text
+}: {
+  tone: 'success' | 'error';
+  text: string;
+}) {
+  return (
+    <div
+      style={{
+        ...noticeBox,
+        ...(tone === 'success' ? noticeSuccess : noticeError)
+      }}
+      role={tone === 'error' ? 'alert' : 'status'}
+    >
+      <span style={noticeIconWrap}>
+        {tone === 'success' ? <CheckCircleIcon /> : <WarningIcon />}
+      </span>
+      <span>{text}</span>
+    </div>
+  );
+}
 
-const heroTop: CSSProperties = {
+function SkeletonCard({
+  lines = 3
+}: {
+  lines?: number;
+}) {
+  return (
+    <div style={skeletonCard}>
+      <div style={skeletonTitle} />
+      <div style={skeletonDesc} />
+      <div className="stack12" />
+      {Array.from({ length: lines }).map((_, idx) => (
+        <div
+          key={idx}
+          style={{
+            ...skeletonLine,
+            width: idx === lines - 1 ? '62%' : idx % 2 === 0 ? '100%' : '84%'
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function SirenIcon() {
+  return (
+    <svg viewBox="0 0 24 24" style={icon16} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M18 8a6 6 0 1 0-12 0v5h12V8Z" />
+      <path d="M5 13h14" />
+      <path d="M10 18h4" />
+      <path d="M12 2v2" />
+      <path d="m4.9 4.9 1.4 1.4" />
+      <path d="m19.1 4.9-1.4 1.4" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" style={icon16} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
+function PeopleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" style={icon16} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+      <circle cx="9.5" cy="7" r="4" />
+      <path d="M20 8v6" />
+      <path d="M23 11h-6" />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg viewBox="0 0 24 24" style={icon16} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3l7 3v6c0 5-3.4 8.7-7 10-3.6-1.3-7-5-7-10V6l7-3Z" />
+    </svg>
+  );
+}
+
+function CheckCircleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" style={icon16} fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8.5 12 2.4 2.4 4.8-5.1" />
+    </svg>
+  );
+}
+
+function WarningIcon() {
+  return (
+    <svg viewBox="0 0 24 24" style={icon16} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+      <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+    </svg>
+  );
+}
+
+const heroHead: CSSProperties = {
   display: 'flex',
   alignItems: 'flex-start',
   justifyContent: 'space-between',
-  gap: 14
-};
-
-const heroCopy: CSSProperties = {
-  minWidth: 0,
-  flex: 1
+  gap: 14,
+  flexWrap: 'wrap'
 };
 
 const badgePeach: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
+  gap: 7,
   minHeight: 28,
   padding: '0 10px',
   borderRadius: 999,
-  background: 'rgba(243,180,156,0.16)',
-  border: '1px solid rgba(243,180,156,0.22)',
-  color: '#a05f48',
+  marginBottom: 10,
+  background: 'rgba(235,168,141,0.16)',
+  border: '1px solid rgba(235,168,141,0.24)',
+  color: '#a56448',
   fontSize: 12,
-  fontWeight: 800,
-  marginBottom: 10
+  fontWeight: 800
 };
 
-const heroTitle: CSSProperties = {
-  fontSize: 27,
-  fontWeight: 800,
-  color: '#24313a',
-  letterSpacing: '-0.02em'
-};
-
-const heroDesc: CSSProperties = {
-  marginTop: 6,
-  color: '#726760',
-  fontSize: 14,
-  lineHeight: 1.58
-};
-
-const heroMetaBox: CSSProperties = {
+const heroSide: CSSProperties = {
   width: 92,
   minWidth: 92,
   height: 92,
   borderRadius: 999,
-  background: 'rgba(255,255,255,0.64)',
-  border: '1px solid rgba(255,255,255,0.54)',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.52)'
+  background: 'rgba(255,255,255,0.56)',
+  border: '1px solid rgba(255,255,255,0.56)',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.44)'
 };
 
-const heroMetaMain: CSSProperties = {
-  color: '#24313a',
+const heroCount: CSSProperties = {
+  color: '#223038',
   fontSize: 28,
-  fontWeight: 800,
-  lineHeight: 1
+  lineHeight: 1,
+  fontWeight: 900,
+  letterSpacing: '-0.03em'
 };
 
-const heroMetaLabel: CSSProperties = {
+const heroCountLabel: CSSProperties = {
   marginTop: 6,
   color: '#8f7e75',
   fontSize: 11,
   fontWeight: 800
 };
 
-const tickerSection: CSSProperties = {
-  marginTop: 14
+const metaRow: CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 8
+};
+
+const metaChip: CSSProperties = {
+  minHeight: 34,
+  padding: '0 12px',
+  borderRadius: 999,
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 7,
+  fontSize: 12,
+  fontWeight: 800,
+  letterSpacing: '-0.01em'
+};
+
+const metaIcon: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center'
+};
+
+const metaMint: CSSProperties = {
+  background: 'rgba(114,215,199,0.14)',
+  border: '1px solid rgba(114,215,199,0.22)',
+  color: '#2b7f72'
+};
+
+const metaPeach: CSSProperties = {
+  background: 'rgba(235,168,141,0.16)',
+  border: '1px solid rgba(235,168,141,0.24)',
+  color: '#a56448'
+};
+
+const metaNeutral: CSSProperties = {
+  background: 'rgba(255,255,255,0.48)',
+  border: '1px solid rgba(255,255,255,0.56)',
+  color: '#72808a'
+};
+
+const tickerWrap: CSSProperties = {
+  borderRadius: 18,
+  overflow: 'hidden'
 };
 
 const heroActions: CSSProperties = {
-  marginTop: 14,
   display: 'grid',
-  gap: 10
+  gap: 8
 };
 
-const heroFoot: CSSProperties = {
-  marginTop: 10,
+const noticeBox: CSSProperties = {
+  marginBottom: 12,
+  minHeight: 48,
+  padding: '12px 14px',
+  borderRadius: 18,
   display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  gap: 10
+  alignItems: 'flex-start',
+  gap: 10,
+  fontSize: 13,
+  fontWeight: 700,
+  lineHeight: 1.5,
+  backdropFilter: 'blur(14px)',
+  WebkitBackdropFilter: 'blur(14px)',
+  boxShadow: '0 10px 24px rgba(93,108,122,0.08)'
 };
 
-const heroFootText: CSSProperties = {
-  color: '#9a7f74',
-  fontSize: 12,
-  fontWeight: 700
+const noticeSuccess: CSSProperties = {
+  background: 'rgba(114,215,199,0.12)',
+  border: '1px solid rgba(114,215,199,0.24)',
+  color: '#2b7f72'
+};
+
+const noticeError: CSSProperties = {
+  background: 'rgba(235,125,125,0.10)',
+  border: '1px solid rgba(235,125,125,0.22)',
+  color: '#a14d4d'
+};
+
+const noticeIconWrap: CSSProperties = {
+  width: 18,
+  height: 18,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flex: '0 0 auto',
+  marginTop: 1
 };
 
 const skeletonStack: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 10
+  display: 'block'
 };
 
-const skeletonBlock: CSSProperties = {
-  height: 106,
-  borderRadius: 22,
-  background:
-    'linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0.025), rgba(0,0,0,0.06))',
-  backgroundSize: '200% 100%',
-  animation: 'urgentPrayerShimmer 1.2s infinite linear'
-};
-
-const errorCard: CSSProperties = {
-  borderRadius: 22,
-  background: 'rgba(255,245,245,0.70)',
-  border: '1px solid rgba(235,138,127,0.28)',
-  boxShadow: '0 10px 24px rgba(185,85,85,0.07)'
-};
-
-const errorTitle: CSSProperties = {
-  color: '#9d4343',
-  fontSize: 15,
-  fontWeight: 800
-};
-
-const errorText: CSSProperties = {
-  marginTop: 6,
-  color: 'rgba(80, 45, 45, 0.82)',
-  fontSize: 13,
-  lineHeight: 1.5
-};
-
-const emptyCard: CSSProperties = {
+const skeletonCard: CSSProperties = {
   borderRadius: 24,
+  padding: 20,
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.62))',
+  border: '1px solid rgba(255,255,255,0.54)',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)',
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)'
+};
+
+const skeletonTitle: CSSProperties = {
+  width: '36%',
+  height: 18,
+  borderRadius: 999,
+  background:
+    'linear-gradient(90deg, rgba(255,255,255,0.28), rgba(255,255,255,0.78), rgba(255,255,255,0.28))',
+  backgroundSize: '200% 100%',
+  animation: 'qtShimmer 1.3s ease-in-out infinite'
+};
+
+const skeletonDesc: CSSProperties = {
+  width: '72%',
+  height: 12,
+  marginTop: 10,
+  borderRadius: 999,
+  background:
+    'linear-gradient(90deg, rgba(255,255,255,0.22), rgba(255,255,255,0.68), rgba(255,255,255,0.22))',
+  backgroundSize: '200% 100%',
+  animation: 'qtShimmer 1.3s ease-in-out infinite'
+};
+
+const skeletonLine: CSSProperties = {
+  height: 14,
+  marginTop: 10,
+  borderRadius: 999,
+  background:
+    'linear-gradient(90deg, rgba(255,255,255,0.24), rgba(255,255,255,0.72), rgba(255,255,255,0.24))',
+  backgroundSize: '200% 100%',
+  animation: 'qtShimmer 1.3s ease-in-out infinite'
+};
+
+const emptyWrap: CSSProperties = {
   textAlign: 'center',
-  background: 'rgba(255,255,255,0.72)',
-  border: '1px solid rgba(255,255,255,0.56)',
-  boxShadow: '0 12px 28px rgba(77,90,110,0.08)'
+  padding: '4px 2px'
 };
 
 const emptyEmoji: CSSProperties = {
@@ -546,33 +838,66 @@ const emptyDesc: CSSProperties = {
   lineHeight: 1.55
 };
 
-const list: CSSProperties = {
+const sectionTop: CSSProperties = {
   display: 'flex',
-  flexDirection: 'column',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 12
+};
+
+const sectionBadgeBase: CSSProperties = {
+  minHeight: 28,
+  padding: '0 10px',
+  borderRadius: 999,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: 11,
+  fontWeight: 800,
+  whiteSpace: 'nowrap',
+  flex: '0 0 auto'
+};
+
+const sectionBadgePeach: CSSProperties = {
+  ...sectionBadgeBase,
+  background: 'rgba(235,168,141,0.15)',
+  border: '1px solid rgba(235,168,141,0.24)',
+  color: '#a56448'
+};
+
+const sectionBadgeMint: CSSProperties = {
+  ...sectionBadgeBase,
+  background: 'rgba(114,215,199,0.14)',
+  border: '1px solid rgba(114,215,199,0.24)',
+  color: '#2b7f72'
+};
+
+const listWrap: CSSProperties = {
+  display: 'grid',
   gap: 10
 };
 
 const itemCard: CSSProperties = {
-  borderRadius: 22,
-  background: 'rgba(255,255,255,0.74)',
-  border: '1px solid rgba(255,255,255,0.56)',
-  boxShadow: '0 10px 24px rgba(77,90,110,0.075)'
+  borderRadius: 20,
+  padding: 14,
+  background: 'rgba(255,255,255,0.46)',
+  border: '1px solid rgba(255,255,255,0.54)',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.40)'
 };
 
-const firstItemCard: CSSProperties = {
-  background: 'linear-gradient(180deg, rgba(255,250,247,0.84), rgba(255,255,255,0.78))',
-  border: '1px solid rgba(243,180,156,0.20)'
+const itemCardLatest: CSSProperties = {
+  background: 'linear-gradient(180deg, rgba(255,250,247,0.84), rgba(255,255,255,0.74))',
+  border: '1px solid rgba(243,180,156,0.22)'
 };
 
 const itemHead: CSSProperties = {
   display: 'flex',
-  alignItems: 'center',
+  alignItems: 'flex-start',
   justifyContent: 'space-between',
-  gap: 10
+  gap: 12
 };
 
-const itemHeadLeft: CSSProperties = {
-  minWidth: 0,
+const itemAuthorRow: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
@@ -598,47 +923,74 @@ const timeText: CSSProperties = {
   fontWeight: 700
 };
 
-const contentText: CSSProperties = {
-  marginTop: 11,
-  color: '#33424b',
-  fontSize: 15,
-  lineHeight: 1.66,
+const statusRow: CSSProperties = {
+  marginTop: 8,
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 6
+};
+
+const statusChip: CSSProperties = {
+  minHeight: 26,
+  padding: '0 10px',
+  borderRadius: 999,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: 11,
+  fontWeight: 800,
+  whiteSpace: 'nowrap'
+};
+
+const statusMint: CSSProperties = {
+  background: 'rgba(114,215,199,0.14)',
+  border: '1px solid rgba(114,215,199,0.22)',
+  color: '#2b7f72'
+};
+
+const statusPeach: CSSProperties = {
+  background: 'rgba(235,168,141,0.14)',
+  border: '1px solid rgba(235,168,141,0.22)',
+  color: '#a56448'
+};
+
+const statusNeutral: CSSProperties = {
+  background: 'rgba(255,255,255,0.48)',
+  border: '1px solid rgba(255,255,255,0.56)',
+  color: '#72808a'
+};
+
+const contentBox: CSSProperties = {
+  padding: '12px 13px',
+  borderRadius: 16,
+  background: 'rgba(255,255,255,0.56)',
+  border: '1px solid rgba(255,255,255,0.56)',
+  color: '#31414a',
+  fontSize: 14,
+  lineHeight: 1.65,
   whiteSpace: 'pre-wrap',
   wordBreak: 'break-word'
 };
 
-const metaRow: CSSProperties = {
-  marginTop: 13,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: 10
+const helperPanel: CSSProperties = {
+  borderRadius: 16,
+  padding: '12px 13px',
+  background: 'rgba(255,255,255,0.42)',
+  border: '1px solid rgba(255,255,255,0.52)',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.42)'
 };
 
-const metaChip: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  minHeight: 25,
-  padding: '0 10px',
-  borderRadius: 999,
-  background: 'rgba(255,255,255,0.62)',
-  border: '1px solid rgba(255,255,255,0.56)',
-  color: '#7d8a92',
+const helperTitle: CSSProperties = {
+  color: '#42515b',
   fontSize: 12,
-  fontWeight: 800
+  fontWeight: 800,
+  marginBottom: 4
 };
 
-const latestChip: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  minHeight: 25,
-  padding: '0 10px',
-  borderRadius: 999,
-  background: 'rgba(243,180,156,0.14)',
-  border: '1px solid rgba(243,180,156,0.22)',
-  color: '#a05f48',
+const helperDesc: CSSProperties = {
+  color: '#6f7d87',
   fontSize: 12,
-  fontWeight: 800
+  lineHeight: 1.55
 };
 
 const sheetBackdrop: CSSProperties = {
@@ -647,6 +999,7 @@ const sheetBackdrop: CSSProperties = {
   zIndex: 1000,
   background: 'rgba(56,67,76,0.22)',
   backdropFilter: 'blur(6px)',
+  WebkitBackdropFilter: 'blur(6px)',
   display: 'flex',
   alignItems: 'flex-end',
   justifyContent: 'center',
@@ -674,4 +1027,10 @@ const sheetHandle: CSSProperties = {
   height: 5,
   borderRadius: 999,
   background: 'rgba(56,67,76,0.14)'
+};
+
+const icon16: CSSProperties = {
+  width: 16,
+  height: 16,
+  display: 'block'
 };
