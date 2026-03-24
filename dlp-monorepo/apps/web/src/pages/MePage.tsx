@@ -174,7 +174,7 @@ export default function MePage() {
   return (
     <div className="sanctuaryPage">
       <div className="sanctuaryPageInner">
-        <TopBar title="내정보" backTo="/" />
+        <TopBar title="내정보" backTo="/" hideAuthActions />
 
         <Card className="glassHeroCard">
           <div className="profileHero">
@@ -192,6 +192,13 @@ export default function MePage() {
           <div className="profileMetaGrid">
             <MetaBox label="휴대폰" value={me.phone ?? '-'} />
             <MetaBox label="출석교회" value={me.homeChurch ?? '-'} />
+          </div>
+
+          <div className="stack12" />
+
+          <div style={heroPillRowStyle}>
+            <span style={heroMintPillStyle}>누적 출석 {stats?.attendanceDays ?? 0}일</span>
+            <span style={heroPeachPillStyle}>이번 주 DLP {stats?.week.submittedCount ?? 0}/7</span>
           </div>
         </Card>
 
@@ -439,6 +446,38 @@ const actionGridStyle: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr',
   gap: 10
+};
+
+const heroPillRowStyle: CSSProperties = {
+  display: 'flex',
+  gap: 8,
+  flexWrap: 'wrap'
+};
+
+const heroMintPillStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 30,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'rgba(114,215,199,0.14)',
+  border: '1px solid rgba(114,215,199,0.24)',
+  color: '#2f7f73',
+  fontSize: 12,
+  fontWeight: 800
+};
+
+const heroPeachPillStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 30,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'rgba(243,180,156,0.16)',
+  border: '1px solid rgba(243,180,156,0.24)',
+  color: '#9d6550',
+  fontSize: 12,
+  fontWeight: 800
 };
 
 const statHelperStyle: CSSProperties = {

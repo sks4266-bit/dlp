@@ -130,7 +130,7 @@ export default function GratitudePage() {
   return (
     <div className="sanctuaryPage">
       <div className="sanctuaryPageInner">
-        <TopBar title="감사일기" backTo="/" />
+        <TopBar title="감사일기" backTo="/" hideAuthActions />
 
         <Card className="glassHeroCard">
           <div style={heroHeadStyle}>
@@ -141,6 +141,13 @@ export default function GratitudePage() {
             </div>
 
             <div style={heroCountBadgeStyle}>{loading ? '…' : `${items.length}개 기록`}</div>
+          </div>
+
+          <div className="stack12" />
+
+          <div style={heroPillRowStyle}>
+            <span style={heroMintPillStyle}>{loading ? '기록 불러오는 중…' : `이번 달 ${items.length}개 기록`}</span>
+            <span style={heroPeachPillStyle}>오늘 날짜 {todayDate}</span>
           </div>
 
           <div className="stack12" />
@@ -318,6 +325,38 @@ const heroCountBadgeStyle: CSSProperties = {
 const heroToolbarStyle: CSSProperties = {
   display: 'grid',
   gap: 10
+};
+
+const heroPillRowStyle: CSSProperties = {
+  display: 'flex',
+  gap: 8,
+  flexWrap: 'wrap'
+};
+
+const heroMintPillStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 30,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'rgba(114,215,199,0.14)',
+  border: '1px solid rgba(114,215,199,0.24)',
+  color: '#2f7f73',
+  fontSize: 12,
+  fontWeight: 800
+};
+
+const heroPeachPillStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 30,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'rgba(243,180,156,0.16)',
+  border: '1px solid rgba(243,180,156,0.24)',
+  color: '#9d6550',
+  fontSize: 12,
+  fontWeight: 800
 };
 
 const heroActionGridStyle: CSSProperties = {
