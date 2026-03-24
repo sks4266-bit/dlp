@@ -29,6 +29,8 @@ type Comment = {
   createdAt: number;
 };
 
+type Tone = 'mint' | 'peach' | 'sky' | 'neutral';
+
 export default function ChannelDetailPage() {
   const { id } = useParams();
   const nav = useNavigate();
@@ -55,7 +57,44 @@ export default function ChannelDetailPage() {
   const [commentText, setCommentText] = useState('');
   const [commentSaving, setCommentSaving] = useState(false);
 
-  const pageTitle = useMemo(() => channel?.name ?? '채널', [channel?.name]);
+  const boardLabel = tab === 'notice' ? '공지' : '기도';
+  const boardDesc =
+    tab === 'notice'
+      ? '예배와 모임, 공동체 전달사항을 차분하게 확인하는 보드입니다.'
+      : '함께 기도할 제목과 응답을 이어서 나누는 보드입니다.';
+
+  const heroDescription =
+    channel?.description ?? '홈 화면과 같은 부드러운 톤으로 공지와 기도제목, 댓글 흐름을 한 화면에서 편하게 이어갈 수 있어요.';
+
+  const summaryItems = useMemo(
+    () => [
+      {
+        label: '참여 상태',
+        value: isMember ? '참여 중' : '미가입',
+        subValue: isMember ? channel?.myRole ?? '멤버' : '가입 후 작성 가능',
+        tone: 'mint' as Tone
+      },
+      {
+        label: '초대 코드',
+        value: channel?.inviteCode ?? '-',
+        subValue: '바로 공유 가능',
+        tone: 'sky' as Tone
+      },
+      {
+        label: '현재 보드',
+        value: boardLabel,
+        subValue: tab === 'notice' ? '전달 중심' : '나눔 중심',
+        tone: tab === 'notice' ? ('peach' as Tone) : ('mint' as Tone)
+      },
+      {
+        label: '게시글 수',
+        value: loading ? '...' : `${posts.length}개`,
+        subValue: `${boardLabel} 보드 기준`,
+        tone: 'neutral' as Tone
+      }
+    ],
+    [boardLabel, channel?.inviteCode, channel?.myRole, isMember, loading, posts.length, tab]
+  );
 
   function goLogin() {
     const next = `${loc.pathname}${loc.search}`;
@@ -90,8 +129,7 @@ export default function ChannelDetailPage() {
     setErr(null);
     setLoading(true);
     try {
-      await loadChannel();
-      await loadPosts();
+      await Promise.all([loadChannel(), loadPosts()]);
     } catch (e: any) {
       setErr(e?.message ?? '불러오기에 실패했습니다.');
     } finally {
@@ -104,14 +142,14 @@ export default function ChannelDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, tab]);
 
-  async function openComments(p: Post) {
-    setActivePost(p);
+  async function openComments(post: Post) {
+    setActivePost(post);
     setComments([]);
     setCommentsOpen(true);
     setCommentsLoading(true);
 
     try {
-      const res = await apiFetch(`/api/channels/posts/${p.id}/comments`);
+      const res = await apiFetch(`/api/channels/posts/${post.id}/comments`);
       if (res.status === 401) {
         goLogin();
         return;
@@ -140,19 +178,19 @@ export default function ChannelDetailPage() {
     }
 
     if (!res.ok) {
-      alert('가입 실패: 초대코드를 확인하세요.');
+      window.alert('가입 실패: 초대코드를 확인하세요.');
       return;
     }
 
     setJoinCode('');
     await loadAll();
-    alert('가입되었습니다.');
+    window.alert('채널에 가입되었습니다.');
   }
 
   async function submitPost() {
     if (!id) return;
     if (!content.trim()) {
-      alert('내용을 입력하세요.');
+      window.alert('내용을 입력하세요.');
       return;
     }
 
@@ -179,7 +217,7 @@ export default function ChannelDetailPage() {
       setComposerOpen(false);
       await loadPosts();
     } catch {
-      alert('등록 실패');
+      window.alert('등록 실패');
     } finally {
       setSaving(false);
     }
@@ -206,317 +244,367 @@ export default function ChannelDetailPage() {
       setCommentText('');
       await openComments(activePost);
     } catch {
-      alert('댓글 등록 실패');
+      window.alert('댓글 등록 실패');
     } finally {
       setCommentSaving(false);
     }
   }
 
+  function openComposerForCurrentTab() {
+    if (!isMember) {
+      window.alert('먼저 채널에 가입하세요.');
+      return;
+    }
+    setComposerOpen(true);
+  }
+
   return (
-    <div style={page}>
-      <TopBar
-        title={pageTitle}
-        backTo="/channels"
-        right={
-          <Button
-            type="button"
-            variant="secondary"
-            size="md"
-            onClick={() => (isMember ? setComposerOpen(true) : alert('먼저 채널에 가입하세요.'))}
-          >
-            + 글쓰기
-          </Button>
-        }
-      />
+    <div className="sanctuaryPage">
+      <div className="sanctuaryPageInner">
+        <TopBar title="교회 채널" backTo="/channels" hideAuthActions />
 
-      <main style={wrap}>
-        <section style={hero}>
-          <div style={heroBadge}>CHANNEL ROOM</div>
-          <h1 style={heroTitle}>{channel?.name ?? '채널 공간'}</h1>
-          <p style={heroDesc}>
-            공지와 기도 나눔을 또렷하게 읽을 수 있도록
-            <br />
-            큰 카드, 부드러운 탭, 반투명 시트 구조로 정리했습니다.
-          </p>
-        </section>
-
-        {err ? <div style={errorBox}>{err}</div> : null}
-
-        <Card pad style={heroCard}>
-          <div style={heroTop}>
+        <Card className="glassHeroCard">
+          <div className="profileHero">
             <div style={{ minWidth: 0 }}>
-              <CardTitle style={cardTitle}>{channel?.name ?? '채널'}</CardTitle>
-              <CardDesc style={cardDesc}>
-                {channel?.description ?? '설명이 아직 등록되지 않았습니다.'}
-              </CardDesc>
+              <div style={eyebrowStyle}>CHANNEL DETAIL</div>
+              <CardTitle>{channel?.name ?? '교회 채널'}</CardTitle>
+              <CardDesc>{heroDescription}</CardDesc>
             </div>
 
-            <div style={chipWrap}>
-              <MetaChip label="초대코드" value={channel?.inviteCode ?? '-'} tint="mint" />
-              <MetaChip label="내 역할" value={channel?.myRole ?? '미가입'} tint="peach" />
-            </div>
+            <div style={rolePillStyle}>{channel?.myRole ?? '미가입'}</div>
+          </div>
+
+          <div className="stack12" />
+
+          <div className="glassStatGrid">
+            {summaryItems.map((item) => (
+              <SummaryTile key={item.label} label={item.label} value={item.value} subValue={item.subValue} tone={item.tone} />
+            ))}
+          </div>
+
+          <div className="stack12" />
+
+          <div style={heroPillRowStyle}>
+            <span style={heroMintPillStyle}>{isMember ? '채널 참여 중' : '가입 후 글쓰기 가능'}</span>
+            <span style={tab === 'notice' ? heroPeachPillStyle : heroSkyPillStyle}>{boardLabel} 게시판</span>
+            <span style={heroNeutralPillStyle}>목록 카드와 규격 통일</span>
+          </div>
+
+          <div className="stack12" />
+
+          <div style={heroActionGridStyle}>
+            <Button variant="primary" size="lg" wide onClick={openComposerForCurrentTab}>
+              {boardLabel} 글 작성하기
+            </Button>
+            <Button variant="secondary" size="lg" wide onClick={loadAll}>
+              새로고침
+            </Button>
           </div>
 
           {!isMember && channel ? (
-            <div style={joinBox}>
-              <div style={joinTitle}>초대코드로 가입</div>
-              <div style={joinDesc}>
-                가입 후에 공지와 기도 게시글을 작성하고 댓글도 남길 수 있습니다.
-              </div>
-
-              <div style={joinRow}>
+            <>
+              <div className="stack12" />
+              <div style={joinBoxStyle}>
+                <div style={joinTitleStyle}>초대코드로 채널 가입</div>
+                <div style={joinDescStyle}>가입 후에는 공지와 기도제목 작성, 댓글 참여까지 한 흐름으로 이어집니다.</div>
+                <div className="stack10" />
                 <input
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value)}
                   placeholder="예) ABC123"
-                  style={input}
+                  className="glassInput"
                 />
-                <div style={joinBtnWrap}>
-                  <Button type="button" variant="primary" size="lg" wide onClick={submitJoin}>
-                    가입
-                  </Button>
-                </div>
+                <div className="stack10" />
+                <Button variant="primary" size="lg" wide onClick={submitJoin}>
+                  가입하기
+                </Button>
               </div>
-            </div>
+            </>
           ) : null}
         </Card>
 
-        <div style={{ height: 16 }} />
+        <div className="stack12" />
 
-        <div style={tabRow}>
-          <div style={tabWrap}>
-            <button
-              type="button"
-              style={tab === 'notice' ? activeTabBtn : tabBtn}
-              onClick={() => setTab('notice')}
-            >
-              공지
-            </button>
-            <button
-              type="button"
-              style={tab === 'prayer' ? activeTabBtn : tabBtn}
-              onClick={() => setTab('prayer')}
-            >
-              기도
-            </button>
+        {err ? <div className="uiErrorBox">{err}</div> : null}
+
+        <Card className="glassHeroCard">
+          <div className="sectionHeadRow">
+            <div>
+              <div style={sectionEyebrowStyle}>BOARD GUIDE</div>
+              <CardTitle>{boardLabel} 게시판</CardTitle>
+              <CardDesc>{boardDesc}</CardDesc>
+            </div>
           </div>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="md"
-            onClick={() => (isMember ? setComposerOpen(true) : alert('먼저 채널에 가입하세요.'))}
-          >
+          <div className="stack12" />
+
+          <div style={infoGridStyle}>
+            <InfoCard tone="peach" title="공지" desc="예배와 모임 일정, 전달사항을 한눈에 확인하는 공간이에요." />
+            <InfoCard tone="mint" title="기도" desc="중보기도 제목과 응답을 이어서 나누며 공동체 흐름을 살려요." />
+          </div>
+
+          <div className="stack12" />
+
+          <div style={tabGaugeGridStyle}>
+            <GaugeTabButton
+              label="공지"
+              title="공지 보드"
+              hint="예배 · 모임 · 전달사항"
+              tone="peach"
+              active={tab === 'notice'}
+              onClick={() => setTab('notice')}
+            />
+            <GaugeTabButton
+              label="기도"
+              title="기도 보드"
+              hint="기도제목 · 응답 · 댓글"
+              tone="mint"
+              active={tab === 'prayer'}
+              onClick={() => setTab('prayer')}
+            />
+          </div>
+
+          <div className="stack12" />
+
+          <Button variant="ghost" size="md" wide onClick={openComposerForCurrentTab}>
             새 글 작성
           </Button>
-        </div>
+        </Card>
 
-        <div style={{ height: 12 }} />
+        <div className="stack12" />
 
-        <div style={postList}>
-          {loading ? (
-            <>
-              <SkeletonPost />
-              <SkeletonPost />
-              <SkeletonPost />
-            </>
-          ) : posts.length === 0 ? (
-            <Card pad style={emptyCard}>
-              <div style={emptyTitle}>아직 게시글이 없어요</div>
-              <div style={emptyText}>
-                첫 번째 공지나 기도제목을 등록해서 채널 흐름을 시작해 보세요.
+        <Card className="glassHeroCard">
+          <div className="sectionHeadRow">
+            <div>
+              <div style={sectionEyebrowStyle}>POSTS</div>
+              <CardTitle>게시글 목록</CardTitle>
+              <CardDesc>{loading ? '게시글을 불러오는 중이에요.' : `${posts.length}개의 ${boardLabel} 글을 확인할 수 있어요.`}</CardDesc>
+            </div>
+          </div>
+
+          <div className="stack12" />
+
+          <div style={cardListStyle}>
+            {loading ? (
+              <div className="glassSkeletonStack">
+                <SkeletonPost />
+                <SkeletonPost />
+                <SkeletonPost />
               </div>
-            </Card>
-          ) : (
-            posts.map((p) => (
-              <button key={p.id} type="button" style={postCard} onClick={() => openComments(p)}>
-                <div style={postTop}>
-                  <div style={postTitle}>
-                    {p.title || (tab === 'notice' ? '공지' : '기도제목')}
+            ) : posts.length === 0 ? (
+              <div className="glassEmpty">아직 게시글이 없습니다. 첫 번째 {boardLabel} 글을 남겨보세요.</div>
+            ) : (
+              posts.map((post) => (
+                <button key={post.id} type="button" style={listCardButtonStyle} onClick={() => openComments(post)}>
+                  <div style={listCardTopStyle}>
+                    <div style={listCardTitleWrapStyle}>
+                      <div style={post.boardType === 'notice' ? listCardBadgePeachStyle : listCardBadgeMintStyle}>
+                        {post.boardType === 'notice' ? '공지' : '기도'}
+                      </div>
+                      <div style={listCardTitleStyle}>{post.title || (post.boardType === 'notice' ? '공지 제목' : '기도제목')}</div>
+                    </div>
+                    <div style={postTimeStyle}>{formatTime(post.createdAt)}</div>
                   </div>
-                  <div style={postTime}>{formatTime(p.createdAt)}</div>
-                </div>
 
-                <div style={postContent}>{p.content}</div>
+                  <div style={listCardDescStyle}>{post.content}</div>
 
-                <div style={postBottom}>
-                  <span style={authorPill}>{p.authorName}</span>
-                  <span style={readMore}>댓글 보기 ›</span>
-                </div>
-              </button>
-            ))
-          )}
-        </div>
-      </main>
+                  <div style={listCardMetaStyle}>
+                    <span style={authorPillStyle}>{post.authorName}</span>
+                    <span style={metaPillNeutralStyle}>댓글 보기 ›</span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </Card>
 
-      <BottomSheet open={composerOpen} onClose={() => setComposerOpen(false)}>
-        <div style={sheetHeader}>
-          <div style={sheetEyebrow}>{tab === 'notice' ? 'NOTICE POST' : 'PRAYER POST'}</div>
-          <div style={sheetTitle}>새 글 작성</div>
-          <div style={sheetDesc}>차분한 카드 레이아웃에 맞춰 공지나 기도제목을 남겨보세요.</div>
-        </div>
+        <BottomSheet open={composerOpen} onClose={() => setComposerOpen(false)}>
+          <div style={sheetEyebrowStyle}>{tab === 'notice' ? 'NOTICE POST' : 'PRAYER POST'}</div>
+          <div className="sheetTitle">새 글 작성</div>
+          <div style={sheetDescStyle}>홈과 같은 차분한 톤으로 공지나 기도제목을 남겨보세요.</div>
+          <div className="stack10" />
 
-        <div style={sheetBody}>
           <Field label="제목(선택)">
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="제목을 입력하세요"
-              style={input}
-            />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목을 입력하세요" className="glassInput" />
           </Field>
+
+          <div className="stack10" />
 
           <Field label="내용">
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="내용을 입력하세요"
-              style={textarea}
-            />
+            <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="내용을 입력하세요" className="glassTextarea" />
           </Field>
 
-          <div style={actionGrid}>
-            <Button type="button" variant="primary" size="lg" wide onClick={submitPost} disabled={saving}>
-              {saving ? '등록 중…' : '등록'}
-            </Button>
-            <Button type="button" variant="secondary" size="md" wide onClick={() => setComposerOpen(false)}>
-              닫기
-            </Button>
-          </div>
-        </div>
-      </BottomSheet>
+          <div className="stack10" />
 
-      <BottomSheet open={commentsOpen} onClose={() => setCommentsOpen(false)}>
-        <div style={sheetHeader}>
-          <div style={sheetEyebrow}>COMMENTS</div>
-          <div style={sheetTitle}>{activePost?.title ?? '댓글'}</div>
-          {activePost ? <div style={sheetDesc}>{activePost.content}</div> : null}
-        </div>
+          <Button variant="primary" size="lg" wide onClick={submitPost} disabled={saving}>
+            {saving ? '등록 중…' : '등록'}
+          </Button>
+        </BottomSheet>
 
-        <div style={commentList}>
-          {commentsLoading ? (
-            <>
-              <CommentSkeleton />
-              <CommentSkeleton />
-            </>
-          ) : comments.length === 0 ? (
-            <div style={emptyInline}>댓글이 없습니다.</div>
-          ) : (
-            comments.map((c) => (
-              <div key={c.id} style={commentCard}>
-                <div style={commentTop}>
-                  <div style={commentAuthor}>{c.authorName}</div>
-                  <div style={commentTime}>{formatTime(c.createdAt)}</div>
-                </div>
-                <div style={commentTextStyle}>{c.content}</div>
+        <BottomSheet open={commentsOpen} onClose={() => setCommentsOpen(false)}>
+          <div style={sheetEyebrowStyle}>COMMENTS</div>
+          <div className="sheetTitle">댓글 나눔</div>
+          {activePost ? (
+            <div style={commentHeroCardStyle}>
+              <div style={commentHeroTopStyle}>
+                <span style={activePost.boardType === 'notice' ? heroPeachPillStyle : heroMintPillStyle}>
+                  {activePost.boardType === 'notice' ? '공지' : '기도'}
+                </span>
+                <span style={heroNeutralPillStyle}>{commentsLoading ? '불러오는 중' : `${comments.length}개 댓글`}</span>
               </div>
-            ))
-          )}
-        </div>
+              <div style={commentHeroTitleStyle}>{activePost.title ?? '댓글'}</div>
+              <div style={commentHeroDescStyle}>{activePost.content}</div>
+            </div>
+          ) : null}
 
-        <div style={{ height: 12 }} />
+          <div className="stack10" />
 
-        <Field label="댓글 입력">
-          <textarea
-            value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-            placeholder="댓글을 입력하세요"
-            style={{ ...textarea, minHeight: 88 }}
-          />
-        </Field>
+          <div style={cardListStyle}>
+            {commentsLoading ? (
+              <>
+                <CommentSkeleton />
+                <CommentSkeleton />
+              </>
+            ) : comments.length === 0 ? (
+              <div className="glassEmpty">아직 댓글이 없습니다. 첫 번째 댓글로 마음을 나눠보세요.</div>
+            ) : (
+              comments.map((comment) => (
+                <div key={comment.id} style={commentCardStyle}>
+                  <div style={commentTopStyle}>
+                    <div style={commentAuthorStyle}>{comment.authorName}</div>
+                    <div style={commentTimeStyle}>{formatTime(comment.createdAt)}</div>
+                  </div>
+                  <div style={commentTextStyle}>{comment.content}</div>
+                </div>
+              ))
+            )}
+          </div>
 
-        <div style={actionGrid}>
-          <Button
-            type="button"
-            variant="primary"
-            size="lg"
-            wide
-            onClick={submitComment}
-            disabled={commentSaving}
-          >
+          <div className="stack12" />
+
+          <div style={commentEditorCardStyle}>
+            <div style={commentEditorTitleStyle}>댓글 입력</div>
+            <div style={commentEditorDescStyle}>짧게 공감이나 기도 응답을 남겨보세요.</div>
+            <div className="stack10" />
+            <textarea
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="댓글을 입력하세요"
+              className="glassTextarea"
+              style={{ minHeight: 88 }}
+            />
+          </div>
+
+          <div className="stack10" />
+
+          <Button variant="primary" size="lg" wide onClick={submitComment} disabled={commentSaving}>
             {commentSaving ? '등록 중…' : '댓글 등록'}
           </Button>
-          <Button type="button" variant="secondary" size="md" wide onClick={() => setCommentsOpen(false)}>
-            닫기
-          </Button>
-        </div>
-      </BottomSheet>
+        </BottomSheet>
+      </div>
     </div>
   );
 }
 
-function MetaChip({
+function SummaryTile({
   label,
   value,
-  tint
+  subValue,
+  tone
 }: {
   label: string;
   value: string;
-  tint: 'mint' | 'peach';
+  subValue: string;
+  tone: Tone;
 }) {
   return (
-    <div
-      style={{
-        ...metaCard,
-        background:
-          tint === 'mint' ? 'rgba(114,215,199,0.16)' : 'rgba(243,180,156,0.16)',
-        borderColor:
-          tint === 'mint' ? 'rgba(114,215,199,0.24)' : 'rgba(243,180,156,0.24)'
-      }}
-    >
-      <div style={metaLabel}>{label}</div>
-      <div style={metaValue}>{value}</div>
+    <div style={{ ...summaryTileStyle, ...getToneCardStyle(tone) }}>
+      <div style={summaryLabelStyle}>{label}</div>
+      <div style={summaryValueStyle}>{value}</div>
+      <div style={summarySubStyle}>{subValue}</div>
     </div>
+  );
+}
+
+function InfoCard({ tone, title, desc }: { tone: Tone; title: string; desc: string }) {
+  return (
+    <div style={{ ...infoCardStyle, ...getToneCardStyle(tone) }}>
+      <div style={infoTitleStyle}>{title}</div>
+      <div style={infoDescStyle}>{desc}</div>
+    </div>
+  );
+}
+
+function GaugeTabButton({
+  label,
+  title,
+  hint,
+  tone,
+  active,
+  onClick
+}: {
+  label: string;
+  title: string;
+  hint: string;
+  tone: 'mint' | 'peach';
+  active: boolean;
+  onClick: () => void;
+}) {
+  const fill = tone === 'mint' ? 'linear-gradient(90deg, rgba(114,215,199,0.28), rgba(114,215,199,0.14))' : 'linear-gradient(90deg, rgba(243,180,156,0.28), rgba(243,180,156,0.14))';
+  const border = tone === 'mint' ? 'rgba(114,215,199,0.26)' : 'rgba(243,180,156,0.26)';
+  const badgeBg = tone === 'mint' ? 'rgba(114,215,199,0.18)' : 'rgba(243,180,156,0.18)';
+  const badgeColor = tone === 'mint' ? '#2f7f73' : '#9d6550';
+  const valueColor = tone === 'mint' ? '#245f56' : '#8d5a47';
+  const percent = active ? 100 : 22;
+
+  return (
+    <button type="button" onClick={onClick} style={{ ...gaugeTabButtonStyle, border: `1px solid ${border}` }}>
+      <div style={gaugeTrackStyle}>
+        <div style={{ ...gaugeFillStyle, width: `${percent}%`, background: fill }} />
+      </div>
+      <div style={gaugeContentStyle}>
+        <div style={gaugeTopRowStyle}>
+          <div style={gaugeLabelStyle}>{label}</div>
+          <div style={{ ...gaugeBadgeStyle, background: badgeBg, color: badgeColor }}>{active ? 'ON' : 'OFF'}</div>
+        </div>
+        <div style={{ ...gaugeValueStyle, color: valueColor }}>{title}</div>
+        <div style={gaugeHintStyle}>{hint}</div>
+      </div>
+    </button>
   );
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label style={field}>
-      <div style={fieldLabel}>{label}</div>
+    <label className="glassField">
+      <div className="glassFieldLabel">{label}</div>
       {children}
     </label>
   );
 }
 
 function SkeletonPost() {
-  return (
-    <div style={skeletonCard}>
-      <div style={skeletonLineLg} />
-      <div style={skeletonLineMd} />
-      <div style={skeletonLineMd2} />
-      <div style={skeletonLineSm} />
-    </div>
-  );
+  return <div className="glassSkeletonBlock" style={{ height: 138 }} />;
 }
 
 function CommentSkeleton() {
-  return (
-    <div style={commentSkeleton}>
-      <div style={commentSkeletonLg} />
-      <div style={commentSkeletonMd} />
-    </div>
-  );
+  return <div className="glassSkeletonBlock" style={{ height: 102, borderRadius: 22 }} />;
 }
 
-function BottomSheet({
-  open,
-  onClose,
-  children
-}: {
-  open: boolean;
-  onClose: () => void;
-  children: ReactNode;
-}) {
+function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
   if (!open) return null;
 
   return (
-    <div style={sheetBackdrop} onClick={onClose} role="dialog" aria-modal="true">
-      <div style={sheet} onClick={(e) => e.stopPropagation()}>
-        <div style={sheetHandleWrap}>
-          <div style={sheetHandle} />
+    <div role="dialog" aria-modal="true" className="uiSheetBackdrop" onClick={onClose}>
+      <div className="uiSheet" onClick={(e) => e.stopPropagation()}>
+        <div className="uiSheetHandleWrap">
+          <div className="uiSheetHandle" />
         </div>
         {children}
+        <div className="stack10" />
+        <Button variant="secondary" wide onClick={onClose}>
+          닫기
+        </Button>
       </div>
     </div>
   );
@@ -524,252 +612,358 @@ function BottomSheet({
 
 function formatTime(ts: number) {
   const d = new Date(ts);
-  return `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(
-    2,
-    '0'
-  )} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(
+    d.getHours()
+  ).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-const page: CSSProperties = {
-  minHeight: '100dvh',
-  background:
-    'radial-gradient(circle at top left, rgba(217,242,231,0.72), transparent 28%), radial-gradient(circle at top right, rgba(247,229,216,0.72), transparent 24%), linear-gradient(180deg, #f8f3ea 0%, #f7f4ef 40%, #f4f7f8 100%)'
-};
+function getToneCardStyle(tone: Tone): CSSProperties {
+  switch (tone) {
+    case 'mint':
+      return {
+        background: 'linear-gradient(180deg, rgba(114,215,199,0.18), rgba(255,255,255,0.62))',
+        border: '1px solid rgba(114,215,199,0.28)'
+      };
+    case 'peach':
+      return {
+        background: 'linear-gradient(180deg, rgba(243,200,181,0.24), rgba(255,255,255,0.62))',
+        border: '1px solid rgba(243,200,181,0.34)'
+      };
+    case 'sky':
+      return {
+        background: 'linear-gradient(180deg, rgba(223,243,250,0.7), rgba(255,255,255,0.64))',
+        border: '1px solid rgba(191,229,243,0.68)'
+      };
+    default:
+      return {
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.74), rgba(255,255,255,0.6))',
+        border: '1px solid rgba(255,255,255,0.56)'
+      };
+  }
+}
 
-const wrap: CSSProperties = {
-  width: '100%',
-  maxWidth: 760,
-  margin: '0 auto',
-  padding: '10px 16px 48px'
-};
-
-const hero: CSSProperties = {
-  padding: '18px 4px 16px'
-};
-
-const heroBadge: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  height: 28,
-  padding: '0 12px',
-  borderRadius: 999,
-  background: 'rgba(255,255,255,0.72)',
-  border: '1px solid rgba(255,255,255,0.7)',
-  color: '#5a6a67',
+const eyebrowStyle: CSSProperties = {
+  marginBottom: 8,
   fontSize: 11,
   fontWeight: 900,
-  letterSpacing: '0.08em'
+  letterSpacing: '0.08em',
+  color: '#82a39a'
 };
 
-const heroTitle: CSSProperties = {
-  margin: '14px 0 8px',
-  fontSize: 30,
-  lineHeight: 1.14,
-  fontWeight: 800,
-  color: '#24313a',
-  letterSpacing: '-0.02em'
+const rolePillStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 34,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'rgba(255,255,255,0.52)',
+  border: '1px solid rgba(255,255,255,0.56)',
+  color: '#4dbdaa',
+  fontSize: 12,
+  fontWeight: 800
 };
 
-const heroDesc: CSSProperties = {
-  margin: 0,
-  color: '#60707a',
-  fontSize: 14,
-  lineHeight: 1.7
+const summaryTileStyle: CSSProperties = {
+  padding: 16,
+  borderRadius: 20,
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4)'
 };
 
-const errorBox: CSSProperties = {
-  marginBottom: 12,
-  padding: '12px 14px',
-  borderRadius: 18,
-  background: 'rgba(255,112,112,0.10)',
-  border: '1px solid rgba(255,112,112,0.22)',
-  color: '#9a4a4a',
-  fontSize: 14,
+const summaryLabelStyle: CSSProperties = {
+  color: '#6c7881',
+  fontSize: 12,
   fontWeight: 700
 };
 
-const heroCard: CSSProperties = {
-  borderRadius: 28,
-  background: 'rgba(255,255,255,0.72)',
-  border: '1px solid rgba(255,255,255,0.56)',
-  boxShadow: '0 20px 42px rgba(77,90,110,0.10)',
-  backdropFilter: 'blur(16px)'
-};
-
-const heroTop: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: 16,
-  flexWrap: 'wrap',
-  alignItems: 'flex-start'
-};
-
-const cardTitle: CSSProperties = {
-  fontSize: 24,
+const summaryValueStyle: CSSProperties = {
+  marginTop: 8,
+  color: '#24313a',
+  fontSize: 22,
   fontWeight: 800,
-  color: '#24313a'
+  lineHeight: 1.1,
+  letterSpacing: '-0.03em'
 };
 
-const cardDesc: CSSProperties = {
-  marginTop: 6,
-  color: '#6c7780',
-  fontSize: 14,
-  lineHeight: 1.6,
-  maxWidth: 420
+const summarySubStyle: CSSProperties = {
+  marginTop: 8,
+  color: '#6a7780',
+  fontSize: 12,
+  fontWeight: 700,
+  lineHeight: 1.45
 };
 
-const chipWrap: CSSProperties = {
+const heroPillRowStyle: CSSProperties = {
   display: 'flex',
-  gap: 10,
+  gap: 8,
   flexWrap: 'wrap'
 };
 
-const metaCard: CSSProperties = {
-  minWidth: 112,
-  padding: '12px 14px',
-  borderRadius: 18,
-  border: '1px solid transparent'
-};
-
-const metaLabel: CSSProperties = {
-  fontSize: 11,
-  color: '#68757e',
+const heroMintPillStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 30,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'rgba(114,215,199,0.14)',
+  border: '1px solid rgba(114,215,199,0.24)',
+  color: '#2f7f73',
+  fontSize: 12,
   fontWeight: 800
 };
 
-const metaValue: CSSProperties = {
-  marginTop: 6,
-  fontSize: 16,
-  lineHeight: 1.2,
-  fontWeight: 800,
-  color: '#24313a'
+const heroPeachPillStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 30,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'rgba(243,180,156,0.16)',
+  border: '1px solid rgba(243,180,156,0.24)',
+  color: '#9d6550',
+  fontSize: 12,
+  fontWeight: 800
 };
 
-const joinBox: CSSProperties = {
-  marginTop: 18,
-  padding: 18,
-  borderRadius: 22,
-  background: 'rgba(247,250,251,0.72)',
-  border: '1px solid rgba(222,230,235,0.95)'
+const heroSkyPillStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 30,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'rgba(223,243,250,0.9)',
+  border: '1px solid rgba(191,229,243,0.8)',
+  color: '#51727f',
+  fontSize: 12,
+  fontWeight: 800
 };
 
-const joinTitle: CSSProperties = {
-  fontSize: 18,
-  fontWeight: 800,
-  color: '#24313a'
+const heroNeutralPillStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 30,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'rgba(255,255,255,0.52)',
+  border: '1px solid rgba(255,255,255,0.56)',
+  color: '#6e7b84',
+  fontSize: 12,
+  fontWeight: 800
 };
 
-const joinDesc: CSSProperties = {
-  marginTop: 6,
-  color: '#64727b',
-  fontSize: 14,
-  lineHeight: 1.6
-};
-
-const joinRow: CSSProperties = {
+const heroActionGridStyle: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '1fr auto',
-  gap: 10,
-  marginTop: 14,
-  alignItems: 'center'
+  gap: 10
 };
 
-const joinBtnWrap: CSSProperties = {
-  minWidth: 120
+const joinBoxStyle: CSSProperties = {
+  padding: '14px 14px 12px',
+  borderRadius: 18,
+  background: 'rgba(248,250,251,0.72)',
+  border: '1px solid rgba(227,233,237,0.92)'
 };
 
-const tabRow: CSSProperties = {
+const joinTitleStyle: CSSProperties = {
+  color: '#24313a',
+  fontSize: 16,
+  fontWeight: 800
+};
+
+const joinDescStyle: CSSProperties = {
+  marginTop: 6,
+  color: '#6d7881',
+  fontSize: 13,
+  lineHeight: 1.55
+};
+
+const sectionEyebrowStyle: CSSProperties = {
+  fontSize: 11,
+  fontWeight: 900,
+  letterSpacing: '0.08em',
+  color: '#83a39a'
+};
+
+const infoGridStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 10
+};
+
+const infoCardStyle: CSSProperties = {
+  minWidth: 0,
+  padding: '14px 14px 12px',
+  borderRadius: 18,
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.38)'
+};
+
+const infoTitleStyle: CSSProperties = {
+  color: '#24313a',
+  fontSize: 15,
+  fontWeight: 800
+};
+
+const infoDescStyle: CSSProperties = {
+  marginTop: 6,
+  color: '#617078',
+  fontSize: 13,
+  lineHeight: 1.55
+};
+
+const tabGaugeGridStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 10
+};
+
+const gaugeTabButtonStyle: CSSProperties = {
+  position: 'relative',
+  overflow: 'hidden',
+  textAlign: 'left',
+  width: '100%',
+  minHeight: 116,
+  padding: 16,
+  borderRadius: 22,
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.66))',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)',
+  cursor: 'pointer'
+};
+
+const gaugeTrackStyle: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  pointerEvents: 'none'
+};
+
+const gaugeFillStyle: CSSProperties = {
+  height: '100%',
+  borderRadius: 22,
+  transition: 'width 180ms ease'
+};
+
+const gaugeContentStyle: CSSProperties = {
+  position: 'relative',
+  zIndex: 1
+};
+
+const gaugeTopRowStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  gap: 12,
-  flexWrap: 'wrap'
+  gap: 8
 };
 
-const tabWrap: CSSProperties = {
-  display: 'inline-flex',
-  padding: 4,
-  borderRadius: 18,
-  background: 'rgba(255,255,255,0.62)',
-  border: '1px solid rgba(255,255,255,0.68)',
-  boxShadow: '0 10px 24px rgba(77,90,110,0.08)'
-};
-
-const tabBtn: CSSProperties = {
-  height: 42,
-  padding: '0 18px',
-  borderRadius: 14,
-  border: 'none',
-  background: 'transparent',
+const gaugeLabelStyle: CSSProperties = {
   color: '#617078',
-  fontSize: 14,
+  fontSize: 12,
   fontWeight: 800
 };
 
-const activeTabBtn: CSSProperties = {
-  ...tabBtn,
-  background: 'linear-gradient(180deg, #7bdccf 0%, #5acbb8 100%)',
-  color: '#143936',
-  boxShadow: '0 8px 18px rgba(90,203,184,0.22)'
+const gaugeBadgeStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 28,
+  padding: '0 10px',
+  borderRadius: 999,
+  fontSize: 11,
+  fontWeight: 800
 };
 
-const postList: CSSProperties = {
+const gaugeValueStyle: CSSProperties = {
+  marginTop: 12,
+  fontSize: 18,
+  fontWeight: 800,
+  lineHeight: 1.25,
+  letterSpacing: '-0.02em'
+};
+
+const gaugeHintStyle: CSSProperties = {
+  marginTop: 8,
+  color: '#68757e',
+  fontSize: 13,
+  lineHeight: 1.5
+};
+
+const cardListStyle: CSSProperties = {
   display: 'grid',
   gap: 12
 };
 
-const postCard: CSSProperties = {
+const listCardButtonStyle: CSSProperties = {
   textAlign: 'left',
   width: '100%',
+  minHeight: 138,
   padding: 18,
-  borderRadius: 24,
-  border: '1px solid rgba(255,255,255,0.62)',
-  background: 'rgba(255,255,255,0.70)',
-  boxShadow: '0 14px 32px rgba(77,90,110,0.08)',
-  backdropFilter: 'blur(14px)'
+  borderRadius: 22,
+  border: '1px solid rgba(255,255,255,0.58)',
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.66))',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)',
+  cursor: 'pointer'
 };
 
-const postTop: CSSProperties = {
+const listCardTopStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'flex-start',
   justifyContent: 'space-between',
   gap: 12
 };
 
-const postTitle: CSSProperties = {
-  fontSize: 18,
-  fontWeight: 800,
-  color: '#24313a'
+const listCardTitleWrapStyle: CSSProperties = {
+  minWidth: 0,
+  flex: 1
 };
 
-const postTime: CSSProperties = {
-  fontSize: 12,
-  color: '#88939a',
-  fontWeight: 800,
-  whiteSpace: 'nowrap'
+const listCardBadgeMintStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 24,
+  padding: '0 8px',
+  borderRadius: 999,
+  background: 'rgba(114,215,199,0.12)',
+  color: '#2f7f73',
+  fontSize: 11,
+  fontWeight: 800
 };
 
-const postContent: CSSProperties = {
-  marginTop: 10,
-  color: '#4f5f68',
+const listCardBadgePeachStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 24,
+  padding: '0 8px',
+  borderRadius: 999,
+  background: 'rgba(243,200,181,0.28)',
+  color: '#9d6550',
+  fontSize: 11,
+  fontWeight: 800
+};
+
+const listCardTitleStyle: CSSProperties = {
+  marginTop: 8,
+  color: '#24313a',
+  fontSize: 17,
+  fontWeight: 800,
+  lineHeight: 1.35,
+  letterSpacing: '-0.02em'
+};
+
+const listCardDescStyle: CSSProperties = {
+  marginTop: 12,
+  color: '#53626b',
   fontSize: 14,
-  lineHeight: 1.72,
+  lineHeight: 1.7,
   whiteSpace: 'pre-wrap'
 };
 
-const postBottom: CSSProperties = {
+const listCardMetaStyle: CSSProperties = {
   marginTop: 14,
   display: 'flex',
-  justifyContent: 'space-between',
-  gap: 12,
   alignItems: 'center',
+  gap: 8,
   flexWrap: 'wrap'
 };
 
-const authorPill: CSSProperties = {
+const authorPillStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
-  height: 30,
+  minHeight: 30,
   padding: '0 12px',
   borderRadius: 999,
   background: 'rgba(114,215,199,0.12)',
@@ -779,246 +973,125 @@ const authorPill: CSSProperties = {
   fontWeight: 800
 };
 
-const readMore: CSSProperties = {
-  color: '#8ca29c',
+const metaPillNeutralStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 30,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'rgba(255,255,255,0.52)',
+  border: '1px solid rgba(255,255,255,0.56)',
+  color: '#6e7b84',
+  fontSize: 12,
+  fontWeight: 800
+};
+
+const postTimeStyle: CSSProperties = {
+  color: '#8a959d',
+  fontSize: 12,
+  fontWeight: 700,
+  whiteSpace: 'nowrap'
+};
+
+const sheetEyebrowStyle: CSSProperties = {
+  fontSize: 11,
+  fontWeight: 900,
+  letterSpacing: '0.08em',
+  color: '#82a39a'
+};
+
+const sheetDescStyle: CSSProperties = {
+  marginTop: 8,
+  color: '#6e7b84',
+  fontSize: 13,
+  lineHeight: 1.55,
+  whiteSpace: 'pre-wrap'
+};
+
+const commentHeroCardStyle: CSSProperties = {
+  padding: 16,
+  borderRadius: 22,
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.66))',
+  border: '1px solid rgba(255,255,255,0.58)',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)'
+};
+
+const commentHeroTopStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  flexWrap: 'wrap'
+};
+
+const commentHeroTitleStyle: CSSProperties = {
+  marginTop: 12,
+  color: '#24313a',
+  fontSize: 17,
+  fontWeight: 800,
+  lineHeight: 1.35,
+  letterSpacing: '-0.02em'
+};
+
+const commentHeroDescStyle: CSSProperties = {
+  marginTop: 10,
+  color: '#53626b',
+  fontSize: 14,
+  lineHeight: 1.7,
+  whiteSpace: 'pre-wrap'
+};
+
+const commentCardStyle: CSSProperties = {
+  padding: 16,
+  borderRadius: 22,
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.66))',
+  border: '1px solid rgba(255,255,255,0.58)',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)'
+};
+
+const commentTopStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 8
+};
+
+const commentAuthorStyle: CSSProperties = {
+  color: '#24313a',
   fontSize: 13,
   fontWeight: 800
 };
 
-const emptyCard: CSSProperties = {
-  borderRadius: 24,
-  background: 'rgba(255,255,255,0.62)',
-  border: '1px dashed rgba(180,191,198,0.8)'
-};
-
-const emptyTitle: CSSProperties = {
-  fontSize: 18,
-  fontWeight: 800,
-  color: '#24313a'
-};
-
-const emptyText: CSSProperties = {
-  marginTop: 8,
-  color: '#78848c',
-  fontSize: 14,
-  lineHeight: 1.6
-};
-
-const skeletonCard: CSSProperties = {
-  padding: 18,
-  borderRadius: 24,
-  border: '1px solid rgba(255,255,255,0.62)',
-  background: 'rgba(255,255,255,0.62)'
-};
-
-const skeletonLineLg: CSSProperties = {
-  width: '54%',
-  height: 18,
-  borderRadius: 999,
-  background: 'rgba(200,210,216,0.55)'
-};
-
-const skeletonLineMd: CSSProperties = {
-  width: '84%',
-  height: 12,
-  borderRadius: 999,
-  background: 'rgba(200,210,216,0.42)',
-  marginTop: 12
-};
-
-const skeletonLineMd2: CSSProperties = {
-  width: '72%',
-  height: 12,
-  borderRadius: 999,
-  background: 'rgba(200,210,216,0.36)',
-  marginTop: 10
-};
-
-const skeletonLineSm: CSSProperties = {
-  width: '30%',
-  height: 12,
-  borderRadius: 999,
-  background: 'rgba(200,210,216,0.30)',
-  marginTop: 14
-};
-
-const sheetBackdrop: CSSProperties = {
-  position: 'fixed',
-  inset: 0,
-  background: 'rgba(32,39,43,0.36)',
-  display: 'flex',
-  alignItems: 'flex-end',
-  justifyContent: 'center',
-  padding: 12,
-  zIndex: 1000
-};
-
-const sheet: CSSProperties = {
-  width: '100%',
-  maxWidth: 620,
-  borderRadius: '28px 28px 0 0',
-  background: 'rgba(255,255,255,0.88)',
-  border: '1px solid rgba(255,255,255,0.72)',
-  boxShadow: '0 20px 48px rgba(31,42,51,0.18)',
-  backdropFilter: 'blur(18px)',
-  padding: '10px 16px 18px'
-};
-
-const sheetHandleWrap: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'center',
-  padding: '4px 0 8px'
-};
-
-const sheetHandle: CSSProperties = {
-  width: 54,
-  height: 6,
-  borderRadius: 999,
-  background: 'rgba(129,141,148,0.28)'
-};
-
-const sheetHeader: CSSProperties = {
-  padding: '4px 4px 10px'
-};
-
-const sheetEyebrow: CSSProperties = {
-  fontSize: 11,
-  fontWeight: 900,
-  letterSpacing: '0.08em',
-  color: '#83a39a'
-};
-
-const sheetTitle: CSSProperties = {
-  marginTop: 6,
-  fontSize: 22,
-  fontWeight: 800,
-  color: '#24313a'
-};
-
-const sheetDesc: CSSProperties = {
-  marginTop: 8,
-  color: '#6b7780',
-  fontSize: 14,
-  lineHeight: 1.62,
-  whiteSpace: 'pre-wrap'
-};
-
-const sheetBody: CSSProperties = {
-  display: 'grid',
-  gap: 14
-};
-
-const field: CSSProperties = {
-  display: 'grid',
-  gap: 8
-};
-
-const fieldLabel: CSSProperties = {
-  fontSize: 13,
-  fontWeight: 800,
-  color: '#3d4a52'
-};
-
-const input: CSSProperties = {
-  width: '100%',
-  height: 52,
-  borderRadius: 18,
-  border: '1px solid rgba(202,212,220,0.9)',
-  background: 'rgba(255,255,255,0.82)',
-  padding: '0 16px',
-  fontSize: 15,
-  color: '#24313a',
-  outline: 'none'
-};
-
-const textarea: CSSProperties = {
-  width: '100%',
-  minHeight: 132,
-  resize: 'vertical',
-  borderRadius: 18,
-  border: '1px solid rgba(202,212,220,0.9)',
-  background: 'rgba(255,255,255,0.82)',
-  padding: 14,
-  fontSize: 14,
-  lineHeight: 1.65,
-  color: '#24313a',
-  outline: 'none'
-};
-
-const actionGrid: CSSProperties = {
-  display: 'grid',
-  gap: 10,
-  marginTop: 4
-};
-
-const commentList: CSSProperties = {
-  display: 'grid',
-  gap: 10,
-  maxHeight: 260,
-  overflow: 'auto',
-  paddingRight: 2
-};
-
-const commentCard: CSSProperties = {
-  padding: 14,
-  borderRadius: 18,
-  border: '1px solid rgba(226,233,237,0.95)',
-  background: 'rgba(247,250,251,0.82)'
-};
-
-const commentTop: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: 10,
-  alignItems: 'center',
-  flexWrap: 'wrap'
-};
-
-const commentAuthor: CSSProperties = {
-  fontSize: 14,
-  fontWeight: 800,
-  color: '#24313a'
-};
-
-const commentTime: CSSProperties = {
-  fontSize: 12,
+const commentTimeStyle: CSSProperties = {
   color: '#8a959d',
+  fontSize: 12,
   fontWeight: 700
 };
 
 const commentTextStyle: CSSProperties = {
   marginTop: 8,
-  color: '#526069',
+  color: '#54616a',
   fontSize: 14,
-  lineHeight: 1.65,
+  lineHeight: 1.6,
   whiteSpace: 'pre-wrap'
 };
 
-const emptyInline: CSSProperties = {
-  padding: '14px 2px',
-  color: '#78848c',
-  fontSize: 14,
-  lineHeight: 1.6
+const commentEditorCardStyle: CSSProperties = {
+  padding: 16,
+  borderRadius: 22,
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.66))',
+  border: '1px solid rgba(255,255,255,0.58)',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)'
 };
 
-const commentSkeleton: CSSProperties = {
-  padding: 14,
-  borderRadius: 18,
-  border: '1px solid rgba(226,233,237,0.95)',
-  background: 'rgba(247,250,251,0.82)'
+const commentEditorTitleStyle: CSSProperties = {
+  color: '#24313a',
+  fontSize: 15,
+  fontWeight: 800
 };
 
-const commentSkeletonLg: CSSProperties = {
-  width: '36%',
-  height: 14,
-  borderRadius: 999,
-  background: 'rgba(200,210,216,0.45)'
-};
-
-const commentSkeletonMd: CSSProperties = {
-  width: '72%',
-  height: 12,
-  borderRadius: 999,
-  background: 'rgba(200,210,216,0.34)',
-  marginTop: 10
+const commentEditorDescStyle: CSSProperties = {
+  marginTop: 6,
+  color: '#6d7881',
+  fontSize: 13,
+  lineHeight: 1.55
 };
