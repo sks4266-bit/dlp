@@ -1,8 +1,7 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthContext';
 import ProtectedRoute from './auth/ProtectedRoute';
 import { UiPrefsProvider } from './ui/UiPrefsContext';
-
 import AdminPage from './pages/AdminPage';
 import BiblePage from './pages/BiblePage';
 import BibleSearchPage from './pages/BibleSearchPage';
@@ -19,10 +18,6 @@ import UrgentPrayerNewPage from './pages/UrgentPrayerNewPage';
 import UrgentPrayersPage from './pages/UrgentPrayersPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
-
-function RedirectHome() {
-  return <Navigate to="/" replace />;
-}
 
 export default function App() {
   return (
@@ -53,7 +48,6 @@ export default function App() {
                     </ProtectedRoute>
                   }
                 />
-
                 <Route
                   path="/gratitude"
                   element={
@@ -62,7 +56,6 @@ export default function App() {
                     </ProtectedRoute>
                   }
                 />
-
                 <Route
                   path="/admin"
                   element={
@@ -71,7 +64,6 @@ export default function App() {
                     </ProtectedRoute>
                   }
                 />
-
                 <Route
                   path="/dlp"
                   element={
@@ -80,7 +72,6 @@ export default function App() {
                     </ProtectedRoute>
                   }
                 />
-
                 <Route
                   path="/qt"
                   element={
@@ -89,7 +80,6 @@ export default function App() {
                     </ProtectedRoute>
                   }
                 />
-
                 <Route
                   path="/channels"
                   element={
@@ -98,7 +88,6 @@ export default function App() {
                     </ProtectedRoute>
                   }
                 />
-
                 <Route
                   path="/channels/:id"
                   element={
@@ -107,7 +96,6 @@ export default function App() {
                     </ProtectedRoute>
                   }
                 />
-
                 <Route
                   path="/mcheyne-today"
                   element={
@@ -116,11 +104,9 @@ export default function App() {
                     </ProtectedRoute>
                   }
                 />
-
                 <Route path="/mcheyne-calendar" element={<McheyneCalendarPage />} />
                 <Route path="/bible" element={<BiblePage />} />
                 <Route path="/bible-search" element={<BibleSearchPage />} />
-                <Route path="*" element={<RedirectHome />} />
               </Routes>
             </div>
           </div>

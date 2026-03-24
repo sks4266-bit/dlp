@@ -7,11 +7,11 @@ import { hashPasswordPBKDF2, randomHex } from '../security';
 
 export const meRoutes = new Hono<{ Bindings: Env; Variables: { userId: string } }>();
 
-function kstDateString(d: Date) {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+function kstDateString(date: Date) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function kstNowUtcDate() {
@@ -19,14 +19,77 @@ function kstNowUtcDate() {
 }
 
 function startOfKstWeekUtc() {
-  // week starts Monday
-  const d = kstNowUtcDate();
-  const dow = d.getUTCDay(); // 0 Sun .. 6 Sat
-  const mondayOffset = dow === 0 ? 6 : dow - 1;
-  d.setUTCDate(d.getUTCDate() - mondayOffset);
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
+  const date = kstNowUtcDate();
+  const dayOfWeek = date.getUTCDay();
+  const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  date.setUTCDate(date.getUTCDate() - mondayOffset);
+  date.setUTCHours(0, 0, 0, 0);
+  return date;
 }
+
+async function ensureMcheyneProgressTable(env: Env) {
+  await dbRun(
+    env,
+    `CREATE TABLE IF NOT EXISTS mcheyne_progress (
+      user_id TEXT NOT NULL,
+      month INTEGER NOT NULL,
+      day INTEGER NOT NULL,
+      done1 INTEGER NOT NULL DEFAULT 0,
+      done2 INTEGER NOT NULL DEFAULT 0,
+      done3 INTEGER NOT NULL DEFAULT 0,
+      done4 INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, month, day)
+    );`
+  );
+
+  await dbRun(env, 'CREATE INDEX IF NOT EXISTS idx_mcheyne_progress_user ON mcheyne_progress(user_id);');
+}
+
+async function verifyPassword(env: Env, userId: string, password: string) {
+  const user = await dbGet<{ password_hash: string; password_salt: string }>(
+    env,
+    'SELECT password_hash, password_salt FROM users WHERE id = ?;',
+    [userId]
+  );
+
+  if (!user) return null;
+
+  const hash = await hashPasswordPBKDF2(password, user.password_salt);
+  if (hash !== user.password_hash) return false;
+
+  return true;
+}
+
+async function deleteAccountFootprints(env: Env, userId: string) {
+  await ensureMcheyneProgressTable(env);
+
+  await dbRun(env, 'DELETE FROM sessions WHERE user_id = ?;', [userId]);
+  await dbRun(env, 'DELETE FROM user_global_roles WHERE user_id = ?;', [userId]);
+  await dbRun(env, 'DELETE FROM channel_members WHERE user_id = ?;', [userId]);
+  await dbRun(env, 'DELETE FROM dlp_entries WHERE user_id = ?;', [userId]);
+  await dbRun(env, 'DELETE FROM gratitude_entries WHERE user_id = ?;', [userId]);
+  await dbRun(env, 'DELETE FROM mcheyne_progress WHERE user_id = ?;', [userId]);
+  await dbRun(env, 'DELETE FROM mcheyne_reads WHERE user_id = ?;', [userId]);
+  await dbRun(env, 'UPDATE posts SET author_id = NULL WHERE author_id = ?;', [userId]);
+  await dbRun(env, 'UPDATE comments SET author_id = NULL WHERE author_id = ?;', [userId]);
+  await dbRun(env, 'DELETE FROM users WHERE id = ?;', [userId]);
+}
+
+const UpdateProfileSchema = z.object({
+  name: z.string().min(1).max(50).optional(),
+  phone: z.string().max(30).optional().nullable(),
+  homeChurch: z.string().max(80).optional().nullable()
+});
+
+const ChangePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8)
+});
+
+const DeleteAccountSchema = z.object({
+  password: z.string().min(1)
+});
 
 meRoutes.get('/me', requireUser, async (c) => {
   const userId = c.get('userId');
@@ -50,21 +113,12 @@ meRoutes.get('/me', requireUser, async (c) => {
   });
 });
 
-const UpdateProfileSchema = z.object({
-  // 실명 기반이지만 오타 수정 가능성 고려(최소 1자)
-  name: z.string().min(1).max(50).optional(),
-  phone: z.string().max(30).optional().nullable(),
-  homeChurch: z.string().max(80).optional().nullable()
-});
-
-// PATCH /api/me  (내정보 수정: 이름/휴대폰/출석교회)
 meRoutes.patch('/me', requireUser, async (c) => {
   const userId = c.get('userId');
   const body = UpdateProfileSchema.parse(await c.req.json());
 
-  // 동적 업데이트(넘어온 필드만)
   const sets: string[] = [];
-  const params: any[] = [];
+  const params: Array<string | null> = [];
 
   if (body.name !== undefined) {
     sets.push('name = ?');
@@ -87,69 +141,63 @@ meRoutes.patch('/me', requireUser, async (c) => {
   return c.json({ ok: true });
 });
 
-const ChangePasswordSchema = z.object({
-  currentPassword: z.string().min(1),
-  newPassword: z.string().min(8)
-});
-
-// POST /api/me/password  (비밀번호 변경)
 meRoutes.post('/me/password', requireUser, async (c) => {
   const userId = c.get('userId');
   const body = ChangePasswordSchema.parse(await c.req.json());
 
-  const user = await dbGet<{ password_hash: string; password_salt: string }>(
-    c.env,
-    'SELECT password_hash, password_salt FROM users WHERE id = ?;',
-    [userId]
-  );
-  if (!user) return c.json({ error: 'UNAUTHORIZED' }, 401);
-
-  const curHash = await hashPasswordPBKDF2(body.currentPassword, user.password_salt);
-  if (curHash !== user.password_hash) return c.json({ error: 'INVALID_CREDENTIALS' }, 401);
+  const passwordOk = await verifyPassword(c.env, userId, body.currentPassword);
+  if (passwordOk === null) return c.json({ error: 'UNAUTHORIZED' }, 401);
+  if (!passwordOk) return c.json({ error: 'INVALID_CREDENTIALS' }, 401);
 
   const newSalt = randomHex(16);
   const newHash = await hashPasswordPBKDF2(body.newPassword, newSalt);
 
   await dbRun(c.env, 'UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?;', [newHash, newSalt, userId]);
-
-  // MVP: 세션 강제 로그아웃(보안)
   await dbRun(c.env, 'DELETE FROM sessions WHERE user_id = ?;', [userId]);
 
   return c.json({ ok: true });
 });
 
-// 마이페이지 최소형 통계
+meRoutes.delete('/me', requireUser, async (c) => {
+  const userId = c.get('userId');
+  const body = DeleteAccountSchema.parse(await c.req.json().catch(() => ({})));
+
+  const passwordOk = await verifyPassword(c.env, userId, body.password);
+  if (passwordOk === null) return c.json({ error: 'UNAUTHORIZED' }, 401);
+  if (!passwordOk) return c.json({ error: 'INVALID_CREDENTIALS' }, 401);
+
+  await deleteAccountFootprints(c.env, userId);
+  return c.json({ ok: true });
+});
+
 meRoutes.get('/me/stats', requireUser, async (c) => {
   const userId = c.get('userId');
 
-  // 누적 출석일 = DLP 제출(=dlp_entries)한 distinct date 수
   const attendance = await dbGet<{ cnt: number }>(
     c.env,
     'SELECT COUNT(*) AS cnt FROM (SELECT date FROM dlp_entries WHERE user_id = ? GROUP BY date);',
     [userId]
   );
 
-  // 이번 주(월~일) 제출 현황
   const start = startOfKstWeekUtc();
   const days: { date: string; hasDlp: boolean }[] = [];
   for (let i = 0; i < 7; i++) {
-    const dd = new Date(start);
-    dd.setUTCDate(start.getUTCDate() + i);
-    days.push({ date: kstDateString(dd), hasDlp: false });
+    const date = new Date(start);
+    date.setUTCDate(start.getUTCDate() + i);
+    days.push({ date: kstDateString(date), hasDlp: false });
   }
 
   const startStr = days[0].date;
   const endStr = days[6].date;
-
   const rows = await dbAll<{ date: string }>(
     c.env,
     'SELECT date FROM dlp_entries WHERE user_id = ? AND date >= ? AND date <= ? GROUP BY date;',
     [userId, startStr, endStr]
   );
 
-  const set = new Set(rows.map((r) => r.date));
-  const filled = days.map((d) => ({ ...d, hasDlp: set.has(d.date) }));
-  const submittedCount = filled.filter((d) => d.hasDlp).length;
+  const submittedDates = new Set(rows.map((row) => row.date));
+  const filledDays = days.map((day) => ({ ...day, hasDlp: submittedDates.has(day.date) }));
+  const submittedCount = filledDays.filter((day) => day.hasDlp).length;
 
   return c.json({
     attendanceDays: attendance?.cnt ?? 0,
@@ -157,7 +205,7 @@ meRoutes.get('/me/stats', requireUser, async (c) => {
       start: startStr,
       end: endStr,
       submittedCount,
-      days: filled
+      days: filledDays
     }
   });
 });

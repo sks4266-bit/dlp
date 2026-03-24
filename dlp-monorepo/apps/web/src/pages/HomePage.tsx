@@ -25,6 +25,12 @@ type HomePayload = {
     totalReadings: number;
     todayCompleted: number;
   };
+  homePerformance?: null | {
+    attendanceDays: number;
+    weekSubmittedCount: number;
+    gratitudeCount: number;
+    gratitudeMonth: string;
+  };
 };
 
 export default function HomePage() {
@@ -44,6 +50,8 @@ export default function HomePage() {
   const todayCompleted = home?.mcheyneProgress?.todayCompleted ?? 0;
   const totalToday = 4;
   const progressRatio = Math.max(0, Math.min(100, (todayCompleted / totalToday) * 100));
+  const performance = home?.homePerformance ?? null;
+  const overallPercent = home?.mcheyneProgress?.percent ?? 0;
 
   const readings = useMemo(() => {
     if (!home?.mcheyneToday) return [];
@@ -263,6 +271,39 @@ export default function HomePage() {
           ) : null}
         </Card>
 
+        <Card pad style={statsCard}>
+          <div style={statsHead}>
+            <div>
+              <div style={sectionEyebrow}>PERFORMANCE</div>
+              <div style={sectionHeadingSmall}>성과 통계</div>
+              <div style={statsDesc}>홈 흐름에 맞춰 출석, DLP, 감사일기, 말씀읽기 성과를 한 번에 보여줘요.</div>
+            </div>
+
+            <button type="button" style={statsLinkBtn} onClick={() => (me ? nav('/me') : goLogin('/me'))}>
+              자세히
+            </button>
+          </div>
+
+          {me && performance ? (
+            <>
+              <div style={statsGrid}>
+                <StatMetric label="누적 출석" value={`${performance.attendanceDays}일`} tone="mint" />
+                <StatMetric label="이번 주 DLP" value={`${performance.weekSubmittedCount}/7`} tone="peach" />
+                <StatMetric label="이번 달 감사" value={`${performance.gratitudeCount}개`} tone="mint" />
+                <StatMetric label="말씀 읽기" value={`${overallPercent}%`} tone="peach" />
+              </div>
+
+              <div style={statsFootNote}>
+                감사일기 집계월 {formatMonthLabel(performance.gratitudeMonth)} · 오늘 말씀 {todayCompleted}/4
+              </div>
+            </>
+          ) : (
+            <div style={statsEmptyBox}>
+로그인하면 누적 출석, 이번 주 DLP, 이번 달 감사 기록과 말씀읽기 성과를 홈에서 한눈에 볼 수 있어요.
+            </div>
+          )}
+        </Card>
+
         <section style={sectionWrap}>
           <div style={sectionHeader}>
             <div>
@@ -369,6 +410,25 @@ function QuickCard({
         </div>
       </Card>
     </button>
+  );
+}
+
+function formatMonthLabel(value: string) {
+  const [year, month] = value.split('-');
+  if (!year || !month) return value;
+  return `${year}.${month}`;
+}
+
+function StatMetric({ label, value, tone }: { label: string; value: string; tone: 'mint' | 'peach' }) {
+  const bg = tone === 'mint' ? 'rgba(114,215,199,0.14)' : 'rgba(243,180,156,0.16)';
+  const border = tone === 'mint' ? 'rgba(114,215,199,0.24)' : 'rgba(243,180,156,0.24)';
+  const valueColor = tone === 'mint' ? '#2f7f73' : '#9d6550';
+
+  return (
+    <div style={{ ...metricCard, background: bg, border: `1px solid ${border}` }}>
+      <div style={metricLabel}>{label}</div>
+      <div style={{ ...metricValue, color: valueColor }}>{value}</div>
+    </div>
   );
 }
 
@@ -749,6 +809,94 @@ const heroActions: CSSProperties = {
   display: 'grid',
   gap: 10,
   marginTop: 18
+};
+
+const statsCard: CSSProperties = {
+  marginTop: 14,
+  borderRadius: 22,
+  background: 'rgba(255,255,255,0.74)',
+  border: '1px solid rgba(255,255,255,0.56)',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)'
+};
+
+const statsHead: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 10
+};
+
+const sectionHeadingSmall: CSSProperties = {
+  marginTop: 6,
+  color: '#24313a',
+  fontSize: 18,
+  fontWeight: 800,
+  letterSpacing: '-0.02em'
+};
+
+const statsDesc: CSSProperties = {
+  marginTop: 6,
+  color: '#6b7780',
+  fontSize: 13,
+  lineHeight: 1.45
+};
+
+const statsLinkBtn: CSSProperties = {
+  border: 0,
+  background: 'rgba(114,215,199,0.14)',
+  color: '#2f7f73',
+  minHeight: 32,
+  padding: '0 12px',
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 800,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap'
+};
+
+const statsGrid: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  gap: 10,
+  marginTop: 14
+};
+
+const metricCard: CSSProperties = {
+  minWidth: 0,
+  borderRadius: 18,
+  padding: '14px 12px'
+};
+
+const metricLabel: CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  color: '#6d7881'
+};
+
+const metricValue: CSSProperties = {
+  marginTop: 8,
+  fontSize: 20,
+  fontWeight: 800,
+  letterSpacing: '-0.02em',
+  lineHeight: 1.1
+};
+
+const statsFootNote: CSSProperties = {
+  marginTop: 12,
+  color: '#718089',
+  fontSize: 12,
+  fontWeight: 700
+};
+
+const statsEmptyBox: CSSProperties = {
+  marginTop: 14,
+  padding: '14px 16px',
+  borderRadius: 18,
+  background: 'rgba(247,250,251,0.72)',
+  border: '1px solid rgba(224,231,236,0.9)',
+  color: '#6d7a83',
+  fontSize: 13,
+  lineHeight: 1.55
 };
 
 const sectionWrap: CSSProperties = {

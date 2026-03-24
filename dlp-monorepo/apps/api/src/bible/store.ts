@@ -26,7 +26,7 @@ async function gunzipToText(bytes: Uint8Array) {
   const ds = new DS('gzip');
   const stream = new Response(bytes).body;
   if (!stream) throw new Error('No stream');
-  const decompressed = stream.pipeThrough(ds);
+  const decompressed = stream.pipeThrough(ds) as ReadableStream<Uint8Array>;
   return await new Response(decompressed).text();
 }
 
