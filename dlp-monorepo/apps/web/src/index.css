@@ -1123,3 +1123,8 @@ a {
     padding: 8px 7px;
   }
 }
+
+@keyframes buttonSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
