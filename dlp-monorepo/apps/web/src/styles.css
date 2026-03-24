@@ -62,51 +62,6 @@
   --danger-border: rgba(239, 68, 68, 0.25);
   --danger-text: rgba(180, 0, 0, 0.92);
 }
-:root[data-theme='light'] {
-  --bg: #f4fbfa;
-  --bg-grad:
-    radial-gradient(1200px 800px at 10% 0%, rgba(124, 231, 215, 0.35) 0%, rgba(124, 231, 215, 0.14) 30%, rgba(255, 255, 255, 0) 65%),
-    radial-gradient(900px 700px at 95% 15%, rgba(150, 202, 255, 0.28) 0%, rgba(150, 202, 255, 0.10) 38%, rgba(255, 255, 255, 0) 70%),
-    linear-gradient(180deg, #f6fffd 0%, #f4fbfa 55%, #f7fbff 100%);
-  --surface-1: rgba(255, 255, 255, 0.82);
-  --surface-2: rgba(255, 255, 255, 0.92);
-  --surface-soft: rgba(13, 22, 21, 0.04);
-  --text: rgba(10, 18, 18, 0.92);
-  --muted: rgba(10, 18, 18, 0.58);
-  --muted-2: rgba(10, 18, 18, 0.44);
-  --border: rgba(10, 18, 18, 0.10);
-  --border-strong: rgba(10, 18, 18, 0.14);
-  --shadow-sm: 0 1px 0 rgba(0,0,0,0.03), 0 6px 16px rgba(0,0,0,0.06);
-  --shadow-md: 0 10px 28px rgba(0,0,0,0.10);
-  --card: var(--surface-2);
-  --soft: var(--surface-soft);
-  --mid: rgba(10, 18, 18, 0.18);
-}
-
-:root[data-theme='dark'] {
-  --bg: #0f1718;
-  --bg-grad:
-    radial-gradient(1100px 700px at 10% 0%, rgba(31, 203, 184, 0.16) 0%, rgba(31, 203, 184, 0.06) 34%, rgba(255,255,255,0) 68%),
-    radial-gradient(900px 700px at 95% 10%, rgba(98, 124, 255, 0.12) 0%, rgba(98, 124, 255, 0.05) 36%, rgba(255,255,255,0) 72%),
-    linear-gradient(180deg, #11191b 0%, #0f1718 55%, #10161c 100%);
-  --surface-1: rgba(20, 29, 31, 0.82);
-  --surface-2: rgba(22, 31, 34, 0.92);
-  --surface-soft: rgba(255, 255, 255, 0.04);
-  --text: rgba(240, 248, 247, 0.94);
-  --muted: rgba(240, 248, 247, 0.66);
-  --muted-2: rgba(240, 248, 247, 0.48);
-  --border: rgba(255, 255, 255, 0.10);
-  --border-strong: rgba(255, 255, 255, 0.16);
-  --shadow-sm: 0 1px 0 rgba(0,0,0,0.24), 0 10px 20px rgba(0,0,0,0.22);
-  --shadow-md: 0 18px 36px rgba(0,0,0,0.28);
-  --card: var(--surface-2);
-  --soft: var(--surface-soft);
-  --mid: rgba(255,255,255,0.18);
-}
-
-body {
-  transition: background 180ms ease, color 180ms ease;
-}
 
 /* ===== Global base ===== */
 html { font-size: calc(16px * var(--ui-scale, 1)); }
@@ -315,6 +270,111 @@ a { color: inherit; }
 }
 
 /* =========================================================
+   Shared glass form controls
+   ========================================================= */
+.glassField {
+  display: grid;
+  gap: 8px;
+}
+.glassFieldLabel {
+  color: #6f7e87;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+.glassInput,
+.glassTextarea,
+.glassInputDate,
+.glassInputMonth,
+.glassInputSelect {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.64);
+  background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(244,249,250,0.84));
+  color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.70), 0 10px 24px rgba(95, 117, 127, 0.06);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease, background 140ms ease;
+}
+.glassInput,
+.glassInputDate,
+.glassInputMonth,
+.glassInputSelect {
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.glassTextarea {
+  min-height: 112px;
+  padding: 13px 14px;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.65;
+  resize: vertical;
+}
+.glassInput::placeholder,
+.glassTextarea::placeholder,
+.glassInputDate::placeholder,
+.glassInputMonth::placeholder,
+.glassInputSelect::placeholder {
+  color: rgba(10, 18, 18, 0.38);
+}
+.glassInput:focus,
+.glassTextarea:focus,
+.glassInputDate:focus,
+.glassInputMonth:focus,
+.glassInputSelect:focus {
+  outline: none;
+  border-color: rgba(31, 203, 184, 0.42);
+  box-shadow: 0 0 0 4px rgba(31, 203, 184, 0.14), inset 0 1px 0 rgba(255,255,255,0.76), 0 14px 26px rgba(95, 117, 127, 0.08);
+}
+.glassInputDate,
+.glassInputMonth,
+.glassInputSelect {
+  color-scheme: light;
+}
+.glassInputSelect {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(10,18,18,0.45) 50%),
+    linear-gradient(135deg, rgba(10,18,18,0.45) 50%, transparent 50%),
+    linear-gradient(180deg, rgba(255,255,255,0.95), rgba(244,249,250,0.84));
+  background-position:
+    calc(100% - 18px) 50%,
+    calc(100% - 12px) 50%,
+    0 0;
+  background-size: 6px 6px, 6px 6px, 100% 100%;
+  background-repeat: no-repeat;
+  padding-right: 34px;
+}
+.weekDots {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.weekDot {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.62);
+  border: 1px solid rgba(255,255,255,0.58);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.46);
+}
+.weekDotOn {
+  background: linear-gradient(180deg, rgba(128,221,206,0.95), rgba(96,205,188,0.96));
+  border-color: rgba(105,208,191,0.82);
+  box-shadow: 0 8px 18px rgba(109,215,196,0.22);
+}
+@keyframes gratitudeSkeleton {
+  0% { background-position: 0% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* =========================================================
    TopBar (class-only)
    ========================================================= */
 .topBar {
@@ -483,59 +543,11 @@ a { color: inherit; }
 .homeSheetFooter { margin-top: 12px; }
 
 /* =========================================================
-   UrgentPrayerTicker (Mint Pastel + Danger accent, class-only)
+   UrgentPrayerTicker (compact marquee)
    ========================================================= */
 .urgentTicker {
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--danger-border);
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.72) 0%,
-    rgba(255, 255, 255, 0.60) 100%
-  );
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  width: 100%;
 }
-.urgentTickerTop {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-}
-.urgentTickerBadge {
-  min-width: 56px;
-  height: 24px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 950;
-  border: 1px solid var(--danger-border);
-  background: var(--danger-bg);
-  color: var(--danger-text);
-}
-
-/* 높이 프리셋 */
-.urgentTickerH44 .urgentTickerViewport,
-.urgentTickerH44 .urgentTickerRow { height: 44px; }
-.urgentTickerH52 .urgentTickerViewport,
-.urgentTickerH52 .urgentTickerRow { height: 52px; }
-
-.urgentTickerViewport {
-  position: relative;
-  flex: 1;
-  overflow: hidden;
-  touch-action: pan-y;
-}
-.urgentTickerRoll {
-  will-change: transform;
-  transition: transform 180ms ease;
-}
-.urgentTickerRoll.isDragging { transition: none; }
-.urgentTickerRoll.isGrabbable { cursor: grab; }
 
 .urgentTickerBtn {
   appearance: none;
@@ -548,36 +560,64 @@ a { color: inherit; }
   cursor: pointer;
   color: inherit;
 }
-.urgentTickerRow {
+
+.urgentTickerBtnCompact {
+  display: block;
+}
+
+.urgentTickerH40 .urgentTickerViewport {
+  height: 40px;
+}
+
+.urgentTickerH44 .urgentTickerViewport {
+  height: 44px;
+}
+
+.urgentTickerH52 .urgentTickerViewport {
+  height: 52px;
+}
+
+.urgentTickerViewport {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%);
+}
+
+.urgentTickerMarqueeTrack {
+  display: inline-flex;
+  align-items: center;
+  min-width: 100%;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 14px;
-  color: var(--text);
 }
-.urgentTickerRow.isDim { color: var(--muted); }
-.urgentTickerAuthor { font-weight: 950; }
-.urgentTickerDot {
-  margin: 0 8px;
-  color: var(--muted);
-  flex: 0 0 auto;
+
+.urgentTickerMarqueeTrack.isAnimated {
+  width: max-content;
+  min-width: max-content;
+  animation-name: urgentTickerMarquee;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }
-.urgentTickerEllipsis {
-  overflow: hidden;
-  text-overflow: ellipsis;
+
+@keyframes urgentTickerMarquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(calc(-50% - 12px)); }
 }
-.urgentTickerChevron {
-  color: var(--muted);
-  font-size: 18px;
-  font-weight: 950;
-  user-select: none;
+
+.urgentTickerContent {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #5d4e4a;
 }
-.urgentTickerMeta {
-  font-size: 11px;
-  padding: 0 12px 10px;
-  color: var(--muted);
+
+.urgentTickerContent.isDim {
+  color: #8f776d;
+}
+
+.urgentTickerGap {
+  color: rgba(143, 119, 109, 0.62);
 }
 
 /* =========================================================

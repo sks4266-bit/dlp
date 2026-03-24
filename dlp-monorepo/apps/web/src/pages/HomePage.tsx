@@ -37,7 +37,6 @@ export default function HomePage() {
   const [home, setHome] = useState<HomePayload | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [mcheyneBulkSaving, setMcheyneBulkSaving] = useState(false);
-  const [dismissUrgent, setDismissUrgent] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const nav = useNavigate();
@@ -152,58 +151,22 @@ export default function HomePage() {
     <div style={page}>
       <div style={pageInner}>
         <TopBar title="DLP" />
-
-        {!dismissUrgent ? (
-          <Card pad style={urgentCard}>
-            <div style={urgentHead}>
-              <div style={badgePeach}>긴급기도</div>
-              <button
-                type="button"
-                aria-label="긴급기도 카드 닫기"
-                onClick={() => setDismissUrgent(true)}
-                style={closeBtn}
-              >
-                ×
-              </button>
+        <Card pad style={urgentCard}>
+          <div style={urgentCompactRow}>
+            <div style={urgentIconWrap} aria-hidden="true">
+              <MegaphoneIcon />
             </div>
 
-            {urgentEmpty ? (
-              <>
-                <div style={sectionTitleSmall}>현재 등록된 긴급기도가 없습니다.</div>
-                <div style={sectionDescSmall}>필요한 기도제목이 생기면 바로 작성해서 함께 나눌 수 있어요.</div>
-
-                <div style={metaRow}>
-                  <span style={metaText}>유효 24시간</span>
-                  <Button type="button" variant="secondary" size="md" onClick={openUrgentComposer}>
-                    + 작성하기
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={sectionTitleSmall}>지금 함께 기도해야 할 제목이 있습니다.</div>
-                <div style={sectionDescSmall}>최근 등록된 긴급기도를 아래에서 바로 확인해 보세요.</div>
-
-                <div style={tickerWrap}>
-                  <UrgentPrayerTicker
-                    items={urgentItems}
-                    intervalMs={3000}
-                    resumeDelayMs={5000}
-                    heightPx={44}
-                    onItemClick={(id) => nav(`/urgent-prayers?highlight=${encodeURIComponent(id)}`)}
-                  />
-                </div>
-
-                <div style={metaRow}>
-                  <span style={metaText}>유효 24시간</span>
-                  <Button type="button" variant="ghost" size="md" onClick={() => nav('/urgent-prayers')}>
-                    전체 보기
-                  </Button>
-                </div>
-              </>
-            )}
-          </Card>
-        ) : null}
+            <div style={urgentTickerSlot}>
+              <UrgentPrayerTicker
+                items={urgentItems}
+                intervalMs={4600}
+                heightPx={40}
+                onItemClick={(id) => nav(`/urgent-prayers?highlight=${encodeURIComponent(id)}`)}
+              />
+            </div>
+          </div>
+        </Card>
 
         <Card pad style={heroCard}>
           <div style={heroTop}>
@@ -393,7 +356,6 @@ export default function HomePage() {
             onUnauthorized={() => goLogin()}
             onDone={async (newId) => {
               setSheetOpen(false);
-              setDismissUrgent(false);
               await loadHome();
               nav(`/urgent-prayers?highlight=${encodeURIComponent(newId)}`);
             }}
@@ -641,6 +603,16 @@ function SearchIcon() {
   );
 }
 
+function MegaphoneIcon() {
+  return (
+    <svg viewBox="0 0 24 24" style={icon18} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 12.5V10a1.5 1.5 0 0 1 1.5-1.5H8l7-3v11l-7-3H5.5A1.5 1.5 0 0 1 4 12.5Z" />
+      <path d="M15 8.5a4 4 0 0 1 0 7" />
+      <path d="M17 6a7 7 0 0 1 0 12" />
+    </svg>
+  );
+}
+
 function ChurchIcon() {
   return (
     <svg viewBox="0 0 24 24" style={icon22} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -666,32 +638,38 @@ const pageInner: CSSProperties = {
 };
 
 const urgentCard: CSSProperties = {
-  marginBottom: 14,
-  borderRadius: 20,
-  background: 'linear-gradient(180deg, rgba(255,247,242,0.94), rgba(255,241,234,0.84))',
-  border: '1px solid rgba(241,195,170,0.42)',
-  boxShadow: '0 10px 24px rgba(204,151,126,0.14)'
+  marginBottom: 10,
+  padding: 0,
+  borderRadius: 16,
+  background: 'linear-gradient(180deg, rgba(255,248,245,0.94), rgba(255,242,236,0.84))',
+  border: '1px solid rgba(241,195,170,0.34)',
+  boxShadow: '0 6px 16px rgba(204,151,126,0.10)',
+  overflow: 'hidden'
 };
 
-const urgentHead: CSSProperties = {
+const urgentCompactRow: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
   gap: 8,
-  marginBottom: 10
+  padding: '8px 10px'
 };
 
-const badgePeach: CSSProperties = {
+const urgentIconWrap: CSSProperties = {
+  width: 30,
+  height: 30,
+  flex: '0 0 30px',
+  borderRadius: 10,
   display: 'inline-flex',
   alignItems: 'center',
-  minHeight: 28,
-  padding: '0 10px',
-  borderRadius: 999,
+  justifyContent: 'center',
   background: 'rgba(243,180,156,0.18)',
-  border: '1px solid rgba(243,180,156,0.26)',
-  color: '#a05f48',
-  fontSize: 12,
-  fontWeight: 800
+  border: '1px solid rgba(243,180,156,0.22)',
+  color: '#a05f48'
+};
+
+const urgentTickerSlot: CSSProperties = {
+  minWidth: 0,
+  flex: 1
 };
 
 const badgeMint: CSSProperties = {
@@ -706,50 +684,6 @@ const badgeMint: CSSProperties = {
   fontSize: 12,
   fontWeight: 800,
   marginBottom: 10
-};
-
-const closeBtn: CSSProperties = {
-  border: 0,
-  background: 'transparent',
-  color: '#b38272',
-  fontSize: 22,
-  lineHeight: 1,
-  cursor: 'pointer',
-  padding: 0,
-  width: 28,
-  height: 28
-};
-
-const sectionTitleSmall: CSSProperties = {
-  color: '#5d4e4a',
-  fontSize: 15,
-  fontWeight: 800,
-  lineHeight: 1.45
-};
-
-const sectionDescSmall: CSSProperties = {
-  marginTop: 6,
-  color: '#8f776d',
-  fontSize: 13,
-  lineHeight: 1.55
-};
-
-const metaRow: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: 10,
-  marginTop: 12
-};
-
-const metaText: CSSProperties = {
-  color: '#9a7f74',
-  fontSize: 12,
-  fontWeight: 700
-};
-
-const tickerWrap: CSSProperties = {
-  marginTop: 10
 };
 
 const heroCard: CSSProperties = {
