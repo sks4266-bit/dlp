@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useUiPrefs } from '../ui/UiPrefsContext';
 import TopBar from '../components/layout/TopBar';
@@ -16,25 +16,6 @@ type MeStats = {
     days: { date: string; hasDlp: boolean }[];
   };
 };
-
-type GratitudeEntry = {
-  id: string;
-  date: string;
-  content: string;
-  createdAt: number;
-};
-
-function kstNow() {
-  return new Date(Date.now() + 9 * 60 * 60 * 1000);
-}
-
-function ym(d: Date) {
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-}
-
-function ymdFromParts(y: number, m: number, day: number) {
-  return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-}
 
 async function readErrorMessage(res: Response, fallback: string) {
   try {
@@ -57,7 +38,6 @@ async function readErrorMessage(res: Response, fallback: string) {
 
 export default function MePage() {
   const nav = useNavigate();
-  const loc = useLocation();
   const { me, logout, refreshMe } = useAuth();
   const ui = useUiPrefs();
 
@@ -76,39 +56,6 @@ export default function MePage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPw, setSavingPw] = useState(false);
 
-  const section = useMemo(() => new URLSearchParams(loc.search).get('section') || '', [loc.search]);
-  const [gratExpanded, setGratExpanded] = useState(false);
-
-  const [gratMonth, setGratMonth] = useState(() => ym(kstNow()));
-  const [gratItems, setGratItems] = useState<GratitudeEntry[]>([]);
-  const [gratErr, setGratErr] = useState<string | null>(null);
-  const [gratLoading, setGratLoading] = useState(false);
-
-  const [gratEditorOpen, setGratEditorOpen] = useState(false);
-  const [gratEditorDate, setGratEditorDate] = useState('');
-  const [gratContent, setGratContent] = useState('');
-  const [gratSaving, setGratSaving] = useState(false);
-
-  const gratMap = useMemo(() => {
-    const m = new Map<string, GratitudeEntry>();
-    gratItems.forEach((it) => m.set(it.date, it));
-    return m;
-  }, [gratItems]);
-
-  const { gratYear, gratMon } = useMemo(() => {
-    const [y, m] = gratMonth.split('-').map(Number);
-    return { gratYear: y, gratMon: m };
-  }, [gratMonth]);
-
-  const gratFirstDow = useMemo(() => {
-    const d = new Date(Date.UTC(gratYear, gratMon - 1, 1));
-    return d.getUTCDay();
-  }, [gratYear, gratMon]);
-
-  const gratDaysInMonth = useMemo(() => {
-    return new Date(Date.UTC(gratYear, gratMon, 0)).getUTCDate();
-  }, [gratYear, gratMon]);
-
   function goLogin(next = '/me') {
     nav(`/login?${new URLSearchParams({ next }).toString()}`);
   }
@@ -120,16 +67,13 @@ export default function MePage() {
 
     try {
       const res = await apiFetch('/api/me/stats');
-
       if (res.status === 401) {
         goLogin('/me');
         return;
       }
-
       if (!res.ok) {
         throw new Error(await readErrorMessage(res, '내 통계를 불러오지 못했습니다.'));
       }
-
       setStats((await res.json()) as MeStats);
     } catch (e: any) {
       setStatsErr(String(e?.message ?? '내 통계를 불러오지 못했습니다.'));
@@ -137,55 +81,6 @@ export default function MePage() {
       setStatsLoading(false);
     }
   }
-
-  async function loadGratitude() {
-    setGratLoading(true);
-    setGratErr(null);
-
-    try {
-      const res = await apiFetch(`/api/gratitude?month=${encodeURIComponent(gratMonth)}`);
-
-      if (res.status === 401) {
-        goLogin('/me?section=gratitude');
-        return;
-      }
-
-      if (!res.ok) {
-        throw new Error(await readErrorMessage(res, '감사일기를 불러오지 못했습니다.'));
-      }
-
-      setGratItems((await res.json()) as GratitudeEntry[]);
-    } catch (e: any) {
-      setGratErr(String(e?.message ?? '감사일기를 불러오지 못했습니다.'));
-    } finally {
-      setGratLoading(false);
-    }
-  }
-
-  function openGratitudeEditor(date: string) {
-    setGratEditorDate(date);
-    setGratContent(gratMap.get(date)?.content ?? '');
-    setGratEditorOpen(true);
-  }
-
-  function syncSectionQuery(nextOpen: boolean) {
-    const qs = new URLSearchParams(loc.search);
-
-    if (nextOpen) {
-      qs.set('section', 'gratitude');
-    } else if (qs.get('section') === 'gratitude') {
-      qs.delete('section');
-    }
-
-    const search = qs.toString();
-    nav(`/me${search ? `?${search}` : ''}`, { replace: true });
-  }
-
-  useEffect(() => {
-    if (section === 'gratitude') {
-      setGratExpanded(true);
-    }
-  }, [section]);
 
   useEffect(() => {
     if (!me) return;
@@ -198,13 +93,6 @@ export default function MePage() {
     setEditPhone(me?.phone ?? '');
     setEditChurch(me?.homeChurch ?? '');
   }, [me?.id, me?.name, me?.phone, me?.homeChurch]);
-
-  useEffect(() => {
-    if (!me) return;
-    if (!gratExpanded && section !== 'gratitude') return;
-    void loadGratitude();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [me?.id, gratMonth, gratExpanded, section]);
 
   if (!me) return null;
 
@@ -228,6 +116,12 @@ export default function MePage() {
           <div style={metaGrid}>
             <MetaBox label="휴대폰" value={me.phone ?? '-'} />
             <MetaBox label="출석교회" value={me.homeChurch ?? '-'} />
+          </div>
+
+          <div style={{ marginTop: 12 }}>
+            <Button type="button" variant="secondary" size="md" wide onClick={() => nav('/gratitude')}>
+              감사일기 페이지로 이동
+            </Button>
           </div>
         </Card>
 
@@ -314,181 +208,6 @@ export default function MePage() {
             </div>
           </Card>
         </section>
-
-        <section style={sectionWrap}>
-          <Card pad style={sectionCard} id="gratitude">
-            <div style={sectionHeadRow}>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <CardTitle style={sectionCardTitle}>감사일기</CardTitle>
-                <CardDesc style={sectionCardDesc}>
-                  달력에서 날짜를 눌러 바로 작성하거나 수정할 수 있어요.
-                </CardDesc>
-              </div>
-
-              <Button
-                type="button"
-                variant="secondary"
-                size="md"
-                onClick={() => {
-                  const next = !gratExpanded;
-                  setGratExpanded(next);
-                  syncSectionQuery(next);
-                }}
-              >
-                {gratExpanded ? '접기' : '열기'}
-              </Button>
-            </div>
-
-            {gratExpanded ? (
-              <>
-                <div style={toolbarRow}>
-                  <input
-                    type="month"
-                    value={gratMonth}
-                    onChange={(e) => setGratMonth(e.target.value)}
-                    style={input}
-                  />
-                  <Button type="button" variant="ghost" size="md" onClick={() => setGratMonth(ym(kstNow()))}>
-                    이번달
-                  </Button>
-                </div>
-
-                {gratErr ? <ErrorBox text={gratErr} onRetry={loadGratitude} /> : null}
-
-                <div style={miniSectionTitle}>달력</div>
-
-                <div style={weekHeader}>
-                  {['일', '월', '화', '수', '목', '금', '토'].map((d) => (
-                    <div key={d} style={weekHeaderCell}>
-                      {d}
-                    </div>
-                  ))}
-                </div>
-
-                <div style={calendarGrid}>
-                  {Array.from({ length: gratFirstDow }).map((_, i) => (
-                    <div key={`blank-${i}`} />
-                  ))}
-
-                  {Array.from({ length: gratDaysInMonth }).map((_, i) => {
-                    const day = i + 1;
-                    const date = ymdFromParts(gratYear, gratMon, day);
-                    const has = gratMap.has(date);
-
-                    return (
-                      <button
-                        key={date}
-                        type="button"
-                        onClick={() => openGratitudeEditor(date)}
-                        style={has ? dayCellOn : dayCell}
-                        aria-label={`${date} 감사일기 ${has ? '작성됨' : '미작성'}`}
-                      >
-                        {day}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div style={sectionHeadRow}>
-                  <div style={miniSectionTitle}>이번 달 기록</div>
-                  <div style={sectionMeta}>{gratItems.length}개</div>
-                </div>
-
-                {gratLoading ? (
-                  <div style={{ display: 'grid', gap: 10 }}>
-                    <SkeletonBlock />
-                    <SkeletonBlock />
-                  </div>
-                ) : gratItems.length === 0 ? (
-                  <div style={emptyNote}>이번 달 기록이 없습니다.</div>
-                ) : (
-                  <div style={list}>
-                    {gratItems.slice(0, 12).map((it) => (
-                      <button
-                        key={it.id}
-                        type="button"
-                        style={listItem}
-                        onClick={() => openGratitudeEditor(it.date)}
-                      >
-                        <div style={listDate}>{it.date}</div>
-                        <div style={listContent}>{it.content}</div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <div style={{ marginTop: 12 }}>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="md"
-                    wide
-                    onClick={() => nav(`/gratitude?month=${encodeURIComponent(gratMonth)}`)}
-                  >
-                    감사일기 전체 페이지 열기
-                  </Button>
-                </div>
-              </>
-            ) : null}
-          </Card>
-        </section>
-
-        <BottomSheet open={gratEditorOpen} onClose={() => setGratEditorOpen(false)}>
-          <div style={sheetHeader}>
-            <div style={sheetEyebrow}>GRATITUDE</div>
-            <div style={sheetTitle}>감사일기 · {gratEditorDate}</div>
-          </div>
-
-          <div style={sheetBody}>
-            <textarea
-              value={gratContent}
-              onChange={(e) => setGratContent(e.target.value)}
-              placeholder="예) 오늘도 건강을 지켜주셔서 감사합니다"
-              style={textarea}
-            />
-
-            <Button
-              type="button"
-              variant="primary"
-              size="lg"
-              wide
-              disabled={gratSaving}
-              onClick={async () => {
-                if (!gratEditorDate) return;
-                if (!gratContent.trim()) {
-                  alert('내용을 입력하세요.');
-                  return;
-                }
-
-                setGratSaving(true);
-                try {
-                  const res = await apiFetch(`/api/gratitude/${gratEditorDate}`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ content: gratContent })
-                  });
-
-                  if (res.status === 401) {
-                    goLogin('/me?section=gratitude');
-                    return;
-                  }
-
-                  if (!res.ok) {
-                    throw new Error(await readErrorMessage(res, '감사일기 저장에 실패했습니다.'));
-                  }
-
-                  await loadGratitude();
-                  setGratEditorOpen(false);
-                } catch (e: any) {
-                  alert(String(e?.message ?? '감사일기 저장에 실패했습니다.'));
-                } finally {
-                  setGratSaving(false);
-                }
-              }}
-            >
-              {gratSaving ? '저장 중…' : '저장'}
-            </Button>
-          </div>
-        </BottomSheet>
 
         <section style={sectionWrap}>
           <Card pad style={sectionCard}>
@@ -645,34 +364,6 @@ export default function MePage() {
             }}
           >
             로그아웃
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BottomSheet({
-  open,
-  onClose,
-  children
-}: {
-  open: boolean;
-  onClose: () => void;
-  children: ReactNode;
-}) {
-  if (!open) return null;
-
-  return (
-    <div role="dialog" aria-modal="true" style={sheetBackdrop} onClick={onClose}>
-      <div style={sheet} onClick={(e) => e.stopPropagation()}>
-        <div style={sheetHandleWrap}>
-          <div style={sheetHandle} />
-        </div>
-        {children}
-        <div style={{ marginTop: 12 }}>
-          <Button type="button" variant="secondary" size="lg" wide onClick={onClose}>
-            닫기
           </Button>
         </div>
       </div>
@@ -989,181 +680,6 @@ const scaleChip: CSSProperties = {
   color: '#5f6d75',
   fontSize: 13,
   fontWeight: 800
-};
-
-const sectionHeadRow: CSSProperties = {
-  display: 'flex',
-  alignItems: 'flex-start',
-  justifyContent: 'space-between',
-  gap: 10
-};
-
-const toolbarRow: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr auto',
-  gap: 10,
-  marginTop: 14
-};
-
-const weekHeader: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-  gap: 6,
-  marginTop: 10
-};
-
-const weekHeaderCell: CSSProperties = {
-  textAlign: 'center',
-  fontSize: 12,
-  fontWeight: 800,
-  color: '#7a8790'
-};
-
-const calendarGrid: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-  gap: 6,
-  marginTop: 8
-};
-
-const dayCell: CSSProperties = {
-  height: 42,
-  borderRadius: 14,
-  border: '1px solid rgba(224,231,236,0.9)',
-  background: 'rgba(248,250,252,0.9)',
-  color: '#43525a',
-  fontWeight: 800,
-  cursor: 'pointer'
-};
-
-const dayCellOn: CSSProperties = {
-  height: 42,
-  borderRadius: 14,
-  border: '1px solid rgba(114,215,199,0.22)',
-  background: 'rgba(114,215,199,0.14)',
-  color: '#226f64',
-  fontWeight: 900,
-  cursor: 'pointer'
-};
-
-const sectionMeta: CSSProperties = {
-  marginTop: 14,
-  color: '#7a8790',
-  fontSize: 12,
-  fontWeight: 700
-};
-
-const emptyNote: CSSProperties = {
-  marginTop: 10,
-  padding: '12px 14px',
-  borderRadius: 16,
-  background: 'rgba(247,250,251,0.72)',
-  border: '1px solid rgba(224,231,236,0.9)',
-  color: '#6d7a83',
-  fontSize: 14,
-  lineHeight: 1.55
-};
-
-const list: CSSProperties = {
-  display: 'grid',
-  gap: 10,
-  marginTop: 10
-};
-
-const listItem: CSSProperties = {
-  textAlign: 'left',
-  padding: '14px 15px',
-  borderRadius: 18,
-  border: '1px solid rgba(224,231,236,0.9)',
-  background: 'rgba(255,255,255,0.9)',
-  cursor: 'pointer'
-};
-
-const listDate: CSSProperties = {
-  color: '#2f7f73',
-  fontSize: 13,
-  fontWeight: 800
-};
-
-const listContent: CSSProperties = {
-  marginTop: 6,
-  color: '#33424b',
-  fontSize: 14,
-  lineHeight: 1.6
-};
-
-const sheetBackdrop: CSSProperties = {
-  position: 'fixed',
-  inset: 0,
-  background: 'rgba(18,24,29,0.34)',
-  display: 'flex',
-  alignItems: 'flex-end',
-  justifyContent: 'center',
-  zIndex: 50,
-  padding: '0 12px 12px'
-};
-
-const sheet: CSSProperties = {
-  width: '100%',
-  maxWidth: 430,
-  borderRadius: '24px 24px 0 0',
-  background: 'rgba(255,255,255,0.96)',
-  border: '1px solid rgba(255,255,255,0.72)',
-  boxShadow: '0 -8px 30px rgba(31,41,55,0.18)',
-  backdropFilter: 'blur(18px)',
-  padding: '10px 16px 18px'
-};
-
-const sheetHandleWrap: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'center',
-  padding: '4px 0 8px'
-};
-
-const sheetHandle: CSSProperties = {
-  width: 54,
-  height: 6,
-  borderRadius: 999,
-  background: 'rgba(184,195,202,0.9)'
-};
-
-const sheetHeader: CSSProperties = {
-  padding: '4px 4px 10px'
-};
-
-const sheetEyebrow: CSSProperties = {
-  fontSize: 11,
-  fontWeight: 900,
-  letterSpacing: '0.08em',
-  color: '#83a39a'
-};
-
-const sheetTitle: CSSProperties = {
-  marginTop: 6,
-  color: '#24313a',
-  fontSize: 22,
-  fontWeight: 800,
-  letterSpacing: '-0.02em'
-};
-
-const sheetBody: CSSProperties = {
-  display: 'grid',
-  gap: 14
-};
-
-const textarea: CSSProperties = {
-  width: '100%',
-  minHeight: 120,
-  borderRadius: 18,
-  border: '1px solid rgba(221,228,233,0.95)',
-  background: 'rgba(255,255,255,0.92)',
-  padding: '14px 16px',
-  fontSize: 15,
-  lineHeight: 1.6,
-  color: '#24313a',
-  outline: 'none',
-  resize: 'vertical',
-  boxSizing: 'border-box'
 };
 
 const actionGrid: CSSProperties = {

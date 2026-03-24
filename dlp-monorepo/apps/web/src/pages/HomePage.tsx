@@ -284,7 +284,7 @@ export default function HomePage() {
               tone="peach"
               title="감사일기"
               desc="한 줄 감사 기록"
-              onClick={() => nav('/me?section=gratitude')}
+              onClick={() => nav('/gratitude')}
             />
             <QuickCard
               icon={<ChecklistIcon />}

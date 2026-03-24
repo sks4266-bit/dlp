@@ -126,7 +126,7 @@ export default function GratitudePage() {
   return (
     <div style={page}>
       <div style={pageInner}>
-        <TopBar title="감사일기" backTo="/me?section=gratitude" />
+        <TopBar title="감사일기" backTo="/me" />
 
         <Card pad style={heroCard}>
           <div style={badgePeach}>GRATITUDE</div>

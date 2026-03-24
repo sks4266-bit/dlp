@@ -62,6 +62,51 @@
   --danger-border: rgba(239, 68, 68, 0.25);
   --danger-text: rgba(180, 0, 0, 0.92);
 }
+:root[data-theme='light'] {
+  --bg: #f4fbfa;
+  --bg-grad:
+    radial-gradient(1200px 800px at 10% 0%, rgba(124, 231, 215, 0.35) 0%, rgba(124, 231, 215, 0.14) 30%, rgba(255, 255, 255, 0) 65%),
+    radial-gradient(900px 700px at 95% 15%, rgba(150, 202, 255, 0.28) 0%, rgba(150, 202, 255, 0.10) 38%, rgba(255, 255, 255, 0) 70%),
+    linear-gradient(180deg, #f6fffd 0%, #f4fbfa 55%, #f7fbff 100%);
+  --surface-1: rgba(255, 255, 255, 0.82);
+  --surface-2: rgba(255, 255, 255, 0.92);
+  --surface-soft: rgba(13, 22, 21, 0.04);
+  --text: rgba(10, 18, 18, 0.92);
+  --muted: rgba(10, 18, 18, 0.58);
+  --muted-2: rgba(10, 18, 18, 0.44);
+  --border: rgba(10, 18, 18, 0.10);
+  --border-strong: rgba(10, 18, 18, 0.14);
+  --shadow-sm: 0 1px 0 rgba(0,0,0,0.03), 0 6px 16px rgba(0,0,0,0.06);
+  --shadow-md: 0 10px 28px rgba(0,0,0,0.10);
+  --card: var(--surface-2);
+  --soft: var(--surface-soft);
+  --mid: rgba(10, 18, 18, 0.18);
+}
+
+:root[data-theme='dark'] {
+  --bg: #0f1718;
+  --bg-grad:
+    radial-gradient(1100px 700px at 10% 0%, rgba(31, 203, 184, 0.16) 0%, rgba(31, 203, 184, 0.06) 34%, rgba(255,255,255,0) 68%),
+    radial-gradient(900px 700px at 95% 10%, rgba(98, 124, 255, 0.12) 0%, rgba(98, 124, 255, 0.05) 36%, rgba(255,255,255,0) 72%),
+    linear-gradient(180deg, #11191b 0%, #0f1718 55%, #10161c 100%);
+  --surface-1: rgba(20, 29, 31, 0.82);
+  --surface-2: rgba(22, 31, 34, 0.92);
+  --surface-soft: rgba(255, 255, 255, 0.04);
+  --text: rgba(240, 248, 247, 0.94);
+  --muted: rgba(240, 248, 247, 0.66);
+  --muted-2: rgba(240, 248, 247, 0.48);
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --shadow-sm: 0 1px 0 rgba(0,0,0,0.24), 0 10px 20px rgba(0,0,0,0.22);
+  --shadow-md: 0 18px 36px rgba(0,0,0,0.28);
+  --card: var(--surface-2);
+  --soft: var(--surface-soft);
+  --mid: rgba(255,255,255,0.18);
+}
+
+body {
+  transition: background 180ms ease, color 180ms ease;
+}
 
 /* ===== Global base ===== */
 html { font-size: calc(16px * var(--ui-scale, 1)); }

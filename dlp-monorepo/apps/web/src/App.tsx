@@ -42,7 +42,6 @@ export default function App() {
                     </ProtectedRoute>
                   }
                 />
-
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
 
