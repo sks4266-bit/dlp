@@ -11,6 +11,15 @@ type Channel = {
   description: string | null;
   inviteCode: string;
   myRole: string | null;
+  memberCount?: number;
+};
+
+type Member = {
+  userId: string;
+  name: string;
+  role: string;
+  joinedAt: number;
+  isMe: boolean;
 };
 
 type Post = {
@@ -39,11 +48,15 @@ export default function ChannelDetailPage() {
   const [channel, setChannel] = useState<Channel | null>(null);
   const [tab, setTab] = useState<'notice' | 'prayer'>('notice');
   const [posts, setPosts] = useState<Post[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [membersLoading, setMembersLoading] = useState(false);
 
   const [joinCode, setJoinCode] = useState('');
+  const [joinSaving, setJoinSaving] = useState(false);
   const isMember = !!channel?.myRole;
+  const isManager = channel?.myRole === 'OWNER' || channel?.myRole === 'ADMIN';
 
   const [composerOpen, setComposerOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -56,6 +69,7 @@ export default function ChannelDetailPage() {
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [commentSaving, setCommentSaving] = useState(false);
+  const [kickingUserId, setKickingUserId] = useState<string | null>(null);
 
   const boardLabel = tab === 'notice' ? '공지' : '기도';
   const boardDesc = tab === 'notice' ? '예배와 모임, 전달사항을 확인하는 보드입니다.' : '기도제목과 응답을 나누는 보드입니다.';
@@ -65,13 +79,13 @@ export default function ChannelDetailPage() {
       {
         label: '참여 상태',
         value: isMember ? '참여 중' : '미가입',
-        subValue: isMember ? channel?.myRole ?? '멤버' : '가입 후 작성 가능',
+        subValue: isMember ? channel?.myRole ?? '멤버' : '누구나 즉시 입장 가능',
         tone: 'mint' as Tone
       },
       {
-        label: '초대 코드',
-        value: channel?.inviteCode ?? '-',
-        subValue: '공유용 코드',
+        label: '채널 구성원',
+        value: loading ? '…' : `${channel?.memberCount ?? members.length}명`,
+        subValue: isManager ? '관리자 강퇴 가능' : '구성원과 함께 사용',
         tone: 'sky' as Tone
       },
       {
@@ -87,7 +101,7 @@ export default function ChannelDetailPage() {
         tone: 'neutral' as Tone
       }
     ],
-    [boardLabel, channel?.inviteCode, channel?.myRole, isMember, loading, posts.length, tab]
+    [boardLabel, channel?.memberCount, channel?.myRole, isManager, isMember, loading, members.length, posts.length, tab]
   );
 
   function goLogin() {
@@ -96,15 +110,17 @@ export default function ChannelDetailPage() {
   }
 
   async function loadChannel() {
-    if (!id) return;
+    if (!id) return null;
 
     const res = await apiFetch(`/api/channels/${id}`);
     if (res.status === 401) {
       goLogin();
-      return;
+      return null;
     }
     if (!res.ok) throw new Error('채널 정보를 불러오지 못했습니다.');
-    setChannel(await res.json());
+    const data = (await res.json()) as Channel;
+    setChannel(data);
+    return data;
   }
 
   async function loadPosts() {
@@ -119,11 +135,38 @@ export default function ChannelDetailPage() {
     setPosts(await res.json());
   }
 
+  async function loadMembers() {
+    if (!id) return;
+
+    setMembersLoading(true);
+    try {
+      const res = await apiFetch(`/api/channels/${id}/members`);
+      if (res.status === 401) {
+        goLogin();
+        return;
+      }
+      if (res.status === 403) {
+        setMembers([]);
+        return;
+      }
+      if (!res.ok) throw new Error('구성원 정보를 불러오지 못했습니다.');
+      setMembers(await res.json());
+    } finally {
+      setMembersLoading(false);
+    }
+  }
+
   async function loadAll() {
     setErr(null);
     setLoading(true);
     try {
-      await Promise.all([loadChannel(), loadPosts()]);
+      const nextChannel = await loadChannel();
+      await loadPosts();
+      if (nextChannel?.myRole) {
+        await loadMembers();
+      } else {
+        setMembers([]);
+      }
     } catch (e: any) {
       setErr(e?.message ?? '불러오기에 실패했습니다.');
     } finally {
@@ -158,27 +201,36 @@ export default function ChannelDetailPage() {
     }
   }
 
-  async function submitJoin() {
+  async function submitJoin(mode: 'open' | 'code') {
     if (!channel) return;
-
-    const res = await apiFetch(`/api/channels/${channel.id}/join`, {
-      method: 'POST',
-      body: JSON.stringify({ inviteCode: joinCode.trim() })
-    });
-
-    if (res.status === 401) {
-      goLogin();
+    if (mode === 'code' && joinCode.trim().length < 4) {
+      window.alert('초대코드를 입력하세요.');
       return;
     }
 
-    if (!res.ok) {
-      window.alert('가입 실패: 초대코드를 확인하세요.');
-      return;
-    }
+    setJoinSaving(true);
+    try {
+      const res = await apiFetch(`/api/channels/${channel.id}/join`, {
+        method: 'POST',
+        body: JSON.stringify(mode === 'code' ? { inviteCode: joinCode.trim().toUpperCase() } : {})
+      });
 
-    setJoinCode('');
-    await loadAll();
-    window.alert('채널에 가입되었습니다.');
+      if (res.status === 401) {
+        goLogin();
+        return;
+      }
+
+      if (!res.ok) {
+        window.alert(mode === 'code' ? '가입 실패: 초대코드를 확인하세요.' : '채널 입장에 실패했습니다.');
+        return;
+      }
+
+      setJoinCode('');
+      await loadAll();
+      window.alert('채널에 입장되었습니다.');
+    } finally {
+      setJoinSaving(false);
+    }
   }
 
   async function submitPost() {
@@ -247,9 +299,36 @@ export default function ChannelDetailPage() {
     }
   }
 
+  async function kickMember(member: Member) {
+    if (!id) return;
+    if (!window.confirm(`${member.name} 님을 채널에서 내보낼까요?`)) return;
+
+    setKickingUserId(member.userId);
+    try {
+      const res = await apiFetch(`/api/channels/${id}/members/${member.userId}/kick`, {
+        method: 'POST',
+        body: JSON.stringify({})
+      });
+
+      if (res.status === 401) {
+        goLogin();
+        return;
+      }
+
+      if (!res.ok) {
+        window.alert('강퇴 처리에 실패했습니다.');
+        return;
+      }
+
+      await loadAll();
+    } finally {
+      setKickingUserId(null);
+    }
+  }
+
   function openComposerForCurrentTab() {
     if (!isMember) {
-      window.alert('먼저 채널에 가입하세요.');
+      window.alert('먼저 채널에 입장하세요.');
       return;
     }
     setComposerOpen(true);
@@ -265,14 +344,15 @@ export default function ChannelDetailPage() {
             <div style={heroCopy}>
               <div style={badgeMint}>CHANNEL DETAIL</div>
               <div style={heroTitle}>{channel?.name ?? '교회 채널'}</div>
-              <div style={heroDesc}>{channel?.description ?? '홈 기준 폭과 카드 밀도로 다시 맞추고, 채널 전용 배경 없이 공지·기도·댓글 흐름을 정리했습니다.'}</div>
+              <div style={heroDesc}>{channel?.description ?? '공지와 기도제목, 댓글 흐름을 홈 톤으로 정리한 채널 상세 화면입니다.'}</div>
             </div>
             <div style={roleChip}>{channel?.myRole ?? '미가입'}</div>
           </div>
 
           <div style={heroPillRow}>
-            <span style={heroMintPill}>{isMember ? '채널 참여 중' : '가입 후 글쓰기 가능'}</span>
-            <span style={tab === 'notice' ? heroPeachPill : heroSkyPill}>{boardLabel} 게시판</span>
+            <span style={heroMintPill}>검색으로 누구나 바로 입장</span>
+            <span style={heroPeachPill}>초대코드 입장 지원</span>
+            <span style={heroSkyPill}>{isManager ? '관리자 강퇴 권한 활성화' : '관리자만 강퇴 가능'}</span>
           </div>
 
           <div style={summaryGrid}>
@@ -292,19 +372,56 @@ export default function ChannelDetailPage() {
 
           {!isMember && channel ? (
             <div style={joinCard}>
-              <div style={joinTitle}>초대코드로 채널 가입</div>
-              <div style={joinDesc}>가입 후 공지 작성, 기도제목 나눔, 댓글 참여가 가능합니다.</div>
+              <div style={joinTitle}>채널 입장</div>
+              <div style={joinDesc}>이 채널은 누구나 바로 입장할 수 있으며, 초대코드가 있으면 코드 검증 방식으로도 참여할 수 있습니다.</div>
               <div className="stack10" />
-              <input value={joinCode} onChange={(e) => setJoinCode(e.target.value)} placeholder="예) ABC123" className="glassInput" />
+              <Button variant="primary" size="lg" wide onClick={() => submitJoin('open')} disabled={joinSaving}>
+                {joinSaving ? '입장 중…' : '바로 입장'}
+              </Button>
               <div className="stack10" />
-              <Button variant="primary" size="lg" wide onClick={submitJoin}>
-                가입하기
+              <Field label="초대코드로 입장(선택)">
+                <input value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} placeholder="예) ABC123" className="glassInput" />
+              </Field>
+              <div className="stack10" />
+              <Button variant="secondary" size="lg" wide onClick={() => submitJoin('code')} disabled={joinSaving}>
+                초대코드로 입장
               </Button>
             </div>
           ) : null}
         </Card>
 
         {err ? <div className="uiErrorBox">{err}</div> : null}
+
+        {isMember ? (
+          <Card pad style={sectionCard}>
+            <SectionHeader
+              eyebrow="MEMBERS"
+              title="채널 구성원"
+              desc={isManager ? '관리자는 멤버를 강퇴할 수 있습니다. 운영자는 본인과 오너를 제외한 구성원만 관리할 수 있어요.' : '채널에 함께 있는 구성원을 확인할 수 있어요.'}
+            />
+
+            <div style={cardList}>
+              {membersLoading ? (
+                <div className="glassSkeletonStack">
+                  <div className="glassSkeletonBlock" style={{ height: 88, borderRadius: 18 }} />
+                  <div className="glassSkeletonBlock" style={{ height: 88, borderRadius: 18 }} />
+                </div>
+              ) : members.length === 0 ? (
+                <div className="glassEmpty">아직 구성원 정보가 없습니다.</div>
+              ) : (
+                members.map((member) => (
+                  <MemberRow
+                    key={member.userId}
+                    member={member}
+                    canKick={!!isManager && !member.isMe && member.role !== 'OWNER'}
+                    kicking={kickingUserId === member.userId}
+                    onKick={() => kickMember(member)}
+                  />
+                ))
+              )}
+            </div>
+          </Card>
+        ) : null}
 
         <Card pad style={sectionCard}>
           <SectionHeader eyebrow="BOARD" title={`${boardLabel} 게시판`} desc={boardDesc} />
@@ -499,6 +616,41 @@ function GaugeTabButton({
   );
 }
 
+function MemberRow({
+  member,
+  canKick,
+  kicking,
+  onKick
+}: {
+  member: Member;
+  canKick: boolean;
+  kicking: boolean;
+  onKick: () => void;
+}) {
+  return (
+    <div style={memberCard}>
+      <div style={memberTop}>
+        <div>
+          <div style={memberName}>{member.name}</div>
+          <div style={memberMeta}>{formatTime(member.joinedAt)} 참여</div>
+        </div>
+        <div style={memberPillRow}>
+          <span style={member.role === 'OWNER' ? heroPeachPill : heroMintPill}>{member.role}</span>
+          {member.isMe ? <span style={heroNeutralPill}>나</span> : null}
+        </div>
+      </div>
+
+      {canKick ? (
+        <div style={memberActionWrap}>
+          <Button variant="danger" size="md" onClick={onKick} disabled={kicking}>
+            {kicking ? '처리 중…' : '강퇴'}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="glassField">
@@ -519,7 +671,7 @@ function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () =
         </div>
         {children}
         <div className="stack10" />
-        <Button variant="secondary" wide onClick={onClose}>
+        <Button variant="secondary" size="lg" wide onClick={onClose}>
           닫기
         </Button>
       </div>
@@ -858,26 +1010,63 @@ const gaugeValue: CSSProperties = {
 
 const gaugeHint: CSSProperties = {
   marginTop: 8,
-  color: '#6f7c85',
+  color: '#6b7780',
   fontSize: 12,
-  fontWeight: 700,
   lineHeight: 1.45
 };
 
 const cardList: CSSProperties = {
   display: 'grid',
-  gap: 12
+  gap: 10
+};
+
+const memberCard: CSSProperties = {
+  padding: '14px 14px 12px',
+  borderRadius: 18,
+  background: 'rgba(248,250,251,0.78)',
+  border: '1px solid rgba(227,233,237,0.92)'
+};
+
+const memberTop: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 10,
+  flexWrap: 'wrap'
+};
+
+const memberName: CSSProperties = {
+  color: '#24313a',
+  fontSize: 17,
+  fontWeight: 800
+};
+
+const memberMeta: CSSProperties = {
+  marginTop: 6,
+  color: '#6c7881',
+  fontSize: 12,
+  lineHeight: 1.45
+};
+
+const memberPillRow: CSSProperties = {
+  display: 'flex',
+  gap: 8,
+  flexWrap: 'wrap'
+};
+
+const memberActionWrap: CSSProperties = {
+  marginTop: 12,
+  display: 'flex',
+  justifyContent: 'flex-end'
 };
 
 const listCardButton: CSSProperties = {
-  textAlign: 'left',
   width: '100%',
-  minHeight: 118,
-  padding: 16,
-  borderRadius: 22,
-  border: '1px solid rgba(255,255,255,0.58)',
-  background: 'linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.66))',
-  boxShadow: '0 12px 28px rgba(77,90,110,0.08)',
+  padding: '14px 14px 12px',
+  borderRadius: 20,
+  background: 'rgba(248,250,251,0.78)',
+  border: '1px solid rgba(227,233,237,0.92)',
+  textAlign: 'left',
   cursor: 'pointer'
 };
 
@@ -900,6 +1089,7 @@ const rowBadgeMint: CSSProperties = {
   padding: '0 8px',
   borderRadius: 999,
   background: 'rgba(114,215,199,0.14)',
+  border: '1px solid rgba(114,215,199,0.24)',
   color: '#2f7f73',
   fontSize: 11,
   fontWeight: 800
@@ -911,7 +1101,8 @@ const rowBadgePeach: CSSProperties = {
   minHeight: 24,
   padding: '0 8px',
   borderRadius: 999,
-  background: 'rgba(243,200,181,0.28)',
+  background: 'rgba(243,180,156,0.16)',
+  border: '1px solid rgba(243,180,156,0.24)',
   color: '#9d6550',
   fontSize: 11,
   fontWeight: 800
@@ -919,23 +1110,22 @@ const rowBadgePeach: CSSProperties = {
 
 const listCardTitle: CSSProperties = {
   marginTop: 8,
-  fontSize: 17,
-  fontWeight: 800,
   color: '#24313a',
-  letterSpacing: '-0.02em',
-  lineHeight: 1.35
+  fontSize: 19,
+  fontWeight: 800,
+  lineHeight: 1.2
 };
 
 const postTime: CSSProperties = {
-  color: '#91a0a8',
+  color: '#7d8991',
   fontSize: 12,
   fontWeight: 700,
   whiteSpace: 'nowrap'
 };
 
 const listCardDesc: CSSProperties = {
-  marginTop: 10,
-  color: '#53626b',
+  marginTop: 8,
+  color: '#67747d',
   fontSize: 14,
   lineHeight: 1.6,
   whiteSpace: 'pre-wrap'
@@ -945,7 +1135,7 @@ const listCardMeta: CSSProperties = {
   display: 'flex',
   gap: 8,
   flexWrap: 'wrap',
-  marginTop: 12
+  marginTop: 10
 };
 
 const authorPill: CSSProperties = {
@@ -954,9 +1144,9 @@ const authorPill: CSSProperties = {
   minHeight: 30,
   padding: '0 12px',
   borderRadius: 999,
-  background: 'rgba(114,215,199,0.12)',
-  border: '1px solid rgba(114,215,199,0.2)',
-  color: '#55746d',
+  background: 'rgba(255,255,255,0.62)',
+  border: '1px solid rgba(255,255,255,0.72)',
+  color: '#5d6b73',
   fontSize: 12,
   fontWeight: 800
 };
@@ -967,39 +1157,24 @@ const metaPillNeutral: CSSProperties = {
   minHeight: 30,
   padding: '0 12px',
   borderRadius: 999,
-  background: 'rgba(255,255,255,0.52)',
-  border: '1px solid rgba(255,255,255,0.56)',
+  background: 'rgba(255,255,255,0.62)',
+  border: '1px solid rgba(255,255,255,0.72)',
   color: '#6e7b84',
   fontSize: 12,
   fontWeight: 800
 };
 
-const sheetEyebrow: CSSProperties = {
-  fontSize: 11,
-  fontWeight: 900,
-  letterSpacing: '0.08em',
-  color: '#82a39a'
-};
-
-const sheetDesc: CSSProperties = {
-  marginTop: 8,
-  color: '#6e7b84',
-  fontSize: 13,
-  lineHeight: 1.55
-};
-
 const commentHeroCard: CSSProperties = {
-  marginTop: 10,
-  padding: 14,
+  marginTop: 8,
+  padding: '14px 14px 12px',
   borderRadius: 18,
-  background: 'rgba(255,255,255,0.62)',
-  border: '1px solid rgba(255,255,255,0.56)'
+  background: 'rgba(248,250,251,0.78)',
+  border: '1px solid rgba(227,233,237,0.92)'
 };
 
 const commentHeroTop: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
   gap: 8,
   flexWrap: 'wrap'
 };
@@ -1007,69 +1182,83 @@ const commentHeroTop: CSSProperties = {
 const commentHeroTitle: CSSProperties = {
   marginTop: 10,
   color: '#24313a',
-  fontSize: 16,
+  fontSize: 18,
   fontWeight: 800,
-  lineHeight: 1.35
+  lineHeight: 1.25
 };
 
 const commentHeroDesc: CSSProperties = {
   marginTop: 8,
-  color: '#5d6b73',
+  color: '#67747d',
   fontSize: 14,
   lineHeight: 1.6,
   whiteSpace: 'pre-wrap'
 };
 
 const commentCard: CSSProperties = {
-  padding: 14,
+  padding: '14px 14px 12px',
   borderRadius: 18,
-  border: '1px solid rgba(255,255,255,0.56)',
-  background: 'rgba(255,255,255,0.56)'
+  background: 'rgba(248,250,251,0.78)',
+  border: '1px solid rgba(227,233,237,0.92)'
 };
 
 const commentTop: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  gap: 8
+  gap: 10
 };
 
 const commentAuthor: CSSProperties = {
   color: '#24313a',
-  fontSize: 13,
+  fontSize: 15,
   fontWeight: 800
 };
 
 const commentTime: CSSProperties = {
-  color: '#92a0a8',
+  color: '#7d8991',
   fontSize: 12,
   fontWeight: 700
 };
 
 const commentTextStyle: CSSProperties = {
   marginTop: 8,
-  color: '#55636b',
+  color: '#66737c',
   fontSize: 14,
   lineHeight: 1.6,
   whiteSpace: 'pre-wrap'
 };
 
 const commentEditorCard: CSSProperties = {
-  padding: 14,
+  padding: '14px 14px 12px',
   borderRadius: 18,
-  background: 'rgba(248,250,251,0.72)',
+  background: 'rgba(248,250,251,0.78)',
   border: '1px solid rgba(227,233,237,0.92)'
 };
 
 const commentEditorTitle: CSSProperties = {
   color: '#24313a',
-  fontSize: 15,
+  fontSize: 16,
   fontWeight: 800
 };
 
 const commentEditorDesc: CSSProperties = {
   marginTop: 6,
-  color: '#6d7881',
+  color: '#6b7780',
   fontSize: 13,
+  lineHeight: 1.5
+};
+
+const sheetEyebrow: CSSProperties = {
+  color: '#83a39a',
+  fontSize: 11,
+  fontWeight: 900,
+  letterSpacing: '0.08em'
+};
+
+const sheetDesc: CSSProperties = {
+  marginTop: 6,
+  color: '#6c7780',
+  fontSize: 14,
   lineHeight: 1.55
 };

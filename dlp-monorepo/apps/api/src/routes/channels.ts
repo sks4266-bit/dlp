@@ -24,6 +24,16 @@ function inviteCode() {
   return out;
 }
 
+async function hasGlobalAdmin(env: Env, userId: string) {
+  const row = await dbGet<{ role: string }>(env, 'SELECT role FROM user_global_roles WHERE user_id = ? AND role = "ADMIN";', [userId]);
+  return !!row;
+}
+
+async function getChannelRole(env: Env, channelId: string, userId: string) {
+  const row = await dbGet<{ role: string }>(env, 'SELECT role FROM channel_members WHERE channel_id = ? AND user_id = ?;', [channelId, userId]);
+  return row?.role ?? null;
+}
+
 // GET /api/channels/recommended
 channelRoutes.get('/recommended', async (c) => {
   const userId = c.get('userId');
@@ -57,11 +67,26 @@ channelRoutes.get('/recommended', async (c) => {
 });
 
 channelRoutes.get('/', async (c) => {
-  const rows = await dbAll<{ id: string; name: string; description: string | null; invite_code: string; created_at: number }>(
-    c.env,
-    'SELECT id, name, description, invite_code, created_at FROM channels ORDER BY created_at DESC LIMIT 50;',
-    []
-  );
+  const q = (c.req.query('q') ?? '').trim();
+
+  const rows = q
+    ? await dbAll<{ id: string; name: string; description: string | null; invite_code: string; created_at: number }>(
+        c.env,
+        `SELECT id, name, description, invite_code, created_at
+           FROM channels
+          WHERE LOWER(name) LIKE ?
+             OR LOWER(COALESCE(description, '')) LIKE ?
+             OR REPLACE(REPLACE(LOWER(name), ' ', ''), '교회', '') LIKE ?
+          ORDER BY created_at DESC
+          LIMIT 50;`,
+        [`%${q.toLowerCase()}%`, `%${q.toLowerCase()}%`, `%${normalize(q)}%`]
+      )
+    : await dbAll<{ id: string; name: string; description: string | null; invite_code: string; created_at: number }>(
+        c.env,
+        'SELECT id, name, description, invite_code, created_at FROM channels ORDER BY created_at DESC LIMIT 50;',
+        []
+      );
+
   return c.json(
     rows.map((r) => ({
       id: r.id,
@@ -98,16 +123,42 @@ channelRoutes.post('/', async (c) => {
   return c.json({ ok: true, id, inviteCode: code });
 });
 
-const JoinSchema = z.object({ inviteCode: z.string().min(4).max(12) });
+const OptionalInviteCode = z.preprocess(
+  (value) => {
+    if (typeof value !== 'string') return value;
+    const next = value.trim().toUpperCase();
+    return next ? next : undefined;
+  },
+  z.string().min(4).max(12).optional()
+);
+
+const JoinSchema = z.object({ inviteCode: OptionalInviteCode.optional() });
+const DirectJoinSchema = z.object({ inviteCode: z.string().trim().min(4).max(12).transform((value) => value.toUpperCase()) });
+
+channelRoutes.post('/join-by-code', async (c) => {
+  const userId = c.get('userId');
+  const { inviteCode } = DirectJoinSchema.parse(await c.req.json());
+
+  const ch = await dbGet<{ id: string; name: string }>(c.env, 'SELECT id, name FROM channels WHERE invite_code = ?;', [inviteCode]);
+  if (!ch) return c.json({ error: 'INVALID_CODE' }, 400);
+
+  await dbRun(
+    c.env,
+    'INSERT OR IGNORE INTO channel_members (channel_id, user_id, role, joined_at) VALUES (?, ?, ?, ?);',
+    [ch.id, userId, 'MEMBER', Date.now()]
+  );
+
+  return c.json({ ok: true, channelId: ch.id, channelName: ch.name });
+});
 
 channelRoutes.post('/:id/join', async (c) => {
   const userId = c.get('userId');
   const channelId = c.req.param('id');
-  const { inviteCode } = JoinSchema.parse(await c.req.json());
+  const { inviteCode } = JoinSchema.parse(await c.req.json().catch(() => ({})));
 
   const ch = await dbGet<{ invite_code: string }>(c.env, 'SELECT invite_code FROM channels WHERE id = ?;', [channelId]);
   if (!ch) return c.json({ error: 'NOT_FOUND' }, 404);
-  if (ch.invite_code !== inviteCode) return c.json({ error: 'INVALID_CODE' }, 400);
+  if (inviteCode && ch.invite_code !== inviteCode) return c.json({ error: 'INVALID_CODE' }, 400);
 
   await dbRun(
     c.env,
@@ -129,11 +180,8 @@ channelRoutes.get('/:id', async (c) => {
   );
   if (!ch) return c.json({ error: 'NOT_FOUND' }, 404);
 
-  const mem = await dbGet<{ role: string }>(
-    c.env,
-    'SELECT role FROM channel_members WHERE channel_id = ? AND user_id = ?;',
-    [channelId, userId]
-  );
+  const myRole = await getChannelRole(c.env, channelId, userId);
+  const memberCountRow = await dbGet<{ count: number }>(c.env, 'SELECT COUNT(*) AS count FROM channel_members WHERE channel_id = ?;', [channelId]);
 
   return c.json({
     id: ch.id,
@@ -142,8 +190,63 @@ channelRoutes.get('/:id', async (c) => {
     inviteCode: ch.invite_code,
     createdBy: ch.created_by,
     createdAt: ch.created_at,
-    myRole: mem?.role ?? null
+    myRole,
+    memberCount: memberCountRow?.count ?? 0
   });
+});
+
+channelRoutes.get('/:id/members', async (c) => {
+  const userId = c.get('userId');
+  const channelId = c.req.param('id');
+
+  const myRole = await getChannelRole(c.env, channelId, userId);
+  const globalAdmin = await hasGlobalAdmin(c.env, userId);
+  if (!myRole && !globalAdmin) return c.json({ error: 'FORBIDDEN' }, 403);
+
+  const rows = await dbAll<{
+    user_id: string;
+    role: string;
+    joined_at: number;
+    user_name: string | null;
+  }>(
+    c.env,
+    `SELECT cm.user_id, cm.role, cm.joined_at, u.name AS user_name
+       FROM channel_members cm
+       LEFT JOIN users u ON u.id = cm.user_id
+      WHERE cm.channel_id = ?
+      ORDER BY CASE cm.role WHEN 'OWNER' THEN 0 WHEN 'ADMIN' THEN 1 ELSE 2 END, cm.joined_at ASC;`,
+    [channelId]
+  );
+
+  return c.json(
+    rows.map((row) => ({
+      userId: row.user_id,
+      name: row.user_name ?? '이름없음',
+      role: row.role,
+      joinedAt: row.joined_at,
+      isMe: row.user_id === userId
+    }))
+  );
+});
+
+channelRoutes.post('/:id/members/:memberUserId/kick', async (c) => {
+  const actorId = c.get('userId');
+  const channelId = c.req.param('id');
+  const memberUserId = c.req.param('memberUserId');
+
+  if (actorId === memberUserId) return c.json({ error: 'SELF_KICK_NOT_ALLOWED' }, 400);
+
+  const actorRole = await getChannelRole(c.env, channelId, actorId);
+  const globalAdmin = await hasGlobalAdmin(c.env, actorId);
+  const canManage = globalAdmin || actorRole === 'OWNER' || actorRole === 'ADMIN';
+  if (!canManage) return c.json({ error: 'FORBIDDEN' }, 403);
+
+  const target = await dbGet<{ role: string }>(c.env, 'SELECT role FROM channel_members WHERE channel_id = ? AND user_id = ?;', [channelId, memberUserId]);
+  if (!target) return c.json({ error: 'NOT_FOUND' }, 404);
+  if (target.role === 'OWNER') return c.json({ error: 'OWNER_KICK_NOT_ALLOWED' }, 400);
+
+  await dbRun(c.env, 'DELETE FROM channel_members WHERE channel_id = ? AND user_id = ?;', [channelId, memberUserId]);
+  return c.json({ ok: true });
 });
 
 // posts list/create
@@ -197,12 +300,7 @@ channelRoutes.post('/:id/posts', async (c) => {
   const channelId = c.req.param('id');
   const body = CreatePostSchema.parse(await c.req.json());
 
-  // must be member
-  const mem = await dbGet<{ role: string }>(
-    c.env,
-    'SELECT role FROM channel_members WHERE channel_id = ? AND user_id = ?;',
-    [channelId, userId]
-  );
+  const mem = await dbGet<{ role: string }>(c.env, 'SELECT role FROM channel_members WHERE channel_id = ? AND user_id = ?;', [channelId, userId]);
   if (!mem) return c.json({ error: 'FORBIDDEN' }, 403);
 
   const id = crypto.randomUUID();
@@ -254,15 +352,10 @@ channelRoutes.post('/posts/:postId/comments', async (c) => {
   const postId = c.req.param('postId');
   const body = CreateCommentSchema.parse(await c.req.json());
 
-  // infer channel via post
   const post = await dbGet<{ channel_id: string | null }>(c.env, 'SELECT channel_id FROM posts WHERE id = ?;', [postId]);
   if (!post?.channel_id) return c.json({ error: 'NOT_FOUND' }, 404);
 
-  const mem = await dbGet<{ role: string }>(
-    c.env,
-    'SELECT role FROM channel_members WHERE channel_id = ? AND user_id = ?;',
-    [post.channel_id, userId]
-  );
+  const mem = await dbGet<{ role: string }>(c.env, 'SELECT role FROM channel_members WHERE channel_id = ? AND user_id = ?;', [post.channel_id, userId]);
   if (!mem) return c.json({ error: 'FORBIDDEN' }, 403);
 
   const id = crypto.randomUUID();
