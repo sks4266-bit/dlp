@@ -12,6 +12,7 @@ import { dlpRoutes } from './routes/dlp';
 import { gratitudeRoutes } from './routes/gratitude';
 import { channelRoutes } from './routes/channels';
 import { bibleRoutes } from './routes/bible';
+import { bibleGameRoutes } from './routes/bible_game';
 import { mcheyneTextRoutes } from './routes/mcheyne_text';
 import { mcheyneProgressRoutes } from './routes/mcheyne_progress';
 
@@ -43,6 +44,7 @@ app.route('/api/dlp', dlpRoutes);
 app.route('/api/gratitude', gratitudeRoutes);
 app.route('/api/channels', channelRoutes);
 app.route('/api/bible', bibleRoutes);
+app.route('/api/bible-game', bibleGameRoutes);
 
 export default app;
 

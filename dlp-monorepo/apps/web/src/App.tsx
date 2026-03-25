@@ -3,6 +3,7 @@ import { AuthProvider } from './auth/AuthContext';
 import ProtectedRoute from './auth/ProtectedRoute';
 import { UiPrefsProvider } from './ui/UiPrefsContext';
 import AdminPage from './pages/AdminPage';
+import BibleGamePage from './pages/BibleGamePage';
 import BiblePage from './pages/BiblePage';
 import BibleSearchPage from './pages/BibleSearchPage';
 import ChannelDetailPage from './pages/ChannelDetailPage';
@@ -107,6 +108,14 @@ export default function App() {
                 <Route path="/mcheyne-calendar" element={<McheyneCalendarPage />} />
                 <Route path="/bible" element={<BiblePage />} />
                 <Route path="/bible-search" element={<BibleSearchPage />} />
+                <Route
+                  path="/bible-game"
+                  element={
+                    <ProtectedRoute>
+                      <BibleGamePage />
+                    </ProtectedRoute>
+                  }
+                />
               </Routes>
             </div>
           </div>

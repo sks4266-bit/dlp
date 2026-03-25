@@ -340,7 +340,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <div style={{ marginTop: 12 }}>
+        <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
           <WideActionCard
             icon={<ChurchIcon />}
             tone="peach"
@@ -348,6 +348,15 @@ export default function HomePage() {
             desc="공지 · 기도 · 댓글을 한곳에서"
             actionLabel="채널 보기"
             onClick={() => nav('/channels')}
+          />
+
+          <WideActionCard
+            icon={<BibleGameIcon />}
+            tone="mint"
+            title="바이블 게임"
+            desc="랜덤 성경 구절 빈칸 맞히기 · 반응속도 랭킹전"
+            actionLabel="입장하기"
+            onClick={() => (me ? nav('/bible-game') : goLogin('/bible-game'))}
           />
         </div>
 
@@ -621,6 +630,19 @@ function ChurchIcon() {
       <path d="M6 21V11l6-4 6 4v10" />
       <path d="M4 21h16" />
       <path d="M9.5 21v-4a2.5 2.5 0 0 1 5 0v4" />
+    </svg>
+  );
+}
+
+function BibleGameIcon() {
+  return (
+    <svg viewBox="0 0 24 24" style={icon22} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 5.5A2.5 2.5 0 0 1 9.5 3H19v14H9.5A2.5 2.5 0 0 0 7 19.5V5.5Z" />
+      <path d="M7 19.5A2.5 2.5 0 0 1 9.5 17H19" />
+      <path d="M12 8.2h2.6" />
+      <path d="M13.3 6.9v2.6" />
+      <circle cx="14.8" cy="12.8" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="11.4" cy="12.8" r="0.9" fill="currentColor" stroke="none" />
     </svg>
   );
 }

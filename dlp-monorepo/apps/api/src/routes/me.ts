@@ -67,6 +67,7 @@ async function deleteAccountFootprints(env: Env, userId: string) {
   await dbRun(env, 'DELETE FROM sessions WHERE user_id = ?;', [userId]);
   await dbRun(env, 'DELETE FROM user_global_roles WHERE user_id = ?;', [userId]);
   await dbRun(env, 'DELETE FROM channel_members WHERE user_id = ?;', [userId]);
+  await dbRun(env, 'DELETE FROM bible_game_scores WHERE user_id = ?;', [userId]);
   await dbRun(env, 'DELETE FROM dlp_entries WHERE user_id = ?;', [userId]);
   await dbRun(env, 'DELETE FROM gratitude_entries WHERE user_id = ?;', [userId]);
   await dbRun(env, 'DELETE FROM mcheyne_progress WHERE user_id = ?;', [userId]);
