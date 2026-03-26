@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { useNavigate } from 'react-router-dom';
 import TopBar from '../components/layout/TopBar';
 import { apiFetch } from '../lib/api';
 import Button from '../ui/Button';
@@ -48,10 +47,10 @@ type LeaderboardScope = 'day' | 'week' | 'all';
 
 const STAGE_HEIGHT = 392;
 const GROUND_HEIGHT = 54;
-const ROUND_DELAYS = [0, 480, 960, 1440];
+const ROUND_DELAYS = [0, 620, 1240, 1860];
+const BGM_AUDIO_URL = 'https://www.genspark.ai/api/files/s/5407aOqj';
 
 export default function BibleGamePage() {
-  const nav = useNavigate();
   const { me } = useAuth();
 
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -93,16 +92,13 @@ export default function BibleGamePage() {
   const [tierNotice, setTierNotice] = useState<string | null>(null);
   const [bgmEnabled, setBgmEnabled] = useState(true);
   const prevTierRef = useRef<string>('씨앗');
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const bgmGainRef = useRef<GainNode | null>(null);
-  const bgmTimerRef = useRef<number | null>(null);
+  const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
+  const bgmUnlockedRef = useRef(false);
 
   const difficulty = useMemo(() => getDifficulty(elapsedMs, correctCount), [elapsedMs, correctCount]);
   const playerMetrics = useMemo(() => getPlayerMetrics(stageWidth, elapsedMs, correctCount), [stageWidth, elapsedMs, correctCount]);
   const currentTier = useMemo(() => getTierBySurvivalMs(elapsedMs), [elapsedMs]);
-  const nextTierHint = useMemo(() => getNextTierHint(elapsedMs), [elapsedMs]);
   const tierPalette = useMemo(() => getTierPalette(currentTier), [currentTier]);
-  const tierProgress = useMemo(() => getTierProgress(elapsedMs), [elapsedMs]);
 
   const syncStatus = useCallback((value: GameStatus) => {
     statusRef.current = value;
@@ -235,89 +231,45 @@ export default function BibleGamePage() {
     window.navigator.vibrate(pattern);
   }, []);
 
-  const stopBgm = useCallback(() => {
-    if (bgmTimerRef.current) {
-      window.clearInterval(bgmTimerRef.current);
-      bgmTimerRef.current = null;
+  const ensureBgmAudio = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+
+    let audio = bgmAudioRef.current;
+    if (!audio) {
+      audio = new Audio(BGM_AUDIO_URL);
+      audio.loop = true;
+      audio.preload = 'auto';
+      audio.volume = 0.34;
+      bgmAudioRef.current = audio;
     }
 
-    const ctx = audioContextRef.current;
-    const gain = bgmGainRef.current;
-    if (!ctx || !gain) return;
-
-    const now = ctx.currentTime;
-    gain.gain.cancelScheduledValues(now);
-    gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+    return audio;
   }, []);
 
-  const startBgm = useCallback(async () => {
-    if (!bgmEnabled || typeof window === 'undefined') return;
+  const stopBgm = useCallback(() => {
+    const audio = bgmAudioRef.current;
+    if (!audio) return;
+    audio.pause();
+  }, []);
+
+  const startBgm = useCallback(async (unlock = false) => {
+    if (typeof window === 'undefined') return;
+    if (!bgmEnabled) return;
 
     try {
-      const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext | undefined;
-      if (!Ctx) return;
-
-      const ctx = audioContextRef.current ?? new Ctx();
-      audioContextRef.current = ctx;
-      if (ctx.state === 'suspended') await ctx.resume();
-
-      let gain = bgmGainRef.current;
-      if (!gain) {
-        gain = ctx.createGain();
-        gain.gain.value = 0.0001;
-        gain.connect(ctx.destination);
-        bgmGainRef.current = gain;
-      }
-
-      const playPhrase = (startAt: number) => {
-        const chords: Array<[number, number]> = [
-          [261.63, 392.0],
-          [293.66, 440.0],
-          [329.63, 493.88],
-          [293.66, 392.0]
-        ];
-        chords.forEach(([root, top], index) => {
-          const when = startAt + index * 0.8;
-          [root, top].forEach((freq, voiceIndex) => {
-            const osc = ctx.createOscillator();
-            const oscGain = ctx.createGain();
-            osc.type = voiceIndex === 0 ? 'sine' : 'triangle';
-            osc.frequency.setValueAtTime(freq, when);
-            oscGain.gain.setValueAtTime(0.0001, when);
-            oscGain.gain.exponentialRampToValueAtTime(voiceIndex === 0 ? 0.018 : 0.012, when + 0.12);
-            oscGain.gain.exponentialRampToValueAtTime(0.0001, when + 0.72);
-            osc.connect(oscGain);
-            oscGain.connect(gain!);
-            osc.start(when);
-            osc.stop(when + 0.76);
-          });
-        });
-      };
-
-      const now = ctx.currentTime;
-      gain.gain.cancelScheduledValues(now);
-      gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
-      gain.gain.exponentialRampToValueAtTime(0.038, now + 0.24);
-
-      playPhrase(now + 0.03);
-      if (bgmTimerRef.current) window.clearInterval(bgmTimerRef.current);
-      bgmTimerRef.current = window.setInterval(() => {
-        const liveCtx = audioContextRef.current;
-        if (!liveCtx) return;
-        if (liveCtx.state === 'suspended') {
-          void liveCtx.resume().catch(() => undefined);
-        }
-        playPhrase(liveCtx.currentTime + 0.03);
-      }, 3200);
+      const audio = ensureBgmAudio();
+      if (!audio) return;
+      if (unlock) bgmUnlockedRef.current = true;
+      audio.volume = 0.34;
+      if (audio.paused) await audio.play();
     } catch {
-      // ignore
+      // ignore autoplay failures until the user interacts again
     }
-  }, [bgmEnabled]);
+  }, [bgmEnabled, ensureBgmAudio]);
 
   useEffect(() => {
-    if (gameStatus === 'running' && bgmEnabled) {
-      void startBgm();
+    if (bgmEnabled && bgmUnlockedRef.current && gameStatus !== 'gameover') {
+      void startBgm(true);
       return;
     }
 
@@ -325,14 +277,16 @@ export default function BibleGamePage() {
   }, [bgmEnabled, gameStatus, startBgm, stopBgm]);
 
   useEffect(() => {
+    const audio = ensureBgmAudio();
     return () => {
       stopBgm();
-      const ctx = audioContextRef.current;
-      audioContextRef.current = null;
-      bgmGainRef.current = null;
-      if (ctx) void ctx.close().catch(() => undefined);
+      if (audio) {
+        audio.pause();
+        audio.src = '';
+      }
+      bgmAudioRef.current = null;
     };
-  }, [stopBgm]);
+  }, [ensureBgmAudio, stopBgm]);
 
   const playSuccessSound = useCallback(() => {
     try {
@@ -616,7 +570,7 @@ export default function BibleGamePage() {
     prevTierRef.current = '씨앗';
     setStatusText('문제를 준비하고 있어요…');
     syncPlayerX(stageWidthRef.current / 2);
-    void startBgm();
+    void startBgm(true);
 
     try {
       const firstQuestion = queuedQuestionRef.current ?? (await fetchQuestion());
@@ -670,49 +624,30 @@ export default function BibleGamePage() {
       <div style={pageInner}>
         <TopBar title="바이블 게임" backTo="/" hideAuthActions />
 
-        <Card pad style={{ ...heroCard, background: tierPalette.card, borderColor: tierPalette.border }}>
-          <div style={heroCompactRow}>
-            <div style={heroCompactMain}>
-              <div style={badgeMint}>BIBLE GAME</div>
-              <div style={heroTitleCompact}>퀴즈와 스테이지를 한 화면에 합친 모바일 집중형 버전</div>
-              <div style={heroCompactMetaRow}>
-                <span style={{ ...heroCompactMeta, background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border }}>{currentTier}</span>
-                <span style={heroCompactMeta}>점수 {score}</span>
-                <span style={heroCompactMeta}>최고 {bestFormatted}</span>
-              </div>
-            </div>
-            <button
-              type="button"
-              style={{
-                ...soundToggleButton,
-                ...(bgmEnabled ? { background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border } : null)
-              }}
-              onClick={() => {
-                const next = !bgmEnabled;
-                setBgmEnabled(next);
-                if (next && gameStatus === 'running') void startBgm();
-                if (!next) stopBgm();
-              }}
-            >
-              {bgmEnabled ? '음악 ON' : '음악 OFF'}
-            </button>
-          </div>
-
-          <div style={heroActionGridCompact}>
-            <Button variant="primary" onClick={() => void startGame()}>
-              {gameStatus === 'idle' || gameStatus === 'gameover' ? '게임 시작' : '다시 시작'}
-            </Button>
-            <Button variant="secondary" onClick={() => nav('/bible-search')}>
-              성경 검색
-            </Button>
-          </div>
-        </Card>
-
         <Card pad style={{ ...stageCard, background: tierPalette.card, borderColor: tierPalette.border }}>
           <div style={stageHeader}>
-            <div>
+            <div style={stageHeaderMain}>
               <div style={sectionEyebrow}>PLAY NOW</div>
-              <div style={sectionTitleCompact}>철수의 말씀 우박 먹방</div>
+              <div style={stageActionRow}>
+                <Button variant="primary" onClick={() => void startGame()}>
+                  {gameStatus === 'idle' || gameStatus === 'gameover' ? 'START' : 'RETRY'}
+                </Button>
+                <button
+                  type="button"
+                  style={{
+                    ...soundToggleButton,
+                    ...(bgmEnabled ? { background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border } : null)
+                  }}
+                  onClick={() => {
+                    const next = !bgmEnabled;
+                    setBgmEnabled(next);
+                    if (next) void startBgm(true);
+                    if (!next) stopBgm();
+                  }}
+                >
+                  {bgmEnabled ? 'BGM ON' : 'BGM OFF'}
+                </button>
+              </div>
             </div>
             <div style={{ ...stageChip, background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border }}>{formattedElapsed}</div>
           </div>
@@ -732,14 +667,14 @@ export default function BibleGamePage() {
                     : stageArea.boxShadow
             }}
             onPointerDown={(e) => {
-              if (bgmEnabled && gameStatus === 'running') void startBgm();
+              if (bgmEnabled && gameStatus === 'running') void startBgm(true);
               movePlayerToClientX(e.clientX);
             }}
             onPointerMove={(e) => {
               if (e.pointerType === 'touch' || e.buttons > 0) movePlayerToClientX(e.clientX);
             }}
             onTouchStart={(e) => {
-              if (bgmEnabled && gameStatus === 'running') void startBgm();
+              if (bgmEnabled && gameStatus === 'running') void startBgm(true);
               movePlayerToClientX(e.touches[0]?.clientX ?? 0);
             }}
             onTouchMove={(e) => movePlayerToClientX(e.touches[0]?.clientX ?? 0)}
@@ -758,10 +693,6 @@ export default function BibleGamePage() {
             <div style={cloudA} />
             <div style={cloudB} />
             <div style={cloudC} />
-            <div style={stageGuideRow}>
-              <span style={stageGuidePill}>좌우 드래그 · 정답만 먹기</span>
-            </div>
-
             {floatingFeedback ? (
               <div
                 key={floatingFeedback.id}
@@ -807,7 +738,6 @@ export default function BibleGamePage() {
               }}
             >
               <ChulsooAvatar faceState={faceState} mouthOpen={mouthOpen} />
-              <div style={playerLabel}>철수</div>
             </div>
 
             {gameStatus === 'idle' ? (
@@ -839,7 +769,7 @@ export default function BibleGamePage() {
 
           <div style={statusBar}>
             <div style={statusTextStyle}>{statusText}</div>
-            <div style={{ ...statusMeta, background: tierPalette.chipBg, color: tierPalette.chipText, border: `1px solid ${tierPalette.border}` }}>{difficultyLabel(difficulty.speedMultiplier)} · {bgmEnabled ? 'BGM ON' : 'BGM OFF'}</div>
+            <div style={{ ...statusMeta, background: tierPalette.chipBg, color: tierPalette.chipText, border: `1px solid ${tierPalette.border}` }}>{difficultyLabel(difficulty.speedMultiplier)}</div>
           </div>
         </Card>
 
@@ -1170,7 +1100,7 @@ function createLaneCenters(width: number, count: number) {
 }
 
 function estimateWordWidth(word: string) {
-  return Math.max(84, Math.min(146, word.length * 18 + 34));
+  return Math.max(76, Math.min(124, word.length * 14 + 24));
 }
 
 function formatDuration(ms: number) {
@@ -1443,7 +1373,7 @@ const stageTopOverlay: CSSProperties = {
 };
 
 const stageQuestionCard: CSSProperties = {
-  padding: '9px 9px 8px',
+  padding: '10px 10px 9px',
   borderRadius: 18,
   background: 'rgba(255,255,255,0.9)',
   border: '1px solid rgba(255,255,255,0.92)',
@@ -1461,7 +1391,7 @@ const stageQuestionLabelRow: CSSProperties = {
 
 const stageQuestionLabel: CSSProperties = {
   color: '#5e93d6',
-  fontSize: 11,
+  fontSize: 9,
   fontWeight: 900,
   letterSpacing: '0.08em'
 };
@@ -1469,22 +1399,22 @@ const stageQuestionLabel: CSSProperties = {
 const stageQuestionRef: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
-  minHeight: 24,
-  padding: '0 10px',
+  minHeight: 22,
+  padding: '0 8px',
   borderRadius: 999,
   background: 'rgba(255,255,255,0.92)',
   border: '1px solid rgba(214,231,244,0.9)',
   color: '#4f6472',
-  fontSize: 11,
+  fontSize: 9,
   fontWeight: 900
 };
 
 const stageQuestionVerse: CSSProperties = {
-  marginTop: 6,
+  marginTop: 7,
   color: '#1f2f41',
-  fontSize: 10,
+  fontSize: 12,
   fontWeight: 800,
-  lineHeight: 1.36,
+  lineHeight: 1.42,
   letterSpacing: '-0.02em'
 };
 
@@ -1564,6 +1494,18 @@ const stageHeader: CSSProperties = {
   justifyContent: 'space-between',
   gap: 10,
   marginBottom: 10
+};
+
+const stageHeaderMain: CSSProperties = {
+  flex: 1,
+  minWidth: 0
+};
+
+const stageActionRow: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr auto',
+  gap: 8,
+  marginTop: 8
 };
 
 const stageChip: CSSProperties = {
@@ -1679,13 +1621,13 @@ const cloudC: CSSProperties = {
 
 const fallerChip: CSSProperties = {
   position: 'absolute',
-  minHeight: 28,
-  padding: '0 9px',
+  minHeight: 26,
+  padding: '0 8px',
   borderRadius: 999,
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  fontSize: 9,
+  fontSize: 10,
   fontWeight: 900,
   color: '#223a54',
   border: '1px solid rgba(255,255,255,0.92)',
