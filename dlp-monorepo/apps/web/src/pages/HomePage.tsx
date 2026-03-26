@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import UrgentPrayerTicker, { type UrgentTickerItem } from '../components/UrgentPrayerTicker';
 import { useAuth } from '../auth/AuthContext';
 import UrgentPrayerComposer from '../components/urgent/UrgentPrayerComposer';
-import TopBar from '../components/layout/TopBar';
 import Button from '../ui/Button';
 import { Card, CardDesc, CardTitle } from '../ui/Card';
 
@@ -36,11 +35,18 @@ type HomePayload = {
 const HOME_AD_IMAGE_URL = '/ads/albi-banner.png';
 const HOME_AD_TARGET_URL = 'https://albi.kr';
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+}
+
 export default function HomePage() {
   const [home, setHome] = useState<HomePayload | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [installGuideOpen, setInstallGuideOpen] = useState(false);
   const [mcheyneBulkSaving, setMcheyneBulkSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const deferredInstallPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
 
   const nav = useNavigate();
   const loc = useLocation();
@@ -96,6 +102,24 @@ export default function HomePage() {
     loadHome();
   }, []);
 
+  useEffect(() => {
+    const onBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      deferredInstallPromptRef.current = event as BeforeInstallPromptEvent;
+    };
+
+    const onAppInstalled = () => {
+      deferredInstallPromptRef.current = null;
+    };
+
+    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt as EventListener);
+    window.addEventListener('appinstalled', onAppInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt as EventListener);
+      window.removeEventListener('appinstalled', onAppInstalled);
+    };
+  }, []);
+
   async function openUrgentComposer() {
     if (authLoading) return;
 
@@ -118,6 +142,21 @@ export default function HomePage() {
 
     await refreshMe();
     nav('/mcheyne-today');
+  }
+
+  async function openInstallGuide() {
+    const promptEvent = deferredInstallPromptRef.current;
+    if (promptEvent) {
+      await promptEvent.prompt();
+      try {
+        await promptEvent.userChoice;
+      } finally {
+        deferredInstallPromptRef.current = null;
+      }
+      return;
+    }
+
+    setInstallGuideOpen(true);
   }
 
   async function completeTodayAll() {
@@ -153,8 +192,33 @@ export default function HomePage() {
   return (
     <div style={page}>
       <div style={pageInner}>
-        <TopBar title="DLP" />
+        <header style={homeHeader}>
+          <div style={brandRow}>
+            <span style={brandEmoji} aria-hidden="true">📖</span>
+            <div style={brandTitle}>DLP</div>
+          </div>
+          <div style={headerActionRow}>
+            <button type="button" style={installGiftButton} onClick={() => void openInstallGuide()}>
+              <span aria-hidden="true">🎁</span>
+              <span>홈화면에 추가</span>
+            </button>
+            <button type="button" style={profileButton} onClick={() => (me ? nav('/me') : goLogin('/me'))}>
+              {me ? '내정보' : '로그인'}
+            </button>
+          </div>
+        </header>
+
         <Card pad style={urgentCard}>
+          <div style={urgentHead}>
+            <div style={urgentLabelWrap}>
+              <div style={sectionEyebrow}>URGENT PRAYER</div>
+              <div style={urgentTitleText}>긴급기도</div>
+              <div style={urgentSubText}>기도제목을 누르면 바로 목록으로 이동하고, 새 기도제목도 바로 등록할 수 있어요.</div>
+            </div>
+            <button type="button" style={urgentPrimaryBtn} onClick={() => void openUrgentComposer()}>
+              기도등록
+            </button>
+          </div>
           <div style={urgentCompactRow}>
             <div style={urgentIconWrap} aria-hidden="true">
               <MegaphoneIcon />
@@ -168,6 +232,10 @@ export default function HomePage() {
                 onItemClick={(id) => nav(`/urgent-prayers?highlight=${encodeURIComponent(id)}`)}
               />
             </div>
+
+            <button type="button" style={urgentGhostBtn} onClick={() => nav('/urgent-prayers')}>
+              전체보기
+            </button>
           </div>
         </Card>
 
@@ -365,6 +433,51 @@ export default function HomePage() {
           <PromoBannerCard />
         </div>
 
+        <BottomSheet open={installGuideOpen} onClose={() => setInstallGuideOpen(false)}>
+          <div>
+            <div style={guideHeaderRow}>
+              <div>
+                <div style={sectionEyebrow}>ADD TO HOME</div>
+                <div style={sectionHeadingSmall}>홈화면에 추가하면 앱처럼 바로 열려요</div>
+              </div>
+              <div style={installGuideBadge}>추천</div>
+            </div>
+            <div style={installGuideLead}>DLP는 웹앱이라서 홈화면에 추가하면 더 빠르게 실행되고, 예배/큐티/바이블 게임에 바로 들어갈 수 있어요.</div>
+            <div style={guideShotGrid}>
+              <div style={guideShotCard}>
+                <div style={guideShotTop}>iPhone · Safari</div>
+                <div style={guideShotBody}>
+                  <div style={guideBrowserBar}>christiandlp.com</div>
+                  <div style={guideStepBubble}>① 공유 버튼 누르기</div>
+                  <div style={guideMenuSheet}>
+                    <div style={guideMenuRow}>복사</div>
+                    <div style={{ ...guideMenuRow, ...guideMenuRowHighlight }}>홈 화면에 추가</div>
+                    <div style={guideMenuRow}>북마크</div>
+                  </div>
+                </div>
+              </div>
+              <div style={guideShotCard}>
+                <div style={guideShotTop}>Android · Chrome</div>
+                <div style={guideShotBody}>
+                  <div style={guideBrowserBar}>christiandlp.com ⋮</div>
+                  <div style={guideStepBubble}>① 우상단 메뉴 누르기</div>
+                  <div style={guideMenuSheet}>
+                    <div style={guideMenuRow}>새 탭</div>
+                    <div style={{ ...guideMenuRow, ...guideMenuRowHighlight }}>홈 화면에 추가</div>
+                    <div style={guideMenuRow}>공유</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style={guideFooterNote}>Safari에서는 공유 버튼에서, Android Chrome에서는 우상단 더보기 메뉴에서 홈 화면에 추가를 선택하면 됩니다.</div>
+            <div style={{ marginTop: 14 }}>
+              <Button type="button" variant="primary" size="lg" wide onClick={() => void openInstallGuide()}>
+                홈화면에 추가하기
+              </Button>
+            </div>
+          </div>
+        </BottomSheet>
+
         <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)}>
           <UrgentPrayerComposer
             onUnauthorized={() => goLogin()}
@@ -540,7 +653,7 @@ function PromoBannerCard() {
       <Card pad={false} style={promoCard}>
         <div style={promoBadgeRow}>
           <span style={promoBadge}>AD</span>
-          <span style={promoBadgeText}>추천 배너</span>
+          <span style={promoBadgeText}>파트너 · 후원</span>
           <span style={promoCta}>바로가기 ↗</span>
         </div>
         <div style={promoImageFrame}>
@@ -721,11 +834,39 @@ const urgentCard: CSSProperties = {
   overflow: 'hidden'
 };
 
+const urgentHead: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 10,
+  padding: '12px 12px 6px'
+};
+
+const urgentLabelWrap: CSSProperties = {
+  minWidth: 0,
+  flex: 1
+};
+
+const urgentTitleText: CSSProperties = {
+  marginTop: 4,
+  color: '#24313a',
+  fontSize: 17,
+  fontWeight: 800,
+  letterSpacing: '-0.02em'
+};
+
+const urgentSubText: CSSProperties = {
+  marginTop: 4,
+  color: '#7a675e',
+  fontSize: 12,
+  lineHeight: 1.45
+};
+
 const urgentCompactRow: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
-  padding: '8px 10px'
+  padding: '8px 10px 10px'
 };
 
 const urgentIconWrap: CSSProperties = {
@@ -744,6 +885,34 @@ const urgentIconWrap: CSSProperties = {
 const urgentTickerSlot: CSSProperties = {
   minWidth: 0,
   flex: 1
+};
+
+const urgentGhostBtn: CSSProperties = {
+  border: 0,
+  background: 'rgba(255,255,255,0.72)',
+  color: '#8d5a47',
+  minHeight: 34,
+  padding: '0 12px',
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 800,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  boxShadow: 'inset 0 0 0 1px rgba(243,180,156,0.26)'
+};
+
+const urgentPrimaryBtn: CSSProperties = {
+  border: 0,
+  background: 'linear-gradient(135deg, rgba(243,180,156,0.96), rgba(233,151,122,0.96))',
+  color: '#fffaf7',
+  minHeight: 36,
+  padding: '0 14px',
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 800,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  boxShadow: '0 8px 18px rgba(225,151,122,0.22)'
 };
 
 const badgeMint: CSSProperties = {
@@ -1189,6 +1358,181 @@ const wideAction: CSSProperties = {
   fontSize: 13,
   fontWeight: 800,
   whiteSpace: 'nowrap'
+};
+
+const homeHeader: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 10,
+  marginBottom: 10,
+  padding: '2px 2px 4px'
+};
+
+const brandRow: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8
+};
+
+const brandEmoji: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 32,
+  height: 32,
+  borderRadius: 12,
+  background: 'rgba(255,255,255,0.72)',
+  boxShadow: '0 8px 18px rgba(77,90,110,0.06)',
+  fontSize: 18
+};
+
+const brandTitle: CSSProperties = {
+  color: '#24313a',
+  fontSize: 22,
+  fontWeight: 900,
+  letterSpacing: '-0.03em'
+};
+
+const headerActionRow: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8
+};
+
+const installGiftButton: CSSProperties = {
+  border: '1px solid rgba(241,195,170,0.34)',
+  background: 'linear-gradient(180deg, rgba(255,247,239,0.96), rgba(255,238,225,0.9))',
+  color: '#9a5c43',
+  minHeight: 34,
+  padding: '0 12px',
+  borderRadius: 999,
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  fontSize: 12,
+  fontWeight: 800,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap'
+};
+
+const profileButton: CSSProperties = {
+  border: '1px solid rgba(114,215,199,0.24)',
+  background: 'rgba(255,255,255,0.78)',
+  color: '#2f7f73',
+  minHeight: 34,
+  padding: '0 12px',
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 800,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap'
+};
+
+const guideHeaderRow: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 10
+};
+
+const installGuideBadge: CSSProperties = {
+  minHeight: 28,
+  padding: '0 10px',
+  borderRadius: 999,
+  background: 'rgba(114,215,199,0.14)',
+  color: '#2f7f73',
+  fontSize: 12,
+  fontWeight: 800,
+  display: 'inline-flex',
+  alignItems: 'center'
+};
+
+const installGuideLead: CSSProperties = {
+  marginTop: 8,
+  color: '#64727b',
+  fontSize: 13,
+  lineHeight: 1.55
+};
+
+const guideShotGrid: CSSProperties = {
+  marginTop: 14,
+  display: 'grid',
+  gridTemplateColumns: '1fr',
+  gap: 10
+};
+
+const guideShotCard: CSSProperties = {
+  borderRadius: 18,
+  overflow: 'hidden',
+  background: 'rgba(248,251,255,0.92)',
+  border: '1px solid rgba(220,229,240,0.92)',
+  boxShadow: '0 10px 24px rgba(77,90,110,0.06)'
+};
+
+const guideShotTop: CSSProperties = {
+  padding: '10px 12px',
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(241,247,255,0.92))',
+  color: '#4f6472',
+  fontSize: 12,
+  fontWeight: 800
+};
+
+const guideShotBody: CSSProperties = {
+  padding: 12
+};
+
+const guideBrowserBar: CSSProperties = {
+  minHeight: 32,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'rgba(255,255,255,0.9)',
+  border: '1px solid rgba(216,228,238,0.92)',
+  color: '#7a8790',
+  fontSize: 12,
+  display: 'flex',
+  alignItems: 'center'
+};
+
+const guideStepBubble: CSSProperties = {
+  marginTop: 10,
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 28,
+  padding: '0 10px',
+  borderRadius: 999,
+  background: 'rgba(255,240,220,0.92)',
+  color: '#9a5c43',
+  fontSize: 12,
+  fontWeight: 800
+};
+
+const guideMenuSheet: CSSProperties = {
+  marginTop: 10,
+  borderRadius: 14,
+  background: 'rgba(255,255,255,0.96)',
+  border: '1px solid rgba(225,232,240,0.92)',
+  overflow: 'hidden'
+};
+
+const guideMenuRow: CSSProperties = {
+  padding: '10px 12px',
+  color: '#55656f',
+  fontSize: 13,
+  fontWeight: 700,
+  borderTop: '1px solid rgba(234,240,245,0.92)'
+};
+
+const guideMenuRowHighlight: CSSProperties = {
+  background: 'rgba(114,215,199,0.14)',
+  color: '#2f7f73'
+};
+
+const guideFooterNote: CSSProperties = {
+  marginTop: 12,
+  color: '#6d7a83',
+  fontSize: 12,
+  lineHeight: 1.5
 };
 
 const promoLink: CSSProperties = {
