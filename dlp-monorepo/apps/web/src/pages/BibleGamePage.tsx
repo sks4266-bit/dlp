@@ -368,7 +368,7 @@ export default function BibleGamePage() {
 
       const now = performance.now();
       const words = shuffleArray([...nextQuestion.choices]);
-      const closenessOffset = Math.min(46, elapsedRef.current / 12000 + correctCountRef.current * 1.2);
+      const closenessOffset = Math.min(34, elapsedRef.current / 16000 + correctCountRef.current * 0.75);
       const laneXs = createLaneCenters(stageWidthRef.current, words.length);
 
       const nextFallers = words.map((word, index) => ({
@@ -377,7 +377,7 @@ export default function BibleGamePage() {
         isAnswer: word === nextQuestion.answer,
         x: laneXs[index],
         y: -40 + closenessOffset,
-        speed: 0.09 + index * 0.008 + Math.min(0.05, elapsedRef.current / 220000),
+        speed: 0.068 + index * 0.0048 + Math.min(0.026, elapsedRef.current / 340000),
         spawnAt: now + ROUND_DELAYS[index]
       }));
 
@@ -996,14 +996,14 @@ function ChulsooAvatar({ faceState, mouthOpen }: { faceState: FaceState; mouthOp
 
 function getDifficulty(elapsedMs: number, correctCount: number) {
   return {
-    speedMultiplier: 0.82 + Math.min(0.9, elapsedMs / 62000 + correctCount * 0.016),
-    playerScale: 1 + Math.min(0.7, elapsedMs / 62000 + correctCount * 0.018)
+    speedMultiplier: 0.68 + Math.min(0.56, elapsedMs / 94000 + correctCount * 0.009),
+    playerScale: 1 + Math.min(0.28, elapsedMs / 128000 + correctCount * 0.0065)
   };
 }
 
 function getPlayerMetrics(stageWidth: number, elapsedMs: number, correctCount: number) {
   const { playerScale } = getDifficulty(elapsedMs, correctCount);
-  const width = Math.min(stageWidth * 0.42, 88 * playerScale + correctCount * 1.2);
+  const width = Math.min(stageWidth * 0.38, 82 * playerScale + correctCount * 0.35);
   return {
     width,
     height: width * 0.82
@@ -1423,8 +1423,8 @@ const stageTopOverlay: CSSProperties = {
 const stageQuestionCard: CSSProperties = {
   padding: '10px 10px 9px',
   borderRadius: 18,
-  background: 'rgba(255,255,255,0.8)',
-  border: '1px solid rgba(255,255,255,0.88)',
+  background: 'rgba(255,255,255,0.9)',
+  border: '1px solid rgba(255,255,255,0.92)',
   boxShadow: '0 10px 16px rgba(77,90,110,0.06)',
   backdropFilter: 'blur(14px)'
 };
