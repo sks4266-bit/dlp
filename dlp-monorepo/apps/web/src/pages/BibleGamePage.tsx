@@ -45,7 +45,7 @@ type FaceState = 'idle' | 'happy' | 'hurt';
 type GameStatus = 'idle' | 'loading' | 'running' | 'transition' | 'gameover';
 type LeaderboardScope = 'day' | 'week' | 'all';
 
-const STAGE_HEIGHT = 392;
+const STAGE_HEIGHT = 452;
 const GROUND_HEIGHT = 54;
 const ROUND_DELAYS = [0, 620, 1240, 1860];
 const BGM_AUDIO_LOCAL_URL = '/audio/Bike_Rides.mp3';
@@ -653,37 +653,40 @@ export default function BibleGamePage() {
           <div style={stageHeader}>
             <div style={stageHeaderMain}>
               <div style={sectionEyebrow}>PLAY NOW</div>
-              <div style={stageActionRow}>
-                <Button variant="primary" onClick={() => void startGame()}>
-                  {gameStatus === 'idle' || gameStatus === 'gameover' ? 'START' : 'RETRY'}
-                </Button>
-                <button
-                  type="button"
-                  style={{
-                    ...soundToggleButton,
-                    ...(bgmEnabled ? { background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border } : null)
-                  }}
-                  onClick={() => {
-                    if (!bgmEnabled) {
-                      setBgmEnabled(true);
-                      void startBgm(true);
-                      return;
-                    }
-
-                    if (bgmAudioRef.current?.paused) {
-                      void startBgm(true);
-                      return;
-                    }
-
-                    setBgmEnabled(false);
-                    stopBgm();
-                  }}
-                >
-                  {bgmEnabled ? 'BGM ON' : 'BGM OFF'}
-                </button>
-              </div>
             </div>
-            <div style={{ ...stageChip, background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border }}>{formattedElapsed}</div>
+            <div style={stageActionRow}>
+              <button
+                type="button"
+                style={{
+                  ...stageChip,
+                  minHeight: 30,
+                  padding: '0 10px',
+                  fontSize: 11,
+                  cursor: 'pointer',
+                  background: bgmEnabled ? tierPalette.chipBg : 'rgba(255,255,255,0.92)',
+                  color: bgmEnabled ? tierPalette.chipText : '#5f7180',
+                  borderColor: tierPalette.border
+                }}
+                onClick={() => {
+                  if (!bgmEnabled) {
+                    setBgmEnabled(true);
+                    void startBgm(true);
+                    return;
+                  }
+
+                  if (bgmAudioRef.current?.paused) {
+                    void startBgm(true);
+                    return;
+                  }
+
+                  setBgmEnabled(false);
+                  stopBgm();
+                }}
+              >
+                {bgmEnabled ? 'BGM ON' : 'BGM OFF'}
+              </button>
+              <div style={{ ...stageChip, minHeight: 30, padding: '0 10px', fontSize: 11, background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border }}>{formattedElapsed}</div>
+            </div>
           </div>
 
           <div
@@ -775,10 +778,17 @@ export default function BibleGamePage() {
             </div>
 
             {gameStatus === 'idle' ? (
-              <div style={overlayCard}>
-                <div style={overlayTitle}>한 화면에서 바로 플레이</div>
-                <div style={overlayDesc}>윗부분 퀴즈를 보면서 아래에서 정답만 받아 주세요. 모바일에서도 스크롤 없이 바로 읽을 수 있게 줄였습니다.</div>
-              </div>
+              <button
+                type="button"
+                style={{
+                  ...stageStartButton,
+                  left: clamp(playerX - 86, 16, Math.max(16, stageWidth - 172)),
+                  bottom: GROUND_HEIGHT + playerMetrics.height + 14
+                }}
+                onClick={() => void startGame()}
+              >
+                START
+              </button>
             ) : null}
 
             {gameStatus === 'loading' ? (
@@ -801,10 +811,6 @@ export default function BibleGamePage() {
             ) : null}
           </div>
 
-          <div style={statusBar}>
-            <div style={statusTextStyle}>{statusText}</div>
-            <div style={{ ...statusMeta, background: tierPalette.chipBg, color: tierPalette.chipText, border: `1px solid ${tierPalette.border}` }}>{difficultyLabel(difficulty.speedMultiplier)}</div>
-          </div>
         </Card>
 
         <div style={infoGrid}>
@@ -1540,14 +1546,15 @@ const stageHeader: CSSProperties = {
 
 const stageHeaderMain: CSSProperties = {
   flex: 1,
-  minWidth: 0
+  minWidth: 0,
+  display: 'flex',
+  alignItems: 'center'
 };
 
 const stageActionRow: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr auto',
-  gap: 8,
-  marginTop: 8
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8
 };
 
 const stageChip: CSSProperties = {
@@ -1691,7 +1698,24 @@ const playerWrap: CSSProperties = {
   position: 'absolute',
   bottom: 8,
   display: 'grid',
-  placeItems: 'center'
+  placeItems: 'center',
+  zIndex: 2
+};
+
+const stageStartButton: CSSProperties = {
+  position: 'absolute',
+  minWidth: 172,
+  minHeight: 48,
+  borderRadius: 18,
+  border: '1px solid rgba(255,255,255,0.92)',
+  background: 'linear-gradient(180deg, #2fd4c4, #1fb7a9)',
+  color: '#ffffff',
+  fontSize: 20,
+  fontWeight: 900,
+  letterSpacing: '0.02em',
+  boxShadow: '0 14px 28px rgba(31,184,169,0.24)',
+  zIndex: 4,
+  cursor: 'pointer'
 };
 
 const avatarSvg: CSSProperties = {
