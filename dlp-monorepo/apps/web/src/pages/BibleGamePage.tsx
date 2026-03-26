@@ -242,7 +242,6 @@ export default function BibleGamePage() {
       audio.loop = true;
       audio.preload = 'auto';
       audio.volume = 0.34;
-      audio.playsInline = true;
       audio.setAttribute('playsinline', 'true');
       audio.src = BGM_AUDIO_LOCAL_URL;
       audio.addEventListener('error', () => {
