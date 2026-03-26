@@ -46,7 +46,7 @@ type FaceState = 'idle' | 'happy' | 'hurt';
 type GameStatus = 'idle' | 'loading' | 'running' | 'transition' | 'gameover';
 type LeaderboardScope = 'day' | 'week' | 'all';
 
-const STAGE_HEIGHT = 456;
+const STAGE_HEIGHT = 392;
 const GROUND_HEIGHT = 54;
 const ROUND_DELAYS = [0, 260, 520, 780];
 
@@ -91,7 +91,11 @@ export default function BibleGamePage() {
   const [combo, setCombo] = useState(0);
   const [bestCombo, setBestCombo] = useState(0);
   const [tierNotice, setTierNotice] = useState<string | null>(null);
+  const [bgmEnabled, setBgmEnabled] = useState(true);
   const prevTierRef = useRef<string>('씨앗');
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const bgmGainRef = useRef<GainNode | null>(null);
+  const bgmTimerRef = useRef<number | null>(null);
 
   const difficulty = useMemo(() => getDifficulty(elapsedMs, correctCount), [elapsedMs, correctCount]);
   const playerMetrics = useMemo(() => getPlayerMetrics(stageWidth, elapsedMs, correctCount), [stageWidth, elapsedMs, correctCount]);
@@ -231,6 +235,105 @@ export default function BibleGamePage() {
     window.navigator.vibrate(pattern);
   }, []);
 
+  const stopBgm = useCallback(() => {
+    if (bgmTimerRef.current) {
+      window.clearInterval(bgmTimerRef.current);
+      bgmTimerRef.current = null;
+    }
+
+    const ctx = audioContextRef.current;
+    const gain = bgmGainRef.current;
+    if (!ctx || !gain) return;
+
+    const now = ctx.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+  }, []);
+
+  const startBgm = useCallback(async () => {
+    if (!bgmEnabled || typeof window === 'undefined') return;
+
+    try {
+      const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext | undefined;
+      if (!Ctx) return;
+
+      const ctx = audioContextRef.current ?? new Ctx();
+      audioContextRef.current = ctx;
+      if (ctx.state === 'suspended') await ctx.resume();
+
+      let gain = bgmGainRef.current;
+      if (!gain) {
+        gain = ctx.createGain();
+        gain.gain.value = 0.0001;
+        gain.connect(ctx.destination);
+        bgmGainRef.current = gain;
+      }
+
+      const playPhrase = (startAt: number) => {
+        const chords: Array<[number, number]> = [
+          [261.63, 392.0],
+          [293.66, 440.0],
+          [329.63, 493.88],
+          [293.66, 392.0]
+        ];
+        chords.forEach(([root, top], index) => {
+          const when = startAt + index * 0.8;
+          [root, top].forEach((freq, voiceIndex) => {
+            const osc = ctx.createOscillator();
+            const oscGain = ctx.createGain();
+            osc.type = voiceIndex === 0 ? 'sine' : 'triangle';
+            osc.frequency.setValueAtTime(freq, when);
+            oscGain.gain.setValueAtTime(0.0001, when);
+            oscGain.gain.exponentialRampToValueAtTime(voiceIndex === 0 ? 0.018 : 0.012, when + 0.12);
+            oscGain.gain.exponentialRampToValueAtTime(0.0001, when + 0.72);
+            osc.connect(oscGain);
+            oscGain.connect(gain!);
+            osc.start(when);
+            osc.stop(when + 0.76);
+          });
+        });
+      };
+
+      const now = ctx.currentTime;
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
+      gain.gain.exponentialRampToValueAtTime(0.038, now + 0.24);
+
+      playPhrase(now + 0.03);
+      if (bgmTimerRef.current) window.clearInterval(bgmTimerRef.current);
+      bgmTimerRef.current = window.setInterval(() => {
+        const liveCtx = audioContextRef.current;
+        if (!liveCtx) return;
+        if (liveCtx.state === 'suspended') {
+          void liveCtx.resume().catch(() => undefined);
+        }
+        playPhrase(liveCtx.currentTime + 0.03);
+      }, 3200);
+    } catch {
+      // ignore
+    }
+  }, [bgmEnabled]);
+
+  useEffect(() => {
+    if (gameStatus === 'running' && bgmEnabled) {
+      void startBgm();
+      return;
+    }
+
+    stopBgm();
+  }, [bgmEnabled, gameStatus, startBgm, stopBgm]);
+
+  useEffect(() => {
+    return () => {
+      stopBgm();
+      const ctx = audioContextRef.current;
+      audioContextRef.current = null;
+      bgmGainRef.current = null;
+      if (ctx) void ctx.close().catch(() => undefined);
+    };
+  }, [stopBgm]);
+
   const playSuccessSound = useCallback(() => {
     try {
       const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext | undefined;
@@ -257,6 +360,7 @@ export default function BibleGamePage() {
   }, []);
 
   const playFailSound = useCallback(() => {
+    stopBgm();
     try {
       const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext | undefined;
       if (!Ctx) return;
@@ -277,7 +381,7 @@ export default function BibleGamePage() {
     } catch {
       // ignore
     }
-  }, []);
+  }, [stopBgm]);
 
   const beginRound = useCallback(
     (nextQuestion: GameQuestion, runToken: number) => {
@@ -303,7 +407,7 @@ export default function BibleGamePage() {
       syncStatus('running');
       setFaceState('idle');
       setMouthOpen(false);
-      setStatusText('정답 단어를 철수의 입으로 받아 주세요.');
+      setStatusText('화면 안쪽 퀴즈를 보며 정답 단어를 철수의 입으로 받아 주세요.');
       prefetchQuestion();
     },
     [prefetchQuestion, syncFallers, syncStatus]
@@ -509,6 +613,7 @@ export default function BibleGamePage() {
     prevTierRef.current = '씨앗';
     setStatusText('문제를 준비하고 있어요…');
     syncPlayerX(stageWidthRef.current / 2);
+    void startBgm();
 
     try {
       const firstQuestion = queuedQuestionRef.current ?? (await fetchQuestion());
@@ -520,7 +625,7 @@ export default function BibleGamePage() {
       syncStatus('idle');
       setStatusText('문제를 불러오지 못했습니다. 다시 시도해 주세요.');
     }
-  }, [beginRound, clearLoopArtifacts, fetchQuestion, syncCorrectCount, syncElapsed, syncFallers, syncPlayerX, syncScore, syncStatus]);
+  }, [beginRound, clearLoopArtifacts, fetchQuestion, startBgm, syncCorrectCount, syncElapsed, syncFallers, syncPlayerX, syncScore, syncStatus]);
 
   const movePlayerToClientX = useCallback(
     (clientX: number) => {
@@ -563,66 +668,50 @@ export default function BibleGamePage() {
         <TopBar title="바이블 게임" backTo="/" hideAuthActions />
 
         <Card pad style={{ ...heroCard, background: tierPalette.card, borderColor: tierPalette.border }}>
-          <div style={badgeMint}>BIBLE GAME</div>
-          <div style={heroTitle}>정답 단어를 철수에게 먹여 주세요</div>
-          <div style={heroDesc}>티어별 컬러 테마와 더 강한 피드백, 그리고 랭킹 탭 UI까지 반영한 3차 다듬기 버전입니다.</div>
-
-          <div style={heroInlinePillRow}>
-            <span style={{ ...heroInlinePill, background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border }}>현재 티어 {currentTier}</span>
-            <span style={heroInlinePill}>다음 목표 {nextTierHint}</span>
-            <span style={heroInlinePill}>최고 기록 {bestFormatted}</span>
+          <div style={heroCompactRow}>
+            <div style={heroCompactMain}>
+              <div style={badgeMint}>BIBLE GAME</div>
+              <div style={heroTitleCompact}>퀴즈와 스테이지를 한 화면에 합친 모바일 집중형 버전</div>
+              <div style={heroCompactMetaRow}>
+                <span style={{ ...heroCompactMeta, background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border }}>{currentTier}</span>
+                <span style={heroCompactMeta}>점수 {score}</span>
+                <span style={heroCompactMeta}>최고 {bestFormatted}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              style={{
+                ...soundToggleButton,
+                ...(bgmEnabled ? { background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border } : null)
+              }}
+              onClick={() => {
+                const next = !bgmEnabled;
+                setBgmEnabled(next);
+                if (next && gameStatus === 'running') void startBgm();
+                if (!next) stopBgm();
+              }}
+            >
+              {bgmEnabled ? '음악 ON' : '음악 OFF'}
+            </button>
           </div>
 
-          <div style={heroStatGrid}>
-            <StatTile label="현재 티어" value={currentTier} hint="생존 시간 기준" tone="mint" />
-            <StatTile label="현재 점수" value={`${score}`} hint={`${correctCount}개 정답`} tone="peach" />
-            <StatTile label="최고 기록" value={bestFormatted} hint={`${myBest.tier} · ${myBest.score}점`} tone="mint" />
-            <StatTile label="플레이어" value={me?.name ?? '나'} hint="랭킹 자동 반영" tone="peach" />
-          </div>
-
-          <div style={heroActionGrid}>
-            <Button variant="primary" size="lg" onClick={() => void startGame()}>
+          <div style={heroActionGridCompact}>
+            <Button variant="primary" onClick={() => void startGame()}>
               {gameStatus === 'idle' || gameStatus === 'gameover' ? '게임 시작' : '다시 시작'}
             </Button>
-            <Button variant="secondary" size="lg" onClick={() => nav('/bible-search')}>
-              성경 검색으로 이동
+            <Button variant="secondary" onClick={() => nav('/bible-search')}>
+              성경 검색
             </Button>
-          </div>
-        </Card>
-
-        <Card pad style={questionCard}>
-          <div style={sectionEyebrow}>QUIZ</div>
-          <div style={questionVerse}>{question?.textWithBlank ?? '시작 버튼을 누르면 랜덤 성경 구절이 표시됩니다.'}</div>
-          <div style={questionMetaRow}>
-            <span style={{ ...metaPillMint, background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border }}>{question?.reference ?? '랜덤 구절 준비 중'}</span>
-            <span style={metaPillNeutral}>정답 단어 1개 + 오답 3개</span>
           </div>
         </Card>
 
         <Card pad style={{ ...stageCard, background: tierPalette.card, borderColor: tierPalette.border }}>
           <div style={stageHeader}>
             <div>
-              <div style={sectionEyebrow}>STAGE</div>
-              <div style={sectionTitle}>철수의 말씀 우박 먹방</div>
+              <div style={sectionEyebrow}>PLAY NOW</div>
+              <div style={sectionTitleCompact}>철수의 말씀 우박 먹방</div>
             </div>
             <div style={{ ...stageChip, background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border }}>{formattedElapsed}</div>
-          </div>
-
-          <div style={stageQuickBar}>
-            <span style={{ ...stageQuickPill, background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border }}>점수 {score}</span>
-            <span style={stageQuickPill}>정답 {correctCount}개</span>
-            <span style={stageQuickPill}>콤보 x{combo}</span>
-            <span style={stageQuickPill}>{nextTierHint}</span>
-          </div>
-
-          <div style={tierProgressWrap}>
-            <div style={tierProgressLabelRow}>
-              <span style={tierProgressLabel}>티어 진행도</span>
-              <span style={tierProgressValue}>{tierProgress.label}</span>
-            </div>
-            <div style={tierProgressTrack}>
-              <div style={{ ...tierProgressFill, width: `${tierProgress.percent}%`, background: `linear-gradient(90deg, ${tierPalette.chipText} 0%, ${tierPalette.skyTop} 100%)` }} />
-            </div>
           </div>
 
           <div
@@ -639,21 +728,52 @@ export default function BibleGamePage() {
                     ? 'inset 0 1px 0 rgba(255,255,255,0.58), 0 18px 30px rgba(239,68,68,0.2)'
                     : stageArea.boxShadow
             }}
-            onPointerDown={(e) => movePlayerToClientX(e.clientX)}
+            onPointerDown={(e) => {
+              if (bgmEnabled && gameStatus === 'running') void startBgm();
+              movePlayerToClientX(e.clientX);
+            }}
             onPointerMove={(e) => {
               if (e.pointerType === 'touch' || e.buttons > 0) movePlayerToClientX(e.clientX);
             }}
-            onTouchStart={(e) => movePlayerToClientX(e.touches[0]?.clientX ?? 0)}
+            onTouchStart={(e) => {
+              if (bgmEnabled && gameStatus === 'running') void startBgm();
+              movePlayerToClientX(e.touches[0]?.clientX ?? 0);
+            }}
             onTouchMove={(e) => movePlayerToClientX(e.touches[0]?.clientX ?? 0)}
           >
             <div style={{ ...stageAura, background: feedbackTone === 'danger' ? 'radial-gradient(circle at 50% 76%, rgba(239,68,68,0.24), rgba(239,68,68,0) 60%)' : `radial-gradient(circle at 50% 76%, ${tierPalette.glow}, rgba(255,255,255,0) 60%)`, animation: feedbackTone === 'success' ? 'answerGlow 560ms ease 1' : undefined }} />
+            <div style={stageTopOverlay}>
+              <div style={stageQuestionCard}>
+                <div style={stageQuestionLabelRow}>
+                  <span style={stageQuestionLabel}>QUIZ</span>
+                  <span style={{ ...stageQuestionRef, color: tierPalette.chipText, borderColor: tierPalette.border }}>{question?.reference ?? '랜덤 구절 준비 중'}</span>
+                </div>
+                <div style={stageQuestionVerse}>{question?.textWithBlank ?? '시작 버튼을 누르면 랜덤 성경 구절이 바로 여기 표시됩니다.'}</div>
+              </div>
+
+              <div style={stageHudRow}>
+                <span style={{ ...stageQuickPill, background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border }}>점수 {score}</span>
+                <span style={stageQuickPill}>정답 {correctCount}</span>
+                <span style={stageQuickPill}>콤보 x{combo}</span>
+                <span style={stageQuickPill}>{nextTierHint}</span>
+              </div>
+
+              <div style={stageProgressBox}>
+                <div style={tierProgressLabelRow}>
+                  <span style={tierProgressLabel}>티어 진행도</span>
+                  <span style={tierProgressValue}>{tierProgress.label}</span>
+                </div>
+                <div style={tierProgressTrack}>
+                  <div style={{ ...tierProgressFill, width: `${tierProgress.percent}%`, background: `linear-gradient(90deg, ${tierPalette.chipText} 0%, ${tierPalette.skyTop} 100%)` }} />
+                </div>
+              </div>
+            </div>
             {tierNotice ? <div style={{ ...tierNoticeBadge, color: tierPalette.chipText, borderColor: tierPalette.border }}>{tierNotice}</div> : null}
             <div style={cloudA} />
             <div style={cloudB} />
             <div style={cloudC} />
             <div style={stageGuideRow}>
-              <span style={stageGuidePill}>좌우 드래그</span>
-              <span style={stageGuidePill}>정답만 먹기</span>
+              <span style={stageGuidePill}>좌우 드래그 · 정답만 먹기</span>
             </div>
 
             {floatingFeedback ? (
@@ -706,8 +826,8 @@ export default function BibleGamePage() {
 
             {gameStatus === 'idle' ? (
               <div style={overlayCard}>
-                <div style={overlayTitle}>손가락으로 좌우 이동</div>
-                <div style={overlayDesc}>떨어지는 단어 중 정답만 입으로 받아 주세요. 오답을 먹거나 정답을 놓치면 종료됩니다.</div>
+                <div style={overlayTitle}>한 화면에서 바로 플레이</div>
+                <div style={overlayDesc}>윗부분 퀴즈를 보면서 아래에서 정답만 받아 주세요. 모바일에서도 스크롤 없이 바로 읽을 수 있게 줄였습니다.</div>
               </div>
             ) : null}
 
@@ -733,7 +853,7 @@ export default function BibleGamePage() {
 
           <div style={statusBar}>
             <div style={statusTextStyle}>{statusText}</div>
-            <div style={{ ...statusMeta, background: tierPalette.chipBg, color: tierPalette.chipText, border: `1px solid ${tierPalette.border}` }}>{difficultyLabel(difficulty.speedMultiplier)} · {nextTierHint}</div>
+            <div style={{ ...statusMeta, background: tierPalette.chipBg, color: tierPalette.chipText, border: `1px solid ${tierPalette.border}` }}>{difficultyLabel(difficulty.speedMultiplier)} · {bgmEnabled ? 'BGM ON' : 'BGM OFF'}</div>
           </div>
         </Card>
 
@@ -1089,23 +1209,23 @@ function shuffleArray<T>(items: T[]) {
 
 const page: CSSProperties = {
   minHeight: '100dvh',
-  padding: '10px 10px 24px',
+  padding: '8px 8px 20px',
   background: 'linear-gradient(180deg, #eef8ff 0%, #f7fbff 48%, #fff7ea 100%)'
 };
 
 const pageInner: CSSProperties = {
   width: '100%',
-  maxWidth: 430,
+  maxWidth: 420,
   margin: '0 auto',
   display: 'grid',
-  gap: 10
+  gap: 8
 };
 
 const heroCard: CSSProperties = {
-  borderRadius: 26,
+  borderRadius: 22,
   background: 'linear-gradient(180deg, rgba(255,255,255,0.94), rgba(242,250,255,0.92))',
   border: '1px solid rgba(214,232,245,0.92)',
-  boxShadow: '0 18px 34px rgba(77,90,110,0.09)',
+  boxShadow: '0 14px 26px rgba(77,90,110,0.08)',
   backdropFilter: 'blur(16px)'
 };
 
@@ -1128,6 +1248,60 @@ const heroInlinePillRow: CSSProperties = {
   flexWrap: 'wrap',
   gap: 8,
   marginTop: 10
+};
+
+const heroCompactRow: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 10
+};
+
+const heroCompactMain: CSSProperties = {
+  flex: 1,
+  minWidth: 0
+};
+
+const heroTitleCompact: CSSProperties = {
+  color: '#24313a',
+  fontSize: 18,
+  fontWeight: 900,
+  lineHeight: 1.28,
+  letterSpacing: '-0.02em'
+};
+
+const heroCompactMetaRow: CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 6,
+  marginTop: 8
+};
+
+const heroCompactMeta: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 26,
+  padding: '0 10px',
+  borderRadius: 999,
+  background: 'rgba(248,252,255,0.92)',
+  border: '1px solid rgba(213,228,240,0.92)',
+  color: '#4f6472',
+  fontSize: 11,
+  fontWeight: 900
+};
+
+const soundToggleButton: CSSProperties = {
+  minWidth: 78,
+  minHeight: 42,
+  padding: '0 12px',
+  borderRadius: 16,
+  border: '1px solid rgba(214,232,245,0.92)',
+  background: 'rgba(255,255,255,0.88)',
+  color: '#486473',
+  fontSize: 12,
+  fontWeight: 900,
+  boxShadow: '0 8px 16px rgba(77,90,110,0.05)',
+  cursor: 'pointer'
 };
 
 const heroInlinePill: CSSProperties = {
@@ -1200,6 +1374,13 @@ const heroActionGrid: CSSProperties = {
   marginTop: 12
 };
 
+const heroActionGridCompact: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 8,
+  marginTop: 10
+};
+
 const questionCard: CSSProperties = {
   borderRadius: 24,
   background: 'linear-gradient(180deg, rgba(255,255,255,0.98), rgba(241,248,255,0.92))',
@@ -1219,6 +1400,14 @@ const sectionTitle: CSSProperties = {
   color: '#24313a',
   fontSize: 21,
   fontWeight: 800,
+  lineHeight: 1.2
+};
+
+const sectionTitleCompact: CSSProperties = {
+  marginTop: 4,
+  color: '#24313a',
+  fontSize: 18,
+  fontWeight: 900,
   lineHeight: 1.2
 };
 
@@ -1243,10 +1432,10 @@ const questionMetaRow: CSSProperties = {
 };
 
 const stageCard: CSSProperties = {
-  borderRadius: 26,
+  borderRadius: 24,
   background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(240,248,255,0.94))',
   border: '1px solid rgba(210,229,244,0.92)',
-  boxShadow: '0 20px 36px rgba(77,90,110,0.1)',
+  boxShadow: '0 18px 32px rgba(77,90,110,0.09)',
   overflow: 'hidden'
 };
 
@@ -1255,6 +1444,76 @@ const stageQuickBar: CSSProperties = {
   flexWrap: 'wrap',
   gap: 8,
   marginBottom: 10
+};
+
+const stageTopOverlay: CSSProperties = {
+  position: 'absolute',
+  top: 12,
+  left: 12,
+  right: 12,
+  display: 'grid',
+  gap: 8,
+  zIndex: 2
+};
+
+const stageQuestionCard: CSSProperties = {
+  padding: '12px 12px 11px',
+  borderRadius: 18,
+  background: 'rgba(255,255,255,0.84)',
+  border: '1px solid rgba(255,255,255,0.92)',
+  boxShadow: '0 14px 24px rgba(77,90,110,0.08)',
+  backdropFilter: 'blur(14px)'
+};
+
+const stageQuestionLabelRow: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 8,
+  flexWrap: 'wrap'
+};
+
+const stageQuestionLabel: CSSProperties = {
+  color: '#5e93d6',
+  fontSize: 11,
+  fontWeight: 900,
+  letterSpacing: '0.08em'
+};
+
+const stageQuestionRef: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 24,
+  padding: '0 10px',
+  borderRadius: 999,
+  background: 'rgba(255,255,255,0.92)',
+  border: '1px solid rgba(214,231,244,0.9)',
+  color: '#4f6472',
+  fontSize: 11,
+  fontWeight: 900
+};
+
+const stageQuestionVerse: CSSProperties = {
+  marginTop: 8,
+  color: '#1f2f41',
+  fontSize: 15,
+  fontWeight: 900,
+  lineHeight: 1.52,
+  letterSpacing: '-0.02em'
+};
+
+const stageHudRow: CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 6
+};
+
+const stageProgressBox: CSSProperties = {
+  padding: '9px 10px',
+  borderRadius: 16,
+  background: 'rgba(255,255,255,0.74)',
+  border: '1px solid rgba(220,231,240,0.9)',
+  boxShadow: '0 10px 20px rgba(77,90,110,0.05)'
 };
 
 const stageQuickPill: CSSProperties = {
@@ -1315,10 +1574,10 @@ const tierProgressFill: CSSProperties = {
 
 const stageHeader: CSSProperties = {
   display: 'flex',
-  alignItems: 'flex-start',
+  alignItems: 'center',
   justifyContent: 'space-between',
   gap: 10,
-  marginBottom: 12
+  marginBottom: 10
 };
 
 const stageChip: CSSProperties = {
@@ -1339,7 +1598,7 @@ const stageChip: CSSProperties = {
 const stageArea: CSSProperties = {
   position: 'relative',
   height: STAGE_HEIGHT,
-  borderRadius: 24,
+  borderRadius: 22,
   overflow: 'hidden',
   background: 'linear-gradient(180deg, #d8f0ff 0%, #eef9ff 38%, #fff4dc 100%)',
   border: '1px solid rgba(168, 209, 236, 0.82)',
@@ -1356,7 +1615,7 @@ const stageAura: CSSProperties = {
 
 const tierNoticeBadge: CSSProperties = {
   position: 'absolute',
-  top: 52,
+  top: 124,
   left: '50%',
   transform: 'translateX(-50%)',
   minHeight: 34,
@@ -1377,11 +1636,12 @@ const stageGuideRow: CSSProperties = {
   position: 'absolute',
   left: 14,
   right: 14,
-  top: 14,
+  bottom: 66,
   display: 'flex',
-  justifyContent: 'space-between',
+  justifyContent: 'center',
   gap: 8,
-  flexWrap: 'wrap'
+  flexWrap: 'wrap',
+  zIndex: 2
 };
 
 const stageGuidePill: CSSProperties = {
@@ -1400,7 +1660,7 @@ const stageGuidePill: CSSProperties = {
 
 const cloudA: CSSProperties = {
   position: 'absolute',
-  top: 26,
+  top: 148,
   left: 18,
   width: 92,
   height: 34,
@@ -1411,7 +1671,7 @@ const cloudA: CSSProperties = {
 
 const cloudB: CSSProperties = {
   position: 'absolute',
-  top: 70,
+  top: 182,
   right: 62,
   width: 68,
   height: 24,
@@ -1422,7 +1682,7 @@ const cloudB: CSSProperties = {
 
 const cloudC: CSSProperties = {
   position: 'absolute',
-  top: 120,
+  top: 228,
   left: 160,
   width: 74,
   height: 24,
@@ -1487,21 +1747,23 @@ const playerLabel: CSSProperties = {
 
 const overlayCard: CSSProperties = {
   position: 'absolute',
-  left: 16,
-  right: 16,
-  top: 18,
-  padding: '13px 13px 11px',
+  left: 12,
+  right: 12,
+  bottom: 12,
+  padding: '12px 12px 10px',
   borderRadius: 18,
   background: 'rgba(255,255,255,0.9)',
   border: '1px solid rgba(255,255,255,0.92)',
   boxShadow: '0 14px 28px rgba(77,90,110,0.09)',
-  backdropFilter: 'blur(14px)'
+  backdropFilter: 'blur(14px)',
+  zIndex: 4
 };
 
 const overlayCardDanger: CSSProperties = {
   ...overlayCard,
-  background: 'rgba(255,245,245,0.92)',
-  border: '1px solid rgba(235,170,170,0.58)'
+  background: 'rgba(255,245,245,0.94)',
+  border: '1px solid rgba(235,170,170,0.58)',
+  bottom: 10
 };
 
 const overlayTitle: CSSProperties = {
@@ -1575,7 +1837,7 @@ const statusBar: CSSProperties = {
   alignItems: 'center',
   justifyContent: 'space-between',
   gap: 8,
-  marginTop: 10,
+  marginTop: 8,
   flexWrap: 'wrap'
 };
 
