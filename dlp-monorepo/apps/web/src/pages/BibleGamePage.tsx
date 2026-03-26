@@ -48,7 +48,7 @@ type LeaderboardScope = 'day' | 'week' | 'all';
 
 const STAGE_HEIGHT = 392;
 const GROUND_HEIGHT = 54;
-const ROUND_DELAYS = [0, 260, 520, 780];
+const ROUND_DELAYS = [0, 480, 960, 1440];
 
 export default function BibleGamePage() {
   const nav = useNavigate();
@@ -389,7 +389,7 @@ export default function BibleGamePage() {
 
       const now = performance.now();
       const words = shuffleArray([...nextQuestion.choices]);
-      const closenessOffset = Math.min(115, elapsedRef.current / 3500 + correctCountRef.current * 4.5);
+      const closenessOffset = Math.min(46, elapsedRef.current / 12000 + correctCountRef.current * 1.2);
       const laneXs = createLaneCenters(stageWidthRef.current, words.length);
 
       const nextFallers = words.map((word, index) => ({
@@ -398,7 +398,7 @@ export default function BibleGamePage() {
         isAnswer: word === nextQuestion.answer,
         x: laneXs[index],
         y: -40 + closenessOffset,
-        speed: 0.17 + index * 0.018 + Math.min(0.16, elapsedRef.current / 100000),
+        speed: 0.09 + index * 0.008 + Math.min(0.05, elapsedRef.current / 220000),
         spawnAt: now + ROUND_DELAYS[index]
       }));
 
@@ -414,8 +414,8 @@ export default function BibleGamePage() {
   );
 
   const finishGame = useCallback(
-    async (reason: 'wrong' | 'miss' | 'error') => {
-      if (statusRef.current === 'gameover') return;
+    async (reason: 'wrong' | 'miss' | 'error', token = runTokenRef.current) => {
+      if (token !== runTokenRef.current || statusRef.current === 'gameover') return;
 
       clearLoopArtifacts();
       syncStatus('gameover');
@@ -476,7 +476,7 @@ export default function BibleGamePage() {
       if (runTokenRef.current !== token) return;
       beginRound(nextQuestion, token);
     } catch {
-      await finishGame('error');
+      await finishGame('error', token);
     }
   }, [beginRound, fetchQuestion, finishGame]);
 
@@ -491,17 +491,19 @@ export default function BibleGamePage() {
     playSuccessSound();
 
     const nextCorrect = correctCountRef.current + 1;
-    const bonus = 120 + nextCorrect * 18 + Math.floor(elapsedRef.current / 1000) * 4;
+    const bonus = 90 + nextCorrect * 12 + Math.floor(elapsedRef.current / 1000) * 3;
+    const nextCombo = combo + 1;
     syncCorrectCount(nextCorrect);
     syncScore(scoreRef.current + bonus);
-    setCombo((prev) => {
-      const next = prev + 1;
-      setBestCombo((current) => Math.max(current, next));
-      return next;
-    });
+    setCombo(nextCombo);
+    setBestCombo((current) => Math.max(current, nextCombo));
     setFeedbackTone('success');
-    setFloatingFeedback({ id: Date.now(), text: `정답! +${bonus}`, tone: 'success' });
-    setStatusText('정답! 다음 문제가 곧 떨어집니다.');
+    setFloatingFeedback({
+      id: Date.now(),
+      text: nextCombo >= 2 ? `콤보 x${nextCombo}!` : '정답!',
+      tone: 'success'
+    });
+    setStatusText(nextCombo >= 2 ? `좋아요! 콤보 x${nextCombo}` : '정답! 다음 단어를 준비하세요.');
     vibrate(24);
 
     transitionTimerRef.current = window.setTimeout(() => {
@@ -509,7 +511,7 @@ export default function BibleGamePage() {
       setMouthOpen(false);
       void advanceAfterCorrect();
     }, 620);
-  }, [advanceAfterCorrect, clearLoopArtifacts, playSuccessSound, syncCorrectCount, syncFallers, syncScore, syncStatus, vibrate]);
+  }, [advanceAfterCorrect, clearLoopArtifacts, combo, playSuccessSound, syncCorrectCount, syncFallers, syncScore, syncStatus, vibrate]);
 
   const startLoop = useCallback(() => {
     clearLoopArtifacts();
@@ -522,6 +524,7 @@ export default function BibleGamePage() {
       const delta = now - prev;
       prev = now;
 
+      const activeToken = runTokenRef.current;
       const nextElapsed = Math.max(0, Math.floor(now - startedAtRef.current));
       syncElapsed(nextElapsed);
 
@@ -554,7 +557,7 @@ export default function BibleGamePage() {
           if (moved.isAnswer) {
             handleCorrectCatch();
           } else {
-            void finishGame('wrong');
+            void finishGame('wrong', activeToken);
           }
           break;
         }
@@ -562,7 +565,7 @@ export default function BibleGamePage() {
         if (moved.y >= STAGE_HEIGHT - GROUND_HEIGHT - 6) {
           if (moved.isAnswer) {
             sawCatch = true;
-            void finishGame('miss');
+            void finishGame('miss', activeToken);
             break;
           }
           continue;
@@ -596,7 +599,7 @@ export default function BibleGamePage() {
     clearLoopArtifacts();
     runTokenRef.current += 1;
     const runToken = runTokenRef.current;
-    queuedQuestionRef.current = queuedQuestionRef.current;
+    queuedQuestionRef.current = null;
 
     syncStatus('loading');
     syncScore(0);
@@ -749,23 +752,6 @@ export default function BibleGamePage() {
                   <span style={{ ...stageQuestionRef, color: tierPalette.chipText, borderColor: tierPalette.border }}>{question?.reference ?? '랜덤 구절 준비 중'}</span>
                 </div>
                 <div style={stageQuestionVerse}>{question?.textWithBlank ?? '시작 버튼을 누르면 랜덤 성경 구절이 바로 여기 표시됩니다.'}</div>
-              </div>
-
-              <div style={stageHudRow}>
-                <span style={{ ...stageQuickPill, background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border }}>점수 {score}</span>
-                <span style={stageQuickPill}>정답 {correctCount}</span>
-                <span style={stageQuickPill}>콤보 x{combo}</span>
-                <span style={stageQuickPill}>{nextTierHint}</span>
-              </div>
-
-              <div style={stageProgressBox}>
-                <div style={tierProgressLabelRow}>
-                  <span style={tierProgressLabel}>티어 진행도</span>
-                  <span style={tierProgressValue}>{tierProgress.label}</span>
-                </div>
-                <div style={tierProgressTrack}>
-                  <div style={{ ...tierProgressFill, width: `${tierProgress.percent}%`, background: `linear-gradient(90deg, ${tierPalette.chipText} 0%, ${tierPalette.skyTop} 100%)` }} />
-                </div>
               </div>
             </div>
             {tierNotice ? <div style={{ ...tierNoticeBadge, color: tierPalette.chipText, borderColor: tierPalette.border }}>{tierNotice}</div> : null}
@@ -1032,8 +1018,8 @@ function ChulsooAvatar({ faceState, mouthOpen }: { faceState: FaceState; mouthOp
 
 function getDifficulty(elapsedMs: number, correctCount: number) {
   return {
-    speedMultiplier: 1 + Math.min(2.35, elapsedMs / 22000 + correctCount * 0.07),
-    playerScale: 1 + Math.min(1.15, elapsedMs / 32000 + correctCount * 0.045)
+    speedMultiplier: 0.82 + Math.min(0.9, elapsedMs / 62000 + correctCount * 0.016),
+    playerScale: 1 + Math.min(0.7, elapsedMs / 62000 + correctCount * 0.018)
   };
 }
 
@@ -1457,11 +1443,11 @@ const stageTopOverlay: CSSProperties = {
 };
 
 const stageQuestionCard: CSSProperties = {
-  padding: '12px 12px 11px',
+  padding: '9px 9px 8px',
   borderRadius: 18,
-  background: 'rgba(255,255,255,0.84)',
+  background: 'rgba(255,255,255,0.9)',
   border: '1px solid rgba(255,255,255,0.92)',
-  boxShadow: '0 14px 24px rgba(77,90,110,0.08)',
+  boxShadow: '0 10px 16px rgba(77,90,110,0.06)',
   backdropFilter: 'blur(14px)'
 };
 
@@ -1494,11 +1480,11 @@ const stageQuestionRef: CSSProperties = {
 };
 
 const stageQuestionVerse: CSSProperties = {
-  marginTop: 8,
+  marginTop: 6,
   color: '#1f2f41',
-  fontSize: 15,
-  fontWeight: 900,
-  lineHeight: 1.52,
+  fontSize: 10,
+  fontWeight: 800,
+  lineHeight: 1.36,
   letterSpacing: '-0.02em'
 };
 
@@ -1693,17 +1679,17 @@ const cloudC: CSSProperties = {
 
 const fallerChip: CSSProperties = {
   position: 'absolute',
-  minHeight: 44,
-  padding: '0 16px',
+  minHeight: 28,
+  padding: '0 9px',
   borderRadius: 999,
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  fontSize: 16,
+  fontSize: 9,
   fontWeight: 900,
   color: '#223a54',
   border: '1px solid rgba(255,255,255,0.92)',
-  boxShadow: '0 16px 28px rgba(69,100,130,0.14)'
+  boxShadow: '0 10px 16px rgba(69,100,130,0.12)'
 };
 
 const groundBand: CSSProperties = {
@@ -1817,14 +1803,14 @@ const overlaySecondaryButton: CSSProperties = {
 
 const floatingFeedbackBadge: CSSProperties = {
   position: 'absolute',
-  top: 158,
-  minHeight: 38,
-  padding: '0 14px',
+  top: 96,
+  minHeight: 32,
+  padding: '0 12px',
   borderRadius: 999,
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  fontSize: 15,
+  fontSize: 12,
   fontWeight: 900,
   border: '1px solid transparent',
   boxShadow: '0 16px 28px rgba(31,41,55,0.12)',
