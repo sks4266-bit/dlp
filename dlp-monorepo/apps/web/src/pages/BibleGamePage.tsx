@@ -44,8 +44,9 @@ type Faller = {
 
 type FaceState = 'idle' | 'happy' | 'hurt';
 type GameStatus = 'idle' | 'loading' | 'running' | 'transition' | 'gameover';
+type LeaderboardScope = 'day' | 'week' | 'all';
 
-const STAGE_HEIGHT = 430;
+const STAGE_HEIGHT = 456;
 const GROUND_HEIGHT = 54;
 const ROUND_DELAYS = [0, 260, 520, 780];
 
@@ -83,10 +84,21 @@ export default function BibleGamePage() {
   const [mouthOpen, setMouthOpen] = useState(false);
   const [statusText, setStatusText] = useState('시작 버튼을 누르면 무한 성경 퀴즈가 시작됩니다.');
   const [submittingScore, setSubmittingScore] = useState(false);
+  const [feedbackTone, setFeedbackTone] = useState<'idle' | 'success' | 'danger'>('idle');
+  const [floatingFeedback, setFloatingFeedback] = useState<{ id: number; text: string; tone: 'success' | 'danger' } | null>(null);
+  const [infoTab, setInfoTab] = useState<'leaderboard' | 'guide'>('leaderboard');
+  const [leaderboardScope, setLeaderboardScope] = useState<LeaderboardScope>('week');
+  const [combo, setCombo] = useState(0);
+  const [bestCombo, setBestCombo] = useState(0);
+  const [tierNotice, setTierNotice] = useState<string | null>(null);
+  const prevTierRef = useRef<string>('씨앗');
 
   const difficulty = useMemo(() => getDifficulty(elapsedMs, correctCount), [elapsedMs, correctCount]);
   const playerMetrics = useMemo(() => getPlayerMetrics(stageWidth, elapsedMs, correctCount), [stageWidth, elapsedMs, correctCount]);
   const currentTier = useMemo(() => getTierBySurvivalMs(elapsedMs), [elapsedMs]);
+  const nextTierHint = useMemo(() => getNextTierHint(elapsedMs), [elapsedMs]);
+  const tierPalette = useMemo(() => getTierPalette(currentTier), [currentTier]);
+  const tierProgress = useMemo(() => getTierProgress(elapsedMs), [elapsedMs]);
 
   const syncStatus = useCallback((value: GameStatus) => {
     statusRef.current = value;
@@ -134,13 +146,16 @@ export default function BibleGamePage() {
   const loadMeta = useCallback(async () => {
     setMetaLoading(true);
     try {
-      const [leaderboardRes, myBestRes] = await Promise.all([apiFetch('/api/bible-game/leaderboard'), apiFetch('/api/bible-game/my-best')]);
+      const [leaderboardRes, myBestRes] = await Promise.all([
+        apiFetch(`/api/bible-game/leaderboard?scope=${leaderboardScope}`),
+        apiFetch('/api/bible-game/my-best')
+      ]);
       if (leaderboardRes.ok) setLeaderboard(await leaderboardRes.json());
       if (myBestRes.ok) setMyBest(await myBestRes.json());
     } finally {
       setMetaLoading(false);
     }
-  }, []);
+  }, [leaderboardScope]);
 
   const prefetchQuestion = useCallback(async () => {
     if (prefetchingRef.current || queuedQuestionRef.current) return;
@@ -167,7 +182,6 @@ export default function BibleGamePage() {
 
   useEffect(() => {
     measureStage();
-    loadMeta();
     prefetchQuestion();
 
     const onResize = () => measureStage();
@@ -176,7 +190,46 @@ export default function BibleGamePage() {
       window.removeEventListener('resize', onResize);
       clearLoopArtifacts();
     };
-  }, [clearLoopArtifacts, loadMeta, measureStage, prefetchQuestion]);
+  }, [clearLoopArtifacts, measureStage, prefetchQuestion]);
+
+  useEffect(() => {
+    void loadMeta();
+  }, [loadMeta]);
+
+  useEffect(() => {
+    if (feedbackTone === 'idle' && !floatingFeedback) return;
+
+    const toneTimer = window.setTimeout(() => setFeedbackTone('idle'), feedbackTone === 'danger' ? 420 : 320);
+    const floatingTimer = floatingFeedback ? window.setTimeout(() => setFloatingFeedback(null), 900) : null;
+
+    return () => {
+      window.clearTimeout(toneTimer);
+      if (floatingTimer) window.clearTimeout(floatingTimer);
+    };
+  }, [feedbackTone, floatingFeedback]);
+
+  useEffect(() => {
+    if (gameStatus !== 'running') {
+      prevTierRef.current = currentTier;
+      return;
+    }
+
+    if (prevTierRef.current !== currentTier) {
+      setTierNotice(`${currentTier} 티어 달성!`);
+      if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in window.navigator) {
+        window.navigator.vibrate([30, 50, 30]);
+      }
+      const timer = window.setTimeout(() => setTierNotice(null), 1400);
+      prevTierRef.current = currentTier;
+      return () => window.clearTimeout(timer);
+    }
+  }, [currentTier, gameStatus]);
+
+  const vibrate = useCallback((pattern: number | number[]) => {
+    if (typeof window === 'undefined') return;
+    if (!('navigator' in window) || !('vibrate' in window.navigator)) return;
+    window.navigator.vibrate(pattern);
+  }, []);
 
   const playSuccessSound = useCallback(() => {
     try {
@@ -265,6 +318,13 @@ export default function BibleGamePage() {
       syncFallers([]);
       setFaceState('hurt');
       setMouthOpen(false);
+      setCombo(0);
+      setFeedbackTone('danger');
+      setFloatingFeedback({
+        id: Date.now(),
+        text: reason === 'wrong' ? '오답!' : reason === 'miss' ? '놓쳤어요!' : '오류',
+        tone: 'danger'
+      });
       setStatusText(
         reason === 'miss'
           ? '정답 단어를 놓쳤어요. 다시 도전해 보세요.'
@@ -273,6 +333,7 @@ export default function BibleGamePage() {
             : '문제를 불러오지 못해 게임을 종료했어요.'
       );
       playFailSound();
+      vibrate([40, 60, 90]);
 
       if (elapsedRef.current <= 0) return;
 
@@ -300,7 +361,7 @@ export default function BibleGamePage() {
         await loadMeta();
       }
     },
-    [clearLoopArtifacts, loadMeta, playFailSound, syncFallers, syncStatus]
+    [clearLoopArtifacts, loadMeta, playFailSound, syncFallers, syncStatus, vibrate]
   );
 
   const advanceAfterCorrect = useCallback(async () => {
@@ -326,17 +387,25 @@ export default function BibleGamePage() {
     playSuccessSound();
 
     const nextCorrect = correctCountRef.current + 1;
-    syncCorrectCount(nextCorrect);
     const bonus = 120 + nextCorrect * 18 + Math.floor(elapsedRef.current / 1000) * 4;
+    syncCorrectCount(nextCorrect);
     syncScore(scoreRef.current + bonus);
+    setCombo((prev) => {
+      const next = prev + 1;
+      setBestCombo((current) => Math.max(current, next));
+      return next;
+    });
+    setFeedbackTone('success');
+    setFloatingFeedback({ id: Date.now(), text: `정답! +${bonus}`, tone: 'success' });
     setStatusText('정답! 다음 문제가 곧 떨어집니다.');
+    vibrate(24);
 
     transitionTimerRef.current = window.setTimeout(() => {
       setFaceState('idle');
       setMouthOpen(false);
       void advanceAfterCorrect();
     }, 620);
-  }, [advanceAfterCorrect, clearLoopArtifacts, playSuccessSound, syncCorrectCount, syncFallers, syncScore, syncStatus]);
+  }, [advanceAfterCorrect, clearLoopArtifacts, playSuccessSound, syncCorrectCount, syncFallers, syncScore, syncStatus, vibrate]);
 
   const startLoop = useCallback(() => {
     clearLoopArtifacts();
@@ -432,6 +501,12 @@ export default function BibleGamePage() {
     syncFallers([]);
     setFaceState('idle');
     setMouthOpen(false);
+    setFeedbackTone('idle');
+    setFloatingFeedback(null);
+    setCombo(0);
+    setBestCombo(0);
+    setTierNotice(null);
+    prevTierRef.current = '씨앗';
     setStatusText('문제를 준비하고 있어요…');
     syncPlayerX(stageWidthRef.current / 2);
 
@@ -462,13 +537,41 @@ export default function BibleGamePage() {
 
   return (
     <div style={page}>
+      <style>{`
+        @keyframes tierPulse {
+          0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,0.12); }
+          50% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(255,255,255,0); }
+        }
+        @keyframes successBurst {
+          0% { opacity: 0; transform: translateY(10px) scale(0.92); }
+          15% { opacity: 1; transform: translateY(0) scale(1); }
+          100% { opacity: 0; transform: translateY(-34px) scale(1.05); }
+        }
+        @keyframes errorShake {
+          0%, 100% { transform: translateX(0); }
+          20% { transform: translateX(-7px); }
+          40% { transform: translateX(7px); }
+          60% { transform: translateX(-5px); }
+          80% { transform: translateX(5px); }
+        }
+        @keyframes answerGlow {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 0.78; }
+        }
+      `}</style>
       <div style={pageInner}>
         <TopBar title="바이블 게임" backTo="/" hideAuthActions />
 
-        <Card pad style={heroCard}>
+        <Card pad style={{ ...heroCard, background: tierPalette.card, borderColor: tierPalette.border }}>
           <div style={badgeMint}>BIBLE GAME</div>
           <div style={heroTitle}>정답 단어를 철수에게 먹여 주세요</div>
-          <div style={heroDesc}>개역개정 성경 본문에서 랜덤으로 한 단어가 비워지고, 정답 1개와 오답 3개가 시간차를 두고 우박처럼 내려옵니다. 철수는 시간이 지날수록 커지고, 단어는 더 빠르게 더 가까운 곳에서 떨어집니다.</div>
+          <div style={heroDesc}>티어별 컬러 테마와 더 강한 피드백, 그리고 랭킹 탭 UI까지 반영한 3차 다듬기 버전입니다.</div>
+
+          <div style={heroInlinePillRow}>
+            <span style={{ ...heroInlinePill, background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border }}>현재 티어 {currentTier}</span>
+            <span style={heroInlinePill}>다음 목표 {nextTierHint}</span>
+            <span style={heroInlinePill}>최고 기록 {bestFormatted}</span>
+          </div>
 
           <div style={heroStatGrid}>
             <StatTile label="현재 티어" value={currentTier} hint="생존 시간 기준" tone="mint" />
@@ -491,23 +594,51 @@ export default function BibleGamePage() {
           <div style={sectionEyebrow}>QUIZ</div>
           <div style={questionVerse}>{question?.textWithBlank ?? '시작 버튼을 누르면 랜덤 성경 구절이 표시됩니다.'}</div>
           <div style={questionMetaRow}>
-            <span style={metaPillMint}>{question?.reference ?? '랜덤 구절 준비 중'}</span>
+            <span style={{ ...metaPillMint, background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border }}>{question?.reference ?? '랜덤 구절 준비 중'}</span>
             <span style={metaPillNeutral}>정답 단어 1개 + 오답 3개</span>
           </div>
         </Card>
 
-        <Card pad style={stageCard}>
+        <Card pad style={{ ...stageCard, background: tierPalette.card, borderColor: tierPalette.border }}>
           <div style={stageHeader}>
             <div>
               <div style={sectionEyebrow}>STAGE</div>
               <div style={sectionTitle}>철수의 말씀 우박 먹방</div>
             </div>
-            <div style={stageChip}>{formattedElapsed}</div>
+            <div style={{ ...stageChip, background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border }}>{formattedElapsed}</div>
+          </div>
+
+          <div style={stageQuickBar}>
+            <span style={{ ...stageQuickPill, background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border }}>점수 {score}</span>
+            <span style={stageQuickPill}>정답 {correctCount}개</span>
+            <span style={stageQuickPill}>콤보 x{combo}</span>
+            <span style={stageQuickPill}>{nextTierHint}</span>
+          </div>
+
+          <div style={tierProgressWrap}>
+            <div style={tierProgressLabelRow}>
+              <span style={tierProgressLabel}>티어 진행도</span>
+              <span style={tierProgressValue}>{tierProgress.label}</span>
+            </div>
+            <div style={tierProgressTrack}>
+              <div style={{ ...tierProgressFill, width: `${tierProgress.percent}%`, background: `linear-gradient(90deg, ${tierPalette.chipText} 0%, ${tierPalette.skyTop} 100%)` }} />
+            </div>
           </div>
 
           <div
             ref={stageRef}
-            style={stageArea}
+            style={{
+              ...stageArea,
+              background: `linear-gradient(180deg, ${tierPalette.skyTop} 0%, #eef9ff 34%, ${tierPalette.skyBottom} 100%)`,
+              borderColor: tierPalette.border,
+              animation: feedbackTone === 'danger' ? 'errorShake 360ms ease' : undefined,
+              boxShadow:
+                feedbackTone === 'success'
+                  ? `inset 0 1px 0 rgba(255,255,255,0.58), 0 18px 30px ${tierPalette.glow}`
+                  : feedbackTone === 'danger'
+                    ? 'inset 0 1px 0 rgba(255,255,255,0.58), 0 18px 30px rgba(239,68,68,0.2)'
+                    : stageArea.boxShadow
+            }}
             onPointerDown={(e) => movePlayerToClientX(e.clientX)}
             onPointerMove={(e) => {
               if (e.pointerType === 'touch' || e.buttons > 0) movePlayerToClientX(e.clientX);
@@ -515,9 +646,30 @@ export default function BibleGamePage() {
             onTouchStart={(e) => movePlayerToClientX(e.touches[0]?.clientX ?? 0)}
             onTouchMove={(e) => movePlayerToClientX(e.touches[0]?.clientX ?? 0)}
           >
+            <div style={{ ...stageAura, background: feedbackTone === 'danger' ? 'radial-gradient(circle at 50% 76%, rgba(239,68,68,0.24), rgba(239,68,68,0) 60%)' : `radial-gradient(circle at 50% 76%, ${tierPalette.glow}, rgba(255,255,255,0) 60%)`, animation: feedbackTone === 'success' ? 'answerGlow 560ms ease 1' : undefined }} />
+            {tierNotice ? <div style={{ ...tierNoticeBadge, color: tierPalette.chipText, borderColor: tierPalette.border }}>{tierNotice}</div> : null}
             <div style={cloudA} />
             <div style={cloudB} />
             <div style={cloudC} />
+            <div style={stageGuideRow}>
+              <span style={stageGuidePill}>좌우 드래그</span>
+              <span style={stageGuidePill}>정답만 먹기</span>
+            </div>
+
+            {floatingFeedback ? (
+              <div
+                key={floatingFeedback.id}
+                style={{
+                  ...floatingFeedbackBadge,
+                  left: clamp(playerX - 74, 18, Math.max(18, stageWidth - 148)),
+                  background: floatingFeedback.tone === 'success' ? 'linear-gradient(180deg, rgba(236,253,245,0.98), rgba(187,247,208,0.94))' : 'linear-gradient(180deg, rgba(254,242,242,0.98), rgba(254,202,202,0.94))',
+                  borderColor: floatingFeedback.tone === 'success' ? 'rgba(34,197,94,0.34)' : 'rgba(239,68,68,0.34)',
+                  color: floatingFeedback.tone === 'success' ? '#166534' : '#b91c1c'
+                }}
+              >
+                {floatingFeedback.text}
+              </div>
+            ) : null}
 
             {fallers.map((item) => (
               <div
@@ -527,8 +679,11 @@ export default function BibleGamePage() {
                   left: item.x - estimateWordWidth(item.word) / 2,
                   top: item.y,
                   minWidth: estimateWordWidth(item.word),
-                  background: item.isAnswer ? 'rgba(255,255,255,0.96)' : 'rgba(236,244,255,0.92)',
-                  borderColor: item.isAnswer ? 'rgba(114,215,199,0.35)' : 'rgba(188,210,239,0.65)'
+                  background: item.isAnswer ? 'linear-gradient(180deg, rgba(255,255,255,1), rgba(236,253,245,0.96))' : 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(236,244,255,0.94))',
+                  borderColor: item.isAnswer ? 'rgba(34,197,94,0.42)' : 'rgba(188,210,239,0.65)',
+                  boxShadow: item.isAnswer ? '0 18px 30px rgba(34,197,94,0.16)' : '0 16px 28px rgba(69,100,130,0.14)',
+                  transform: item.isAnswer ? 'scale(1.03)' : 'scale(1)',
+                  animation: item.isAnswer ? 'tierPulse 1.2s ease-in-out infinite' : undefined
                 }}
               >
                 {item.word}
@@ -541,7 +696,8 @@ export default function BibleGamePage() {
                 ...playerWrap,
                 left: playerX - playerMetrics.width / 2,
                 width: playerMetrics.width,
-                height: playerMetrics.height
+                height: playerMetrics.height,
+                filter: feedbackTone === 'danger' ? 'drop-shadow(0 12px 18px rgba(239,68,68,0.12))' : 'drop-shadow(0 12px 18px rgba(52,211,153,0.1))'
               }}
             >
               <ChulsooAvatar faceState={faceState} mouthOpen={mouthOpen} />
@@ -566,14 +722,18 @@ export default function BibleGamePage() {
               <div style={overlayCardDanger}>
                 <div style={overlayTitle}>게임 종료</div>
                 <div style={overlayDesc}>{statusText}</div>
-                <div style={overlayStats}>생존 {formattedElapsed} · 정답 {correctCount}개 · 점수 {score}</div>
+                <div style={overlayStats}>생존 {formattedElapsed} · 정답 {correctCount}개 · 점수 {score} · 최고 콤보 x{bestCombo}</div>
+                <div style={overlayActionRow}>
+                  <button type="button" style={overlayPrimaryButton} onClick={() => void startGame()}>다시 시작</button>
+                  <button type="button" style={overlaySecondaryButton} onClick={() => setInfoTab('leaderboard')}>랭킹 보기</button>
+                </div>
               </div>
             ) : null}
           </div>
 
           <div style={statusBar}>
             <div style={statusTextStyle}>{statusText}</div>
-            <div style={statusMeta}>{difficultyLabel(difficulty.speedMultiplier)}</div>
+            <div style={{ ...statusMeta, background: tierPalette.chipBg, color: tierPalette.chipText, border: `1px solid ${tierPalette.border}` }}>{difficultyLabel(difficulty.speedMultiplier)} · {nextTierHint}</div>
           </div>
         </Card>
 
@@ -585,7 +745,9 @@ export default function BibleGamePage() {
               <MiniStat label="생존 시간" value={formattedElapsed} />
               <MiniStat label="정답 수" value={`${correctCount}개`} />
               <MiniStat label="점수" value={`${score}점`} />
-              <MiniStat label="난이도" value={currentTier} />
+              <MiniStat label="현재 콤보" value={`x${combo}`} />
+              <MiniStat label="최고 콤보" value={`x${bestCombo}`} />
+              <MiniStat label="난이도" value={difficultyLabel(difficulty.speedMultiplier)} />
             </div>
           </Card>
 
@@ -602,51 +764,81 @@ export default function BibleGamePage() {
           </Card>
         </div>
 
-        <Card pad style={sectionCard}>
-          <div style={stageHeader}>
-            <div>
-              <div style={sectionEyebrow}>LEADERBOARD</div>
-              <div style={sectionTitle}>오래 버티는 순 랭킹</div>
-            </div>
-            <div style={stageChip}>TOP 20</div>
-          </div>
+        <div style={infoTabRow}>
+          <button type="button" style={{ ...infoTabButton, ...(infoTab === 'leaderboard' ? infoTabButtonActive : null) }} onClick={() => setInfoTab('leaderboard')}>
+            랭킹
+          </button>
+          <button type="button" style={{ ...infoTabButton, ...(infoTab === 'guide' ? infoTabButtonActive : null) }} onClick={() => setInfoTab('guide')}>
+            게임 방법
+          </button>
+        </div>
 
-          {metaLoading ? (
-            <div className="glassSkeletonStack">
-              <div className="glassSkeletonBlock" style={{ height: 72, borderRadius: 18 }} />
-              <div className="glassSkeletonBlock" style={{ height: 72, borderRadius: 18 }} />
+        {infoTab === 'leaderboard' ? (
+          <Card pad style={sectionCard}>
+            <div style={leaderboardHeroRow}>
+              <div>
+                <div style={sectionEyebrow}>LEADERBOARD</div>
+                <div style={sectionTitle}>오래 버티는 순 랭킹</div>
+              </div>
+              <div style={{ ...stageChip, background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border }}>TOP 20</div>
             </div>
-          ) : leaderboard.length === 0 ? (
-            <div className="glassEmpty">아직 랭킹이 없습니다. 첫 기록의 주인공이 되어 보세요.</div>
-          ) : (
-            <div style={leaderboardList}>
-              {leaderboard.map((item) => (
-                <div key={item.userId} style={{ ...leaderboardRow, ...(item.userId === me?.id ? leaderboardRowMine : null) }}>
-                  <div style={rankBadge}>{item.rank}</div>
-                  <div style={leaderboardMain}>
-                    <div style={leaderboardNameRow}>
-                      <span style={leaderboardName}>{item.name}</span>
-                      <span style={item.rank <= 3 ? metaPillPeach : metaPillMint}>{item.tier}</span>
+
+            <div style={leaderboardSummaryCard}>
+              <div style={leaderboardSummaryLabel}>{getLeaderboardScopeLabel(leaderboardScope)} 랭킹 기준</div>
+              <div style={leaderboardSummaryValue}>{bestFormatted}</div>
+              <div style={leaderboardSummaryMeta}>{myBest.tier} · {myBest.score}점 · 정답 {myBest.correctCount}개</div>
+            </div>
+
+            <div style={leaderboardScopeRow}>
+              <button type="button" style={{ ...leaderboardScopeButton, ...(leaderboardScope === 'day' ? leaderboardScopeButtonActive : null) }} onClick={() => setLeaderboardScope('day')}>오늘</button>
+              <button type="button" style={{ ...leaderboardScopeButton, ...(leaderboardScope === 'week' ? leaderboardScopeButtonActive : null) }} onClick={() => setLeaderboardScope('week')}>이번 주</button>
+              <button type="button" style={{ ...leaderboardScopeButton, ...(leaderboardScope === 'all' ? leaderboardScopeButtonActive : null) }} onClick={() => setLeaderboardScope('all')}>전체</button>
+            </div>
+
+            {metaLoading ? (
+              <div className="glassSkeletonStack">
+                <div className="glassSkeletonBlock" style={{ height: 72, borderRadius: 18 }} />
+                <div className="glassSkeletonBlock" style={{ height: 72, borderRadius: 18 }} />
+              </div>
+            ) : leaderboard.length === 0 ? (
+              <div className="glassEmpty">아직 랭킹이 없습니다. 첫 기록의 주인공이 되어 보세요.</div>
+            ) : (
+              <div style={leaderboardList}>
+                {leaderboard.map((item) => {
+                  const accent = getRankAccent(item.rank);
+                  return (
+                    <div key={item.userId} style={{ ...leaderboardRow, ...(item.userId === me?.id ? leaderboardRowMine : null) }}>
+                      <div style={{ ...rankBadge, background: accent.background, color: accent.color }}>{item.rank}</div>
+                      <div style={leaderboardMain}>
+                        <div style={leaderboardNameRow}>
+                          <span style={leaderboardName}>{item.name}</span>
+                          <span style={item.rank <= 3 ? metaPillPeach : metaPillMint}>{item.tier}</span>
+                          {item.userId === me?.id ? <span style={myRankPill}>ME</span> : null}
+                        </div>
+                        <div style={leaderboardProgressTrack}>
+                          <div style={{ ...leaderboardProgressFill, width: `${Math.max(12, Math.min(100, (item.survivalMs / Math.max(leaderboard[0]?.survivalMs || 1, 1)) * 100))}%` }} />
+                        </div>
+                        <div style={leaderboardMeta}>생존 {formatDuration(item.survivalMs)} · 정답 {item.correctCount}개 · {item.score}점</div>
+                      </div>
                     </div>
-                    <div style={leaderboardMeta}>생존 {formatDuration(item.survivalMs)} · 정답 {item.correctCount}개 · {item.score}점</div>
-                  </div>
-                </div>
-              ))}
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        ) : (
+          <Card pad style={sectionCard}>
+            <div style={sectionEyebrow}>HOW TO PLAY</div>
+            <div style={sectionTitle}>게임 규칙</div>
+            <div style={ruleList}>
+              <RuleLine title="문제" desc="개역개정 성경 구절에서 한 단어가 빈칸 처리됩니다." />
+              <RuleLine title="낙하" desc="오답 3개와 정답 1개가 시간차를 두고 위에서 떨어집니다." />
+              <RuleLine title="조작" desc="스테이지를 터치하거나 드래그해 철수를 좌우로 움직입니다." />
+              <RuleLine title="피드백" desc="정답은 초록 버스트, 오답과 놓침은 붉은 경고 이펙트로 즉시 표시됩니다." />
+              <RuleLine title="성장" desc="시간이 지날수록 철수가 커지고, 단어는 더 빨라지고 더 가까운 곳에서 시작합니다." />
             </div>
-          )}
-        </Card>
-
-        <Card pad style={sectionCard}>
-          <div style={sectionEyebrow}>HOW TO PLAY</div>
-          <div style={sectionTitle}>게임 규칙</div>
-          <div style={ruleList}>
-            <RuleLine title="문제" desc="개역개정 성경 구절에서 한 단어가 빈칸 처리됩니다." />
-            <RuleLine title="낙하" desc="오답 3개와 정답 1개가 시간차를 두고 위에서 떨어집니다." />
-            <RuleLine title="조작" desc="스테이지를 터치하거나 드래그해 철수를 좌우로 움직입니다." />
-            <RuleLine title="실패" desc="오답을 먹거나 정답을 놓치면 철수가 찡그리며 게임이 종료됩니다." />
-            <RuleLine title="성장" desc="시간이 지날수록 철수가 커지고, 단어는 더 빨라지고 더 가까운 곳에서 시작합니다." />
-          </div>
-        </Card>
+          </Card>
+        )}
       </div>
     </div>
   );
@@ -744,6 +936,116 @@ function getTierBySurvivalMs(ms: number) {
   return '씨앗';
 }
 
+function getNextTierHint(ms: number) {
+  const sec = Math.floor(ms / 1000);
+  if (sec < 15) return `새싹까지 ${15 - sec}초`;
+  if (sec < 30) return `제자까지 ${30 - sec}초`;
+  if (sec < 50) return `파수꾼까지 ${50 - sec}초`;
+  if (sec < 80) return `다윗까지 ${80 - sec}초`;
+  if (sec < 120) return `사도까지 ${120 - sec}초`;
+  return '최고 티어 달성';
+}
+
+function getTierProgress(ms: number) {
+  const sec = Math.floor(ms / 1000);
+  const bands = [
+    { start: 0, end: 15, label: '씨앗 → 새싹' },
+    { start: 15, end: 30, label: '새싹 → 제자' },
+    { start: 30, end: 50, label: '제자 → 파수꾼' },
+    { start: 50, end: 80, label: '파수꾼 → 다윗' },
+    { start: 80, end: 120, label: '다윗 → 사도' }
+  ];
+
+  for (const band of bands) {
+    if (sec < band.end) {
+      return {
+        label: band.label,
+        percent: Math.max(8, Math.min(100, ((sec - band.start) / (band.end - band.start)) * 100))
+      };
+    }
+  }
+
+  return { label: '사도 유지 중', percent: 100 };
+}
+
+function getLeaderboardScopeLabel(scope: LeaderboardScope) {
+  if (scope === 'day') return '오늘';
+  if (scope === 'week') return '이번 주';
+  return '전체';
+}
+
+function getTierPalette(tier: string) {
+  switch (tier) {
+    case '사도':
+      return {
+        card: 'linear-gradient(180deg, rgba(255,250,223,0.98), rgba(255,243,206,0.92))',
+        border: 'rgba(244,197,66,0.4)',
+        chipBg: 'linear-gradient(180deg, rgba(255,252,237,0.96), rgba(250,228,163,0.92))',
+        chipText: '#8a5a00',
+        glow: 'rgba(244,197,66,0.28)',
+        skyTop: '#fff0b8',
+        skyBottom: '#ffe9c7'
+      };
+    case '다윗':
+      return {
+        card: 'linear-gradient(180deg, rgba(255,242,229,0.98), rgba(255,230,205,0.92))',
+        border: 'rgba(249,115,22,0.36)',
+        chipBg: 'linear-gradient(180deg, rgba(255,246,237,0.96), rgba(255,212,176,0.92))',
+        chipText: '#a24c06',
+        glow: 'rgba(249,115,22,0.2)',
+        skyTop: '#ffe0bf',
+        skyBottom: '#fff1db'
+      };
+    case '파수꾼':
+      return {
+        card: 'linear-gradient(180deg, rgba(245,239,255,0.98), rgba(233,225,255,0.92))',
+        border: 'rgba(139,92,246,0.34)',
+        chipBg: 'linear-gradient(180deg, rgba(250,247,255,0.96), rgba(223,212,255,0.92))',
+        chipText: '#6647c2',
+        glow: 'rgba(139,92,246,0.2)',
+        skyTop: '#eadcff',
+        skyBottom: '#f6ecff'
+      };
+    case '제자':
+      return {
+        card: 'linear-gradient(180deg, rgba(236,246,255,0.98), rgba(225,239,255,0.92))',
+        border: 'rgba(59,130,246,0.32)',
+        chipBg: 'linear-gradient(180deg, rgba(244,249,255,0.96), rgba(213,232,255,0.92))',
+        chipText: '#2e67c4',
+        glow: 'rgba(59,130,246,0.2)',
+        skyTop: '#d9efff',
+        skyBottom: '#eef7ff'
+      };
+    case '새싹':
+      return {
+        card: 'linear-gradient(180deg, rgba(238,251,241,0.98), rgba(225,245,231,0.92))',
+        border: 'rgba(34,197,94,0.28)',
+        chipBg: 'linear-gradient(180deg, rgba(245,253,247,0.96), rgba(213,244,221,0.92))',
+        chipText: '#24774b',
+        glow: 'rgba(34,197,94,0.18)',
+        skyTop: '#dcf7e3',
+        skyBottom: '#edfdf1'
+      };
+    default:
+      return {
+        card: 'linear-gradient(180deg, rgba(240,250,248,0.98), rgba(228,247,243,0.92))',
+        border: 'rgba(20,184,166,0.26)',
+        chipBg: 'linear-gradient(180deg, rgba(245,253,252,0.96), rgba(216,246,240,0.92))',
+        chipText: '#1f7a70',
+        glow: 'rgba(20,184,166,0.16)',
+        skyTop: '#dff8f2',
+        skyBottom: '#eefcf8'
+      };
+  }
+}
+
+function getRankAccent(rank: number) {
+  if (rank === 1) return { background: 'linear-gradient(180deg, #fff3bf, #ffd86b)', color: '#845700' };
+  if (rank === 2) return { background: 'linear-gradient(180deg, #f5f7fb, #d7dde8)', color: '#55606f' };
+  if (rank === 3) return { background: 'linear-gradient(180deg, #ffe1cc, #f6b98d)', color: '#8d4a24' };
+  return { background: 'rgba(255,255,255,0.9)', color: '#4d6170' };
+}
+
 function difficultyLabel(speedMultiplier: number) {
   if (speedMultiplier >= 2.6) return '초고속 말씀 우박';
   if (speedMultiplier >= 2.1) return '고속 말씀 우박';
@@ -787,8 +1089,8 @@ function shuffleArray<T>(items: T[]) {
 
 const page: CSSProperties = {
   minHeight: '100dvh',
-  padding: '12px 14px 30px',
-  background: 'transparent'
+  padding: '10px 10px 24px',
+  background: 'linear-gradient(180deg, #eef8ff 0%, #f7fbff 48%, #fff7ea 100%)'
 };
 
 const pageInner: CSSProperties = {
@@ -796,58 +1098,78 @@ const pageInner: CSSProperties = {
   maxWidth: 430,
   margin: '0 auto',
   display: 'grid',
-  gap: 12
+  gap: 10
 };
 
 const heroCard: CSSProperties = {
-  borderRadius: 24,
-  background: 'rgba(255,255,255,0.78)',
-  border: '1px solid rgba(255,255,255,0.56)',
-  boxShadow: '0 12px 28px rgba(77,90,110,0.08)',
+  borderRadius: 26,
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.94), rgba(242,250,255,0.92))',
+  border: '1px solid rgba(214,232,245,0.92)',
+  boxShadow: '0 18px 34px rgba(77,90,110,0.09)',
   backdropFilter: 'blur(16px)'
 };
 
 const badgeMint: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
+  minHeight: 30,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'linear-gradient(180deg, rgba(114,215,199,0.18), rgba(255,255,255,0.92))',
+  border: '1px solid rgba(114,215,199,0.28)',
+  color: '#227668',
+  fontSize: 12,
+  fontWeight: 900,
+  marginBottom: 8
+};
+
+const heroInlinePillRow: CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 8,
+  marginTop: 10
+};
+
+const heroInlinePill: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
   minHeight: 28,
   padding: '0 10px',
   borderRadius: 999,
-  background: 'rgba(114,215,199,0.14)',
-  border: '1px solid rgba(114,215,199,0.22)',
-  color: '#2b7f72',
+  background: 'rgba(248,252,255,0.92)',
+  border: '1px solid rgba(213,228,240,0.92)',
+  color: '#4f6472',
   fontSize: 12,
-  fontWeight: 800,
-  marginBottom: 10
+  fontWeight: 800
 };
 
 const heroTitle: CSSProperties = {
   color: '#24313a',
-  fontSize: 28,
+  fontSize: 24,
   fontWeight: 800,
   lineHeight: 1.16,
   letterSpacing: '-0.02em'
 };
 
 const heroDesc: CSSProperties = {
-  marginTop: 8,
-  color: '#64727b',
-  fontSize: 14,
-  lineHeight: 1.6
+  marginTop: 6,
+  color: '#61707a',
+  fontSize: 13,
+  lineHeight: 1.55
 };
 
 const heroStatGrid: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr',
-  gap: 10,
-  marginTop: 14
+  gap: 8,
+  marginTop: 12
 };
 
 const heroStatCard: CSSProperties = {
-  padding: '14px 14px 12px',
+  padding: '12px 12px 10px',
   borderRadius: 18,
   border: '1px solid transparent',
-  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4)'
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.42), 0 10px 22px rgba(77,90,110,0.04)'
 };
 
 const heroStatLabel: CSSProperties = {
@@ -859,7 +1181,7 @@ const heroStatLabel: CSSProperties = {
 const heroStatValue: CSSProperties = {
   marginTop: 8,
   color: '#24313a',
-  fontSize: 22,
+  fontSize: 20,
   fontWeight: 800,
   lineHeight: 1.08
 };
@@ -873,20 +1195,20 @@ const heroStatHint: CSSProperties = {
 
 const heroActionGrid: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: 10,
-  marginTop: 14
+  gridTemplateColumns: '1fr',
+  gap: 8,
+  marginTop: 12
 };
 
 const questionCard: CSSProperties = {
-  borderRadius: 22,
-  background: 'rgba(255,255,255,0.76)',
-  border: '1px solid rgba(255,255,255,0.56)',
-  boxShadow: '0 10px 24px rgba(77,90,110,0.08)'
+  borderRadius: 24,
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.98), rgba(241,248,255,0.92))',
+  border: '1px solid rgba(214,231,244,0.9)',
+  boxShadow: '0 16px 30px rgba(77,90,110,0.09)'
 };
 
 const sectionEyebrow: CSSProperties = {
-  color: '#83a39a',
+  color: '#5e93d6',
   fontSize: 11,
   fontWeight: 900,
   letterSpacing: '0.08em'
@@ -902,11 +1224,15 @@ const sectionTitle: CSSProperties = {
 
 const questionVerse: CSSProperties = {
   marginTop: 10,
-  color: '#24313a',
-  fontSize: 20,
-  fontWeight: 800,
-  lineHeight: 1.55,
-  letterSpacing: '-0.02em'
+  color: '#1f2f41',
+  fontSize: 18,
+  fontWeight: 900,
+  lineHeight: 1.6,
+  letterSpacing: '-0.02em',
+  padding: '12px 14px',
+  borderRadius: 18,
+  background: 'rgba(255,255,255,0.86)',
+  border: '1px solid rgba(226,237,245,0.96)'
 };
 
 const questionMetaRow: CSSProperties = {
@@ -917,11 +1243,74 @@ const questionMetaRow: CSSProperties = {
 };
 
 const stageCard: CSSProperties = {
-  borderRadius: 24,
-  background: 'rgba(255,255,255,0.78)',
-  border: '1px solid rgba(255,255,255,0.56)',
-  boxShadow: '0 12px 28px rgba(77,90,110,0.08)',
+  borderRadius: 26,
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(240,248,255,0.94))',
+  border: '1px solid rgba(210,229,244,0.92)',
+  boxShadow: '0 20px 36px rgba(77,90,110,0.1)',
   overflow: 'hidden'
+};
+
+const stageQuickBar: CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 8,
+  marginBottom: 10
+};
+
+const stageQuickPill: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 30,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'rgba(255,255,255,0.84)',
+  border: '1px solid rgba(218,231,241,0.92)',
+  color: '#476171',
+  fontSize: 12,
+  fontWeight: 900,
+  boxShadow: '0 8px 18px rgba(77,90,110,0.05)'
+};
+
+const tierProgressWrap: CSSProperties = {
+  marginBottom: 10,
+  padding: '10px 12px',
+  borderRadius: 18,
+  background: 'rgba(255,255,255,0.72)',
+  border: '1px solid rgba(220,231,240,0.9)',
+  boxShadow: '0 10px 20px rgba(77,90,110,0.05)'
+};
+
+const tierProgressLabelRow: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 8,
+  marginBottom: 8
+};
+
+const tierProgressLabel: CSSProperties = {
+  color: '#5f7180',
+  fontSize: 12,
+  fontWeight: 800
+};
+
+const tierProgressValue: CSSProperties = {
+  color: '#2a3b49',
+  fontSize: 12,
+  fontWeight: 900
+};
+
+const tierProgressTrack: CSSProperties = {
+  height: 10,
+  borderRadius: 999,
+  background: 'rgba(223,232,240,0.96)',
+  overflow: 'hidden'
+};
+
+const tierProgressFill: CSSProperties = {
+  height: '100%',
+  borderRadius: 999,
+  transition: 'width 180ms ease-out'
 };
 
 const stageHeader: CSSProperties = {
@@ -935,26 +1324,78 @@ const stageHeader: CSSProperties = {
 const stageChip: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
-  minHeight: 30,
+  minHeight: 32,
   padding: '0 12px',
   borderRadius: 999,
-  background: 'rgba(114,215,199,0.14)',
-  border: '1px solid rgba(114,215,199,0.24)',
-  color: '#2f7f73',
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(225,247,241,0.9))',
+  border: '1px solid rgba(114,215,199,0.28)',
+  color: '#257567',
   fontSize: 12,
-  fontWeight: 800,
-  whiteSpace: 'nowrap'
+  fontWeight: 900,
+  whiteSpace: 'nowrap',
+  boxShadow: '0 10px 20px rgba(77,90,110,0.06)'
 };
 
 const stageArea: CSSProperties = {
   position: 'relative',
   height: STAGE_HEIGHT,
-  borderRadius: 22,
+  borderRadius: 24,
   overflow: 'hidden',
-  background: 'linear-gradient(180deg, #e6f7ff 0%, #eefbff 44%, #fff3df 100%)',
-  border: '1px solid rgba(188, 220, 240, 0.75)',
+  background: 'linear-gradient(180deg, #d8f0ff 0%, #eef9ff 38%, #fff4dc 100%)',
+  border: '1px solid rgba(168, 209, 236, 0.82)',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.58), 0 18px 30px rgba(96,165,250,0.12)',
   touchAction: 'none',
   userSelect: 'none'
+};
+
+const stageAura: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  pointerEvents: 'none'
+};
+
+const tierNoticeBadge: CSSProperties = {
+  position: 'absolute',
+  top: 52,
+  left: '50%',
+  transform: 'translateX(-50%)',
+  minHeight: 34,
+  padding: '0 14px',
+  borderRadius: 999,
+  background: 'rgba(255,255,255,0.92)',
+  border: '1px solid rgba(255,255,255,0.96)',
+  boxShadow: '0 18px 28px rgba(31,41,55,0.12)',
+  display: 'inline-flex',
+  alignItems: 'center',
+  fontSize: 13,
+  fontWeight: 900,
+  zIndex: 3,
+  animation: 'successBurst 1.2s ease forwards'
+};
+
+const stageGuideRow: CSSProperties = {
+  position: 'absolute',
+  left: 14,
+  right: 14,
+  top: 14,
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: 8,
+  flexWrap: 'wrap'
+};
+
+const stageGuidePill: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 28,
+  padding: '0 10px',
+  borderRadius: 999,
+  background: 'rgba(255,255,255,0.72)',
+  border: '1px solid rgba(255,255,255,0.82)',
+  color: '#5b6b77',
+  fontSize: 11,
+  fontWeight: 900,
+  boxShadow: '0 10px 20px rgba(77,90,110,0.06)'
 };
 
 const cloudA: CSSProperties = {
@@ -992,17 +1433,17 @@ const cloudC: CSSProperties = {
 
 const fallerChip: CSSProperties = {
   position: 'absolute',
-  minHeight: 42,
-  padding: '0 14px',
+  minHeight: 44,
+  padding: '0 16px',
   borderRadius: 999,
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
   fontSize: 16,
   fontWeight: 900,
-  color: '#25405a',
-  border: '1px solid rgba(255,255,255,0.85)',
-  boxShadow: '0 12px 22px rgba(69,100,130,0.12)'
+  color: '#223a54',
+  border: '1px solid rgba(255,255,255,0.92)',
+  boxShadow: '0 16px 28px rgba(69,100,130,0.14)'
 };
 
 const groundBand: CSSProperties = {
@@ -1011,13 +1452,14 @@ const groundBand: CSSProperties = {
   right: 0,
   bottom: 0,
   height: GROUND_HEIGHT,
-  background: 'linear-gradient(180deg, #8ee4c8 0%, #58c49f 100%)',
-  borderTop: '1px solid rgba(72,168,136,0.4)'
+  background: 'linear-gradient(180deg, #7ce3c6 0%, #40bf96 100%)',
+  borderTop: '1px solid rgba(41,148,115,0.45)',
+  boxShadow: 'inset 0 12px 18px rgba(255,255,255,0.12)'
 };
 
 const playerWrap: CSSProperties = {
   position: 'absolute',
-  bottom: 10,
+  bottom: 8,
   display: 'grid',
   placeItems: 'center'
 };
@@ -1032,7 +1474,7 @@ const playerLabel: CSSProperties = {
   position: 'absolute',
   bottom: -4,
   padding: '0 10px',
-  minHeight: 24,
+  minHeight: 26,
   borderRadius: 999,
   background: 'rgba(255,255,255,0.86)',
   border: '1px solid rgba(255,255,255,0.8)',
@@ -1048,11 +1490,12 @@ const overlayCard: CSSProperties = {
   left: 16,
   right: 16,
   top: 18,
-  padding: '14px 14px 12px',
+  padding: '13px 13px 11px',
   borderRadius: 18,
-  background: 'rgba(255,255,255,0.88)',
-  border: '1px solid rgba(255,255,255,0.9)',
-  boxShadow: '0 12px 24px rgba(77,90,110,0.08)'
+  background: 'rgba(255,255,255,0.9)',
+  border: '1px solid rgba(255,255,255,0.92)',
+  boxShadow: '0 14px 28px rgba(77,90,110,0.09)',
+  backdropFilter: 'blur(14px)'
 };
 
 const overlayCardDanger: CSSProperties = {
@@ -1081,53 +1524,215 @@ const overlayStats: CSSProperties = {
   fontWeight: 800
 };
 
+const overlayActionRow: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 8,
+  marginTop: 12
+};
+
+const overlayPrimaryButton: CSSProperties = {
+  minHeight: 42,
+  borderRadius: 14,
+  border: '1px solid rgba(245,158,11,0.32)',
+  background: 'linear-gradient(180deg, #fff5d4, #ffd87a)',
+  color: '#7c4b00',
+  fontSize: 13,
+  fontWeight: 900,
+  cursor: 'pointer'
+};
+
+const overlaySecondaryButton: CSSProperties = {
+  minHeight: 42,
+  borderRadius: 14,
+  border: '1px solid rgba(203,213,225,0.9)',
+  background: 'rgba(255,255,255,0.9)',
+  color: '#506273',
+  fontSize: 13,
+  fontWeight: 900,
+  cursor: 'pointer'
+};
+
+const floatingFeedbackBadge: CSSProperties = {
+  position: 'absolute',
+  top: 158,
+  minHeight: 38,
+  padding: '0 14px',
+  borderRadius: 999,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: 15,
+  fontWeight: 900,
+  border: '1px solid transparent',
+  boxShadow: '0 16px 28px rgba(31,41,55,0.12)',
+  animation: 'successBurst 900ms ease forwards',
+  zIndex: 3
+};
+
 const statusBar: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  gap: 10,
-  marginTop: 12,
+  gap: 8,
+  marginTop: 10,
   flexWrap: 'wrap'
 };
 
 const statusTextStyle: CSSProperties = {
-  color: '#67747d',
-  fontSize: 13,
+  color: '#60707a',
+  fontSize: 12,
   lineHeight: 1.5,
   flex: 1
 };
 
 const statusMeta: CSSProperties = {
-  color: '#2f7f73',
-  fontSize: 12,
+  color: '#2c7b6f',
+  fontSize: 11,
   fontWeight: 800,
-  whiteSpace: 'nowrap'
+  whiteSpace: 'nowrap',
+  padding: '6px 10px',
+  borderRadius: 999
 };
 
 const infoGrid: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: 12
+  gridTemplateColumns: '1fr',
+  gap: 10
 };
 
 const sectionCard: CSSProperties = {
-  borderRadius: 22,
-  background: 'rgba(255,255,255,0.74)',
-  border: '1px solid rgba(255,255,255,0.56)',
-  boxShadow: '0 12px 28px rgba(77,90,110,0.08)'
+  borderRadius: 24,
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(246,250,255,0.92))',
+  border: '1px solid rgba(216,232,244,0.9)',
+  boxShadow: '0 16px 30px rgba(77,90,110,0.08)'
+};
+
+const infoTabRow: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 8
+};
+
+const infoTabButton: CSSProperties = {
+  minHeight: 44,
+  borderRadius: 16,
+  border: '1px solid rgba(218,231,241,0.9)',
+  background: 'rgba(255,255,255,0.86)',
+  color: '#576874',
+  fontSize: 14,
+  fontWeight: 900,
+  boxShadow: '0 10px 20px rgba(77,90,110,0.06)',
+  cursor: 'pointer'
+};
+
+const infoTabButtonActive: CSSProperties = {
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.98), rgba(226,239,255,0.94))',
+  color: '#2d67c6',
+  border: '1px solid rgba(96,165,250,0.32)'
+};
+
+const leaderboardHeroRow: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 10,
+  marginBottom: 10
+};
+
+const leaderboardScopeRow: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, 1fr)',
+  gap: 8,
+  marginBottom: 10
+};
+
+const leaderboardScopeButton: CSSProperties = {
+  minHeight: 38,
+  borderRadius: 14,
+  border: '1px solid rgba(218,231,241,0.9)',
+  background: 'rgba(255,255,255,0.9)',
+  color: '#5a6f7d',
+  fontSize: 12,
+  fontWeight: 900,
+  cursor: 'pointer'
+};
+
+const leaderboardScopeButtonActive: CSSProperties = {
+  background: 'linear-gradient(180deg, rgba(236,246,255,0.98), rgba(213,232,255,0.94))',
+  border: '1px solid rgba(96,165,250,0.32)',
+  color: '#2d67c6',
+  boxShadow: '0 12px 20px rgba(96,165,250,0.12)'
+};
+
+const leaderboardSummaryCard: CSSProperties = {
+  padding: '12px 12px 11px',
+  borderRadius: 18,
+  background: 'linear-gradient(180deg, rgba(244,249,255,0.98), rgba(232,244,255,0.94))',
+  border: '1px solid rgba(199,222,243,0.92)',
+  boxShadow: '0 10px 20px rgba(77,90,110,0.05)',
+  marginBottom: 10
+};
+
+const leaderboardSummaryLabel: CSSProperties = {
+  color: '#64809b',
+  fontSize: 12,
+  fontWeight: 800
+};
+
+const leaderboardSummaryValue: CSSProperties = {
+  marginTop: 6,
+  color: '#213444',
+  fontSize: 24,
+  fontWeight: 900,
+  lineHeight: 1.05
+};
+
+const leaderboardSummaryMeta: CSSProperties = {
+  marginTop: 6,
+  color: '#5e7280',
+  fontSize: 12,
+  lineHeight: 1.45
+};
+
+const leaderboardProgressTrack: CSSProperties = {
+  marginTop: 8,
+  height: 8,
+  borderRadius: 999,
+  background: 'rgba(226,236,244,0.96)',
+  overflow: 'hidden'
+};
+
+const leaderboardProgressFill: CSSProperties = {
+  height: '100%',
+  borderRadius: 999,
+  background: 'linear-gradient(90deg, #34d399 0%, #60a5fa 100%)'
+};
+
+const myRankPill: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 22,
+  padding: '0 8px',
+  borderRadius: 999,
+  background: 'rgba(59,130,246,0.12)',
+  color: '#2d67c6',
+  fontSize: 11,
+  fontWeight: 900
 };
 
 const miniStatList: CSSProperties = {
   display: 'grid',
-  gap: 10,
-  marginTop: 12
+  gap: 8,
+  marginTop: 10
 };
 
 const miniStatCard: CSSProperties = {
-  padding: '12px 12px 10px',
+  padding: '11px 11px 10px',
   borderRadius: 16,
-  background: 'rgba(248,250,251,0.78)',
-  border: '1px solid rgba(227,233,237,0.92)'
+  background: 'rgba(250,252,255,0.9)',
+  border: '1px solid rgba(227,233,237,0.92)',
+  boxShadow: '0 8px 18px rgba(77,90,110,0.04)'
 };
 
 const miniStatLabel: CSSProperties = {
@@ -1139,7 +1744,7 @@ const miniStatLabel: CSSProperties = {
 const miniStatValue: CSSProperties = {
   marginTop: 8,
   color: '#24313a',
-  fontSize: 19,
+  fontSize: 18,
   fontWeight: 800
 };
 
@@ -1152,18 +1757,19 @@ const helperText: CSSProperties = {
 
 const leaderboardList: CSSProperties = {
   display: 'grid',
-  gap: 10,
-  marginTop: 10
+  gap: 8,
+  marginTop: 8
 };
 
 const leaderboardRow: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 12,
-  padding: '12px 12px 10px',
+  gap: 10,
+  padding: '11px 11px 10px',
   borderRadius: 18,
-  background: 'rgba(248,250,251,0.78)',
-  border: '1px solid rgba(227,233,237,0.92)'
+  background: 'rgba(250,252,255,0.92)',
+  border: '1px solid rgba(227,233,237,0.92)',
+  boxShadow: '0 8px 18px rgba(77,90,110,0.04)'
 };
 
 const leaderboardRowMine: CSSProperties = {
@@ -1172,17 +1778,18 @@ const leaderboardRowMine: CSSProperties = {
 };
 
 const rankBadge: CSSProperties = {
-  width: 36,
-  height: 36,
+  width: 40,
+  height: 40,
   borderRadius: 999,
   display: 'grid',
   placeItems: 'center',
   background: 'rgba(255,255,255,0.84)',
   border: '1px solid rgba(255,255,255,0.88)',
   color: '#4d6170',
-  fontSize: 14,
+  fontSize: 15,
   fontWeight: 900,
-  flex: '0 0 36px'
+  flex: '0 0 40px',
+  boxShadow: '0 8px 18px rgba(77,90,110,0.04)'
 };
 
 const leaderboardMain: CSSProperties = {
@@ -1213,8 +1820,8 @@ const leaderboardMeta: CSSProperties = {
 const metaPillMint: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
-  minHeight: 28,
-  padding: '0 12px',
+  minHeight: 26,
+  padding: '0 10px',
   borderRadius: 999,
   background: 'rgba(114,215,199,0.14)',
   border: '1px solid rgba(114,215,199,0.24)',
@@ -1251,15 +1858,16 @@ const metaPillNeutral: CSSProperties = {
 
 const ruleList: CSSProperties = {
   display: 'grid',
-  gap: 12,
-  marginTop: 12
+  gap: 8,
+  marginTop: 10
 };
 
 const ruleLine: CSSProperties = {
-  padding: '12px 12px 10px',
+  padding: '11px 11px 10px',
   borderRadius: 16,
-  background: 'rgba(248,250,251,0.78)',
-  border: '1px solid rgba(227,233,237,0.92)'
+  background: 'rgba(250,252,255,0.92)',
+  border: '1px solid rgba(227,233,237,0.92)',
+  boxShadow: '0 8px 18px rgba(77,90,110,0.04)'
 };
 
 const ruleTitle: CSSProperties = {
