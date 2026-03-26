@@ -48,7 +48,8 @@ type LeaderboardScope = 'day' | 'week' | 'all';
 const STAGE_HEIGHT = 392;
 const GROUND_HEIGHT = 54;
 const ROUND_DELAYS = [0, 620, 1240, 1860];
-const BGM_AUDIO_URL = 'https://www.genspark.ai/api/files/s/5407aOqj';
+const BGM_AUDIO_LOCAL_URL = '/audio/Bike_Rides.mp3';
+const BGM_AUDIO_FALLBACK_URL = 'https://www.genspark.ai/api/files/s/5407aOqj';
 
 export default function BibleGamePage() {
   const { me } = useAuth();
@@ -94,6 +95,7 @@ export default function BibleGamePage() {
   const prevTierRef = useRef<string>('씨앗');
   const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
   const bgmUnlockedRef = useRef(false);
+  const bgmFallbackTriedRef = useRef(false);
 
   const difficulty = useMemo(() => getDifficulty(elapsedMs, correctCount), [elapsedMs, correctCount]);
   const playerMetrics = useMemo(() => getPlayerMetrics(stageWidth, elapsedMs, correctCount), [stageWidth, elapsedMs, correctCount]);
@@ -236,10 +238,20 @@ export default function BibleGamePage() {
 
     let audio = bgmAudioRef.current;
     if (!audio) {
-      audio = new Audio(BGM_AUDIO_URL);
+      audio = new Audio();
       audio.loop = true;
       audio.preload = 'auto';
       audio.volume = 0.34;
+      audio.playsInline = true;
+      audio.setAttribute('playsinline', 'true');
+      audio.src = BGM_AUDIO_LOCAL_URL;
+      audio.addEventListener('error', () => {
+        if (bgmFallbackTriedRef.current) return;
+        bgmFallbackTriedRef.current = true;
+        audio!.src = BGM_AUDIO_FALLBACK_URL;
+        audio!.load();
+      });
+      audio.load();
       bgmAudioRef.current = audio;
     }
 
@@ -256,14 +268,28 @@ export default function BibleGamePage() {
     if (typeof window === 'undefined') return;
     if (!bgmEnabled) return;
 
+    const audio = ensureBgmAudio();
+    if (!audio) return;
+    if (unlock) bgmUnlockedRef.current = true;
+
     try {
-      const audio = ensureBgmAudio();
-      if (!audio) return;
-      if (unlock) bgmUnlockedRef.current = true;
       audio.volume = 0.34;
-      if (audio.paused) await audio.play();
+      if (audio.readyState < 2) {
+        audio.load();
+      }
+      await audio.play();
     } catch {
-      // ignore autoplay failures until the user interacts again
+      if (!bgmFallbackTriedRef.current) {
+        bgmFallbackTriedRef.current = true;
+        try {
+          audio.src = BGM_AUDIO_FALLBACK_URL;
+          audio.load();
+          await audio.play();
+          return;
+        } catch {
+          // ignore secondary failure
+        }
+      }
     }
   }, [bgmEnabled, ensureBgmAudio]);
 
@@ -639,10 +665,19 @@ export default function BibleGamePage() {
                     ...(bgmEnabled ? { background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border } : null)
                   }}
                   onClick={() => {
-                    const next = !bgmEnabled;
-                    setBgmEnabled(next);
-                    if (next) void startBgm(true);
-                    if (!next) stopBgm();
+                    if (!bgmEnabled) {
+                      setBgmEnabled(true);
+                      void startBgm(true);
+                      return;
+                    }
+
+                    if (bgmAudioRef.current?.paused) {
+                      void startBgm(true);
+                      return;
+                    }
+
+                    setBgmEnabled(false);
+                    stopBgm();
                   }}
                 >
                   {bgmEnabled ? 'BGM ON' : 'BGM OFF'}
@@ -774,27 +809,35 @@ export default function BibleGamePage() {
         </Card>
 
         <div style={infoGrid}>
-          <Card pad style={sectionCard}>
-            <div style={sectionEyebrow}>CURRENT RUN</div>
-            <div style={sectionTitle}>지금 플레이</div>
-            <div style={miniStatList}>
-              <MiniStat label="생존 시간" value={formattedElapsed} />
-              <MiniStat label="정답 수" value={`${correctCount}개`} />
-              <MiniStat label="점수" value={`${score}점`} />
-              <MiniStat label="현재 콤보" value={`x${combo}`} />
-              <MiniStat label="최고 콤보" value={`x${bestCombo}`} />
-              <MiniStat label="난이도" value={difficultyLabel(difficulty.speedMultiplier)} />
+          <Card pad style={{ ...heroCard, background: 'linear-gradient(180deg, rgba(255,255,255,0.97), rgba(242,249,255,0.94))', borderColor: 'rgba(216,232,244,0.9)' }}>
+            <div style={leaderboardHeroRow}>
+              <div>
+                <div style={sectionEyebrow}>CURRENT RUN</div>
+                <div style={sectionTitle}>지금 플레이</div>
+              </div>
+              <div style={{ ...stageChip, background: 'rgba(255,255,255,0.92)', color: tierPalette.chipText, borderColor: tierPalette.border }}>{difficultyLabel(difficulty.speedMultiplier)}</div>
+            </div>
+            <div style={heroStatGrid}>
+              <StatTile label="생존 시간" value={formattedElapsed} hint="현재 러닝 타임" tone="mint" />
+              <StatTile label="점수" value={`${score}점`} hint="이번 판 누적 점수" tone="peach" />
+              <StatTile label="정답 수" value={`${correctCount}개`} hint="맞힌 단어 수" tone="mint" />
+              <StatTile label="콤보" value={`x${combo}`} hint={`최고 콤보 x${bestCombo}`} tone="peach" />
             </div>
           </Card>
 
-          <Card pad style={sectionCard}>
-            <div style={sectionEyebrow}>MY BEST</div>
-            <div style={sectionTitle}>내 최고 기록</div>
-            <div style={miniStatList}>
-              <MiniStat label="최고 생존" value={bestFormatted} />
-              <MiniStat label="최고 점수" value={`${myBest.score}점`} />
-              <MiniStat label="최고 정답" value={`${myBest.correctCount}개`} />
-              <MiniStat label="티어" value={myBest.tier} />
+          <Card pad style={{ ...heroCard, background: 'linear-gradient(180deg, rgba(255,255,255,0.97), rgba(255,248,241,0.94))', borderColor: 'rgba(243,210,196,0.52)' }}>
+            <div style={leaderboardHeroRow}>
+              <div>
+                <div style={sectionEyebrow}>MY BEST</div>
+                <div style={sectionTitle}>내 최고 기록</div>
+              </div>
+              <div style={{ ...stageChip, background: tierPalette.chipBg, color: tierPalette.chipText, borderColor: tierPalette.border }}>{myBest.tier}</div>
+            </div>
+            <div style={heroStatGrid}>
+              <StatTile label="최고 생존" value={bestFormatted} hint="가장 오래 버틴 기록" tone="mint" />
+              <StatTile label="최고 점수" value={`${myBest.score}점`} hint="누적 최고 점수" tone="peach" />
+              <StatTile label="최고 정답" value={`${myBest.correctCount}개`} hint="한 판 최다 정답" tone="mint" />
+              <StatTile label="최고 티어" value={myBest.tier} hint={myBest.updatedAt ? '현재 최고 기록 기준' : '아직 기록 없음'} tone="peach" />
             </div>
             {submittingScore ? <div style={helperText}>랭킹 반영 중…</div> : null}
           </Card>
@@ -1375,8 +1418,8 @@ const stageTopOverlay: CSSProperties = {
 const stageQuestionCard: CSSProperties = {
   padding: '10px 10px 9px',
   borderRadius: 18,
-  background: 'rgba(255,255,255,0.9)',
-  border: '1px solid rgba(255,255,255,0.92)',
+  background: 'rgba(255,255,255,0.8)',
+  border: '1px solid rgba(255,255,255,0.88)',
   boxShadow: '0 10px 16px rgba(77,90,110,0.06)',
   backdropFilter: 'blur(14px)'
 };
