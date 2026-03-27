@@ -144,19 +144,26 @@ export default function HomePage() {
     nav('/mcheyne-today');
   }
 
-  async function openInstallGuide() {
+  function openInstallGuide() {
+    setInstallGuideOpen(true);
+  }
+
+  async function triggerInstallPrompt() {
     const promptEvent = deferredInstallPromptRef.current;
-    if (promptEvent) {
-      await promptEvent.prompt();
-      try {
-        await promptEvent.userChoice;
-      } finally {
-        deferredInstallPromptRef.current = null;
-      }
+    if (!promptEvent) {
+      setInstallGuideOpen(false);
       return;
     }
 
-    setInstallGuideOpen(true);
+    await promptEvent.prompt();
+    try {
+      const choice = await promptEvent.userChoice;
+      if (choice.outcome === 'accepted') {
+        setInstallGuideOpen(false);
+      }
+    } finally {
+      deferredInstallPromptRef.current = null;
+    }
   }
 
   async function completeTodayAll() {
@@ -198,7 +205,7 @@ export default function HomePage() {
             <div style={brandTitle}>DLP</div>
           </div>
           <div style={headerActionRow}>
-            <button type="button" style={installGiftButton} onClick={() => void openInstallGuide()}>
+            <button type="button" style={installGiftButton} onClick={openInstallGuide}>
               <span aria-hidden="true">🎁</span>
               <span>홈화면에 추가</span>
             </button>
@@ -213,11 +220,16 @@ export default function HomePage() {
             <div style={urgentLabelWrap}>
               <div style={sectionEyebrow}>URGENT PRAYER</div>
               <div style={urgentTitleText}>긴급기도</div>
-              <div style={urgentSubText}>기도제목을 누르면 바로 목록으로 이동하고, 새 기도제목도 바로 등록할 수 있어요.</div>
+              <div style={urgentSubText}>함께하는 10초의 기도가 기적을 만듭니다.</div>
             </div>
-            <button type="button" style={urgentPrimaryBtn} onClick={() => void openUrgentComposer()}>
-              기도등록
-            </button>
+            <div style={urgentActionRow}>
+              <button type="button" style={urgentGhostBtn} onClick={() => nav('/urgent-prayers')}>
+                전체보기
+              </button>
+              <button type="button" style={urgentPrimaryBtn} onClick={() => void openUrgentComposer()}>
+                기도등록
+              </button>
+            </div>
           </div>
           <div style={urgentCompactRow}>
             <div style={urgentIconWrap} aria-hidden="true">
@@ -228,14 +240,10 @@ export default function HomePage() {
               <UrgentPrayerTicker
                 items={urgentItems}
                 intervalMs={4600}
-                heightPx={40}
+                heightPx={44}
                 onItemClick={(id) => nav(`/urgent-prayers?highlight=${encodeURIComponent(id)}`)}
               />
             </div>
-
-            <button type="button" style={urgentGhostBtn} onClick={() => nav('/urgent-prayers')}>
-              전체보기
-            </button>
           </div>
         </Card>
 
@@ -360,9 +368,6 @@ export default function HomePage() {
                 />
               </div>
 
-              <div style={statsFootNote}>
-                감사일기 집계월 {formatMonthLabel(performance.gratitudeMonth)} · 버튼을 누르면 각 페이지로 바로 이동합니다.
-              </div>
             </>
           ) : (
             <div style={statsEmptyBox}>
@@ -384,28 +389,28 @@ export default function HomePage() {
               icon={<QtIcon />}
               tone="mint"
               title="매일성경 QT"
-              desc="오늘 QT로 이동"
+              desc="QT 열기"
               onClick={() => nav('/qt')}
             />
             <QuickCard
               icon={<GratitudeIcon />}
               tone="peach"
               title="감사일기"
-              desc="한 줄 감사 기록"
+              desc="감사 기록"
               onClick={() => nav('/gratitude')}
             />
             <QuickCard
               icon={<ChecklistIcon />}
               tone="peach"
               title="DLP 체크리스트"
-              desc="오늘 항목 점검"
+              desc="오늘 점검"
               onClick={() => nav('/dlp')}
             />
             <QuickCard
               icon={<SearchIcon />}
               tone="mint"
               title="성경 검색"
-              desc="단어/구절로 찾기"
+              desc="바로 찾기"
               onClick={() => nav('/bible-search')}
             />
           </div>
@@ -471,8 +476,14 @@ export default function HomePage() {
             </div>
             <div style={guideFooterNote}>Safari에서는 공유 버튼에서, Android Chrome에서는 우상단 더보기 메뉴에서 홈 화면에 추가를 선택하면 됩니다.</div>
             <div style={{ marginTop: 14 }}>
-              <Button type="button" variant="primary" size="lg" wide onClick={() => void openInstallGuide()}>
-                홈화면에 추가하기
+              <Button
+                type="button"
+                variant="primary"
+                size="lg"
+                wide
+                onClick={() => void triggerInstallPrompt()}
+              >
+                {deferredInstallPromptRef.current ? 'Android에서 바로 추가' : '안내 확인했어요'}
               </Button>
             </div>
           </div>
@@ -842,6 +853,13 @@ const urgentHead: CSSProperties = {
   padding: '12px 12px 6px'
 };
 
+const urgentActionRow: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  flex: '0 0 auto'
+};
+
 const urgentLabelWrap: CSSProperties = {
   minWidth: 0,
   flex: 1
@@ -866,13 +884,13 @@ const urgentCompactRow: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
-  padding: '8px 10px 10px'
+  padding: '8px 12px 12px'
 };
 
 const urgentIconWrap: CSSProperties = {
-  width: 30,
-  height: 30,
-  flex: '0 0 30px',
+  width: 28,
+  height: 28,
+  flex: '0 0 28px',
   borderRadius: 10,
   display: 'inline-flex',
   alignItems: 'center',
@@ -950,10 +968,12 @@ const heroCopy: CSSProperties = {
 };
 
 const heroTitle: CSSProperties = {
-  fontSize: 28,
+  fontSize: 'clamp(22px, 5.6vw, 25px)',
   fontWeight: 800,
   color: '#24313a',
-  letterSpacing: '-0.02em'
+  letterSpacing: '-0.03em',
+  lineHeight: 1.15,
+  whiteSpace: 'nowrap'
 };
 
 const heroDesc: CSSProperties = {
@@ -1187,12 +1207,6 @@ const metricHint: CSSProperties = {
   lineHeight: 1.4
 };
 
-const statsFootNote: CSSProperties = {
-  marginTop: 12,
-  color: '#718089',
-  fontSize: 12,
-  fontWeight: 700
-};
 
 const statsEmptyBox: CSSProperties = {
   marginTop: 14,
@@ -1244,25 +1258,25 @@ const quickBtn: CSSProperties = {
 };
 
 const quickCard: CSSProperties = {
-  minHeight: 102,
-  borderRadius: 22,
+  minHeight: 86,
+  borderRadius: 20,
   background: 'rgba(255,255,255,0.72)',
   border: '1px solid rgba(255,255,255,0.56)',
   boxShadow: '0 12px 28px rgba(77,90,110,0.08)'
 };
 
 const quickInner: CSSProperties = {
-  minHeight: 102,
+  minHeight: 86,
   display: 'flex',
   alignItems: 'center',
-  gap: 12,
-  padding: 16
+  gap: 10,
+  padding: '14px 12px'
 };
 
 const quickIconWrap: CSSProperties = {
-  width: 46,
-  height: 46,
-  borderRadius: 16,
+  width: 40,
+  height: 40,
+  borderRadius: 14,
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -1276,23 +1290,27 @@ const quickTextWrap: CSSProperties = {
 
 const quickTitle: CSSProperties = {
   color: '#24313a',
-  fontSize: 15,
+  fontSize: 13,
   fontWeight: 800,
-  lineHeight: 1.35,
-  letterSpacing: '-0.02em'
+  lineHeight: 1.2,
+  letterSpacing: '-0.02em',
+  whiteSpace: 'nowrap'
 };
 
 const quickDesc: CSSProperties = {
-  marginTop: 4,
+  marginTop: 3,
   color: '#69767e',
-  fontSize: 13,
-  fontWeight: 600,
-  lineHeight: 1.4
+  fontSize: 11,
+  fontWeight: 700,
+  lineHeight: 1.2,
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis'
 };
 
 const quickArrow: CSSProperties = {
   color: '#96a1a8',
-  fontSize: 20,
+  fontSize: 18,
   fontWeight: 700,
   flex: '0 0 auto'
 };
@@ -1452,11 +1470,11 @@ const installGuideLead: CSSProperties = {
   marginTop: 8,
   color: '#64727b',
   fontSize: 13,
-  lineHeight: 1.55
+  lineHeight: 1.5
 };
 
 const guideShotGrid: CSSProperties = {
-  marginTop: 14,
+  marginTop: 12,
   display: 'grid',
   gridTemplateColumns: '1fr',
   gap: 10
@@ -1471,7 +1489,7 @@ const guideShotCard: CSSProperties = {
 };
 
 const guideShotTop: CSSProperties = {
-  padding: '10px 12px',
+  padding: '9px 12px',
   background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(241,247,255,0.92))',
   color: '#4f6472',
   fontSize: 12,
@@ -1479,7 +1497,7 @@ const guideShotTop: CSSProperties = {
 };
 
 const guideShotBody: CSSProperties = {
-  padding: 12
+  padding: 10
 };
 
 const guideBrowserBar: CSSProperties = {
@@ -1529,10 +1547,10 @@ const guideMenuRowHighlight: CSSProperties = {
 };
 
 const guideFooterNote: CSSProperties = {
-  marginTop: 12,
+  marginTop: 10,
   color: '#6d7a83',
   fontSize: 12,
-  lineHeight: 1.5
+  lineHeight: 1.45
 };
 
 const promoLink: CSSProperties = {
@@ -1609,6 +1627,9 @@ const sheetBackdrop: CSSProperties = {
 const sheet: CSSProperties = {
   width: '100%',
   maxWidth: 430,
+  maxHeight: 'calc(100dvh - 24px)',
+  overflowY: 'auto',
+  WebkitOverflowScrolling: 'touch',
   borderRadius: '24px 24px 18px 18px',
   background: 'linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.84))',
   border: '1px solid rgba(255,255,255,0.58)',
