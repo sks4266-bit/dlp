@@ -139,7 +139,7 @@ export default function DlpPage() {
           <div style={badgeMint}>TODAY CHECK</div>
           <CardTitle style={heroTitle}>오늘의 DLP 기록</CardTitle>
           <CardDesc style={heroDesc}>
-            홈 화면과 같은 모바일 규격으로, 날짜 선택과 입력 카드를 한 열로 정리했습니다.
+
           </CardDesc>
 
           <div style={fieldGrid}>

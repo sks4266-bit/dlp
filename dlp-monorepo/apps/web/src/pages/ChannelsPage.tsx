@@ -185,7 +185,7 @@ export default function ChannelsPage() {
 
         <Card pad style={heroCard}>
           <div style={badgePeach}>CHURCH CHANNEL</div>
-          <div style={heroTitle}>교회 채널 입장 방식을 두 가지로 정리했어요</div>
+          <div style={heroTitle}>교회 채널</div>
           <div style={heroDesc}></div>
 
           <div style={statRow}>

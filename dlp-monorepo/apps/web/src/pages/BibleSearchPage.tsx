@@ -260,7 +260,7 @@ export default function BibleSearchPage() {
           <div style={badgeMint}>BIBLE SEARCH</div>
           <CardTitle style={heroTitle}>단어와 구절로 바로 찾기</CardTitle>
           <CardDesc style={heroDesc}>
-            홈 화면 기준의 모바일 폭과 카드 규격에 맞춰 검색창, 최근 검색, 결과 목록을 한 열로 정리했습니다.
+
           </CardDesc>
 
           <form
