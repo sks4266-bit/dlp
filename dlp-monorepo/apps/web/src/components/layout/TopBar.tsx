@@ -1,8 +1,12 @@
-import type { ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
-import Button from '../../ui/Button';
 
+/**
+ * 모바일 상단바(최소형)
+ * - 좌측: (옵션) 뒤로
+ * - 가운데: 타이틀
+ * - 우측: 로그인 (+ ADMIN, 내정보/로그아웃은 홈/내정보에서 처리)
+ */
 export default function TopBar({
   title,
   backTo,
@@ -11,79 +15,80 @@ export default function TopBar({
 }: {
   title: string;
   backTo?: string;
-  right?: ReactNode;
+  right?: any;
+  /** 우측 인증 버튼 숨김 (로그인/회원가입 화면용) */
   hideAuthActions?: boolean;
 }) {
   const nav = useNavigate();
-  const loc = useLocation();
-  const { me, loading, logout } = useAuth();
-
-  function goLogin() {
-    const next = `${loc.pathname}${loc.search}`;
-    nav(`/login?${new URLSearchParams({ next }).toString()}`);
-  }
+  const { me, loading } = useAuth();
 
   return (
-    <header className="topBar topBarGlass">
-      <div className="topBarLeft">
-        {backTo ? (
-          <Button
-            variant="ghost"
-            className="topBarBackBtn"
-            onClick={() => nav(backTo)}
-            aria-label="뒤로"
-            title="뒤로"
-          >
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+        {backTo && (
+          <button type="button" onClick={() => nav(backTo)} aria-label="뒤로" style={backBtn}>
             ‹
-          </Button>
-        ) : (
-          <div className="topBarBackSpacer" />
+          </button>
         )}
-
-        <div className="topBarTitle" title={title}>
+        <div style={{ fontSize: 20, fontWeight: 900, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
           {title}
         </div>
       </div>
 
-      <div className="topBarRight">
-        {right ? <div className="topBarRightSlot">{right}</div> : null}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        {right}
 
-        {!hideAuthActions ? (
+        {!hideAuthActions && (
           <>
-            {!me && !loading ? (
-              <Button variant="secondary" className="topBarAuthBtn" onClick={goLogin}>
+            {!me && !loading && (
+              <button type="button" onClick={() => nav('/login')} style={ghostBtn}>
                 로그인
-              </Button>
-            ) : null}
+              </button>
+            )}
 
-            {me ? (
-              <>
-                {me.isAdmin ? (
-                  <Button variant="ghost" className="topBarMiniBtn" onClick={() => nav('/admin')} aria-label="ADMIN 대시보드">
-                    ADMIN
-                  </Button>
-                ) : null}
-
-                <Button variant="ghost" className="topBarMiniBtn" onClick={() => nav('/me')} aria-label="내정보">
-                  내정보
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  className="topBarMiniBtn"
-                  onClick={() => {
-                    logout();
-                    nav('/');
-                  }}
-                  aria-label="로그아웃"
-                >
-                  로그아웃
-                </Button>
-              </>
-            ) : null}
+            {me?.isAdmin && (
+              <Link to="/admin" style={ghostLink} aria-label="ADMIN 대시보드">
+                ADMIN
+              </Link>
+            )}
           </>
-        ) : null}
+        )}
       </div>
-    </header>
+    </div>
   );
 }
+
+const backBtn: React.CSSProperties = {
+  width: 40,
+  height: 40,
+  borderRadius: 12,
+  border: '1px solid rgba(0,0,0,0.08)',
+  background: 'white',
+  fontSize: 18,
+  fontWeight: 900
+};
+
+const ghostBtn: React.CSSProperties = {
+  height: 40,
+  padding: '0 12px',
+  borderRadius: 12,
+  border: '1px solid rgba(0,0,0,0.08)',
+  background: 'white',
+  fontWeight: 900,
+  fontSize: 13
+};
+
+const ghostLink: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  height: 40,
+  padding: '0 12px',
+  borderRadius: 12,
+  border: '1px solid rgba(0,0,0,0.08)',
+  background: 'white',
+  fontWeight: 900,
+  fontSize: 13,
+  color: 'rgba(0,0,0,0.88)',
+  textDecoration: 'none'
+};

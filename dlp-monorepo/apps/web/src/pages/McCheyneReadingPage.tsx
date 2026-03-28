@@ -645,9 +645,10 @@ const badgeMint: CSSProperties = {
 };
 
 const heroTitle: CSSProperties = {
-  fontSize: 28,
+  fontSize: 'clamp(22px, 5.4vw, 25px)',
   fontWeight: 800,
   color: '#24313a',
+  lineHeight: 1.2,
   letterSpacing: '-0.02em'
 };
 
@@ -796,8 +797,9 @@ const sectionEyebrow: CSSProperties = {
 const sectionHeading: CSSProperties = {
   marginTop: 6,
   color: '#24313a',
-  fontSize: 20,
+  fontSize: 18,
   fontWeight: 800,
+  lineHeight: 1.24,
   letterSpacing: '-0.02em'
 };
 

@@ -1065,8 +1065,9 @@ const urgentLabelWrap: CSSProperties = {
 const urgentTitleText: CSSProperties = {
   marginTop: 4,
   color: '#24313a',
-  fontSize: 17,
+  fontSize: 16,
   fontWeight: 800,
+  lineHeight: 1.22,
   letterSpacing: '-0.02em'
 };
 
@@ -1165,12 +1166,13 @@ const heroCopy: CSSProperties = {
 };
 
 const heroTitle: CSSProperties = {
-  fontSize: 'clamp(22px, 5.6vw, 25px)',
+  fontSize: 'clamp(20px, 5vw, 24px)',
   fontWeight: 800,
   color: '#24313a',
   letterSpacing: '-0.03em',
-  lineHeight: 1.15,
-  whiteSpace: 'nowrap'
+  lineHeight: 1.18,
+  whiteSpace: 'normal',
+  wordBreak: 'keep-all'
 };
 
 const heroDesc: CSSProperties = {
@@ -1583,8 +1585,9 @@ const statsHead: CSSProperties = {
 const sectionHeadingSmall: CSSProperties = {
   marginTop: 6,
   color: '#24313a',
-  fontSize: 18,
+  fontSize: 17,
   fontWeight: 800,
+  lineHeight: 1.24,
   letterSpacing: '-0.02em'
 };
 
@@ -1715,8 +1718,9 @@ const sectionEyebrow: CSSProperties = {
 const sectionHeading: CSSProperties = {
   marginTop: 6,
   color: '#24313a',
-  fontSize: 20,
+  fontSize: 19,
   fontWeight: 800,
+  lineHeight: 1.24,
   letterSpacing: '-0.02em'
 };
 
@@ -1750,16 +1754,16 @@ const quickInner: CSSProperties = {
   minHeight: 96,
   display: 'flex',
   alignItems: 'center',
-  gap: 8,
+  gap: 7,
   padding: '13px 10px',
   width: '100%',
   boxSizing: 'border-box'
 };
 
 const quickIconWrap: CSSProperties = {
-  width: 36,
-  height: 36,
-  borderRadius: 12,
+  width: 34,
+  height: 34,
+  borderRadius: 11,
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -1773,12 +1777,13 @@ const quickTextWrap: CSSProperties = {
 
 const quickTitle: CSSProperties = {
   color: '#24313a',
-  fontSize: 12,
+  fontSize: 11.5,
   fontWeight: 800,
-  lineHeight: 1.25,
+  lineHeight: 1.26,
   letterSpacing: '-0.02em',
   whiteSpace: 'normal',
-  wordBreak: 'keep-all',
+  wordBreak: 'break-word',
+  overflowWrap: 'anywhere',
   overflow: 'hidden',
   display: '-webkit-box',
   WebkitLineClamp: 2,
@@ -1798,10 +1803,10 @@ const quickDesc: CSSProperties = {
 
 const quickArrow: CSSProperties = {
   color: '#96a1a8',
-  fontSize: 16,
+  fontSize: 14,
   fontWeight: 700,
   flex: '0 0 auto',
-  marginLeft: 2
+  marginLeft: 0
 };
 
 const wideBtn: CSSProperties = {

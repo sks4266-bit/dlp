@@ -132,6 +132,7 @@ export default function DlpPage() {
 
   return (
     <div style={page}>
+      <style>{DATE_INPUT_FIX_CSS}</style>
       <div style={pageInner}>
         <TopBar title="DLP 체크리스트" backTo="/" hideAuthActions />
 
@@ -146,6 +147,7 @@ export default function DlpPage() {
             <label style={field}>
               <span style={fieldLabel}>날짜</span>
               <input
+                className="dlpDateInput"
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
@@ -431,19 +433,37 @@ const input: CSSProperties = {
   width: '100%',
   minWidth: 0,
   maxWidth: '100%',
-  height: 46,
+  height: 48,
   borderRadius: 18,
   border: '1px solid rgba(221,228,233,0.95)',
   background: 'rgba(255,255,255,0.92)',
   padding: '0 14px',
-  fontSize: 14,
+  fontSize: 15,
   fontWeight: 700,
-  lineHeight: 1.2,
+  lineHeight: '48px',
   color: '#24313a',
   outline: 'none',
   boxSizing: 'border-box',
-  appearance: 'auto'
+  fontFamily: 'inherit',
+  appearance: 'none'
 };
+
+const DATE_INPUT_FIX_CSS = `
+.dlpDateInput::-webkit-date-and-time-value,
+.dlpDateInput::-webkit-datetime-edit,
+.dlpDateInput::-webkit-datetime-edit-fields-wrapper,
+.dlpDateInput::-webkit-datetime-edit-text,
+.dlpDateInput::-webkit-datetime-edit-month-field,
+.dlpDateInput::-webkit-datetime-edit-day-field,
+.dlpDateInput::-webkit-datetime-edit-year-field {
+  padding: 0;
+  line-height: 48px;
+}
+.dlpDateInput::-webkit-calendar-picker-indicator {
+  opacity: 0.82;
+  margin: 0;
+}
+`;
 
 const statGrid: CSSProperties = {
   display: 'grid',

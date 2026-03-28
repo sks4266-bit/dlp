@@ -376,11 +376,11 @@ const badgePeach: CSSProperties = {
 };
 
 const heroTitle: CSSProperties = {
-  fontSize: 27,
+  fontSize: 'clamp(21px, 5.2vw, 24px)',
   fontWeight: 800,
   color: '#24313a',
   letterSpacing: '-0.02em',
-  lineHeight: 1.18
+  lineHeight: 1.22
 };
 
 const heroDesc: CSSProperties = {
@@ -519,8 +519,9 @@ const sectionEyebrow: CSSProperties = {
 
 const sectionTitle: CSSProperties = {
   marginTop: 6,
-  fontSize: 22,
+  fontSize: 19,
   fontWeight: 800,
+  lineHeight: 1.24,
   color: '#24313a'
 };
 
@@ -673,8 +674,9 @@ const guideHeader: CSSProperties = {
 
 const guideTitle: CSSProperties = {
   color: '#24313a',
-  fontSize: 20,
-  fontWeight: 800
+  fontSize: 18,
+  fontWeight: 800,
+  lineHeight: 1.24
 };
 
 const guideDesc: CSSProperties = {
