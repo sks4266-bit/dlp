@@ -29,7 +29,7 @@ export default function UrgentPrayerTicker({
   const [index, setIndex] = useState(0);
 
   const current = count > 0 ? safeItems[index % count] : null;
-  const currentText = current?.content?.trim() || '';
+  const currentText = current?.content?.trim() || '현재 긴급기도가 없습니다.';
   const shouldAnimate = currentText.length > 16;
   const marqueeDurationSec = Math.min(14, Math.max(7.5, currentText.length * 0.22));
   const effectiveInterval = Math.max(intervalMs, Math.round(marqueeDurationSec * 1000) + 700);
@@ -52,7 +52,7 @@ export default function UrgentPrayerTicker({
   }, [count]);
 
   return (
-    <section aria-label="" className={['urgentTicker', heightClass].join('')}>
+    <section aria-label="긴급기도제목" className={['urgentTicker', heightClass].join(' ')}>
       <button
         type="button"
         className="urgentTickerBtn urgentTickerBtnCompact"
@@ -61,11 +61,11 @@ export default function UrgentPrayerTicker({
       >
         <div className="urgentTickerViewport">
           <div
-            key={current ? `${current.id}${index}` : 'urgent-empty'}
-            className={['urgentTickerMarqueeTrack', shouldAnimate ? 'isAnimated' : ''].filter(Boolean).join('')}
+            key={current ? `${current.id}-${index}` : 'urgent-empty'}
+            className={['urgentTickerMarqueeTrack', shouldAnimate ? 'isAnimated' : ''].filter(Boolean).join(' ')}
             style={{ animationDuration: `${marqueeDurationSec}s` }}
           >
-            <span className={['urgentTickerContent', current ? '' : 'isDim'].filter(Boolean).join('')}>{currentText}</span>
+            <span className={['urgentTickerContent', current ? '' : 'isDim'].filter(Boolean).join(' ')}>{currentText}</span>
             {current && shouldAnimate ? (
               <>
                 <span className="urgentTickerGap">&nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;</span>

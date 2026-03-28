@@ -10,11 +10,11 @@ function kstNow() {
 }
 
 function ym(date: Date) {
-  return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 function ymdFromParts(year: number, month: number, day: number) {
-  return `${year}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}`;
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 type Entry = {
@@ -24,7 +24,7 @@ type Entry = {
   createdAt: number;
 };
 
-const weekLabels = ['', '', '', '', '', '', ''];
+const weekLabels = ['일', '월', '화', '수', '목', '금', '토'];
 
 export default function GratitudePage() {
   const nav = useNavigate();
@@ -46,13 +46,13 @@ export default function GratitudePage() {
   }, [items]);
 
   const { year, mon } = useMemo(() => {
-    const [y, m] = month.split('').map(Number);
+    const [y, m] = month.split('-').map(Number);
     return { year: y, mon: m };
   }, [month]);
 
   const today = useMemo(() => kstNow(), []);
   const todayDate = ymdFromParts(today.getUTCFullYear(), today.getUTCMonth() + 1, today.getUTCDate());
-  const monthLabel = `${year}${mon}`;
+  const monthLabel = `${year}년 ${mon}월`;
 
   const firstDow = useMemo(() => {
     const firstDay = new Date(Date.UTC(year, mon - 1, 1));
@@ -80,10 +80,10 @@ export default function GratitudePage() {
         return;
       }
 
-      if (!res.ok) throw new Error('');
+      if (!res.ok) throw new Error('불러오기에 실패했습니다.');
       setItems(await res.json());
     } catch (error: any) {
-      setErr(error?.message ?? '');
+      setErr(error?.message ?? '불러오기에 실패했습니다.');
     } finally {
       setLoading(false);
     }
@@ -103,7 +103,7 @@ export default function GratitudePage() {
   async function saveEntry() {
     if (!editorDate) return;
     if (!content.trim()) {
-      window.alert('');
+      window.alert('내용을 입력하세요.');
       return;
     }
 
@@ -124,7 +124,7 @@ export default function GratitudePage() {
       await load();
       setEditorOpen(false);
     } catch {
-      window.alert('');
+      window.alert('저장에 실패했습니다.');
     } finally {
       setSaving(false);
     }
@@ -138,21 +138,21 @@ export default function GratitudePage() {
   return (
     <div style={page}>
       <div style={pageInner}>
-        <TopBar title="" backTo="" hideAuthActions />
+        <TopBar title="감사일기" backTo="/" hideAuthActions />
 
         <Card pad style={heroCard}>
           <div style={heroTop}>
             <div style={heroCopy}>
               <div style={badgeMint}>GRATITUDE JOURNAL</div>
-              <div style={heroTitle}></div>
+              <div style={heroTitle}>한 줄 감사 기록</div>
               <div style={heroDesc}></div>
             </div>
-            <div style={countBadge}>{loading ? '' : `${items.length}`}</div>
+            <div style={countBadge}>{loading ? '…' : `${items.length}개`}</div>
           </div>
 
           <div style={heroPillRow}>
-            <span style={heroMintPill}>{month}{loading ? '' : `${monthRate}`}</span>
-            <span style={todaySaved ? heroPeachPill : heroNeutralPill}>{todaySaved ? '' : ''}</span>
+            <span style={heroMintPill}>{month} · 기록률 {loading ? '…' : `${monthRate}%`}</span>
+            <span style={todaySaved ? heroPeachPill : heroNeutralPill}>{todaySaved ? '오늘 기록 완료' : '오늘 기록 대기'}</span>
           </div>
 
           <div style={selectorCard}>
@@ -166,13 +166,17 @@ export default function GratitudePage() {
 
             <div style={selectorGrid}>
               <label className="glassField" style={selectorFieldWrap}>
-                <div className="glassFieldLabel"></div>
+                <div className="glassFieldLabel">기록 월</div>
                 <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="glassInput glassInputMonth" />
               </label>
 
               <div style={heroActions}>
-                <Button variant="ghost" size="md" onClick={() => setMonth(ym(kstNow()))}>{''}</Button>
-                <Button variant="secondary" size="md" onClick={() => openEditor(todayDate)}>{''}</Button>
+                <Button variant="ghost" size="md" onClick={() => setMonth(ym(kstNow()))}>
+                  이번달
+                </Button>
+                <Button variant="secondary" size="md" onClick={() => openEditor(todayDate)}>
+                  오늘 기록
+                </Button>
               </div>
             </div>
           </div>
@@ -181,7 +185,7 @@ export default function GratitudePage() {
         {err ? <div className="uiErrorBox">{err}</div> : null}
 
         <Card pad style={sectionCard}>
-          <SectionHeader eyebrow="CALENDAR" title="" desc="" />
+          <SectionHeader eyebrow="CALENDAR" title="감사 달력" desc="" />
 
           <div style={calendarTopRow}>
             <div style={calendarMonthChip}>{monthLabel}</div>
@@ -190,13 +194,13 @@ export default function GratitudePage() {
 
           <div style={calendarSummaryGrid}>
             <div style={calendarSummaryCard}>
-              <div style={calendarSummaryLabel}></div>
-              <div style={calendarSummaryValue}>{loading ? '' : `${items.length}`}</div>
-              <div style={calendarSummaryHint}>{daysInMonth}</div>
+              <div style={calendarSummaryLabel}>이번 달 기록</div>
+              <div style={calendarSummaryValue}>{loading ? '…' : `${items.length}일`}</div>
+              <div style={calendarSummaryHint}>총 {daysInMonth}일 중</div>
             </div>
             <div style={calendarSummaryCard}>
-              <div style={calendarSummaryLabel}></div>
-              <div style={calendarSummaryValue}>{todaySaved ? '' : ''}</div>
+              <div style={calendarSummaryLabel}>오늘 상태</div>
+              <div style={calendarSummaryValue}>{todaySaved ? '완료' : '대기'}</div>
               <div style={calendarSummaryHint}>{todayDate}</div>
             </div>
           </div>
@@ -231,11 +235,11 @@ export default function GratitudePage() {
                       ...(hasEntry ? calendarDayCellOn : null),
                       ...(isToday ? calendarDayCellToday : null)
                     }}
-                    aria-label={`${date}`}
+                    aria-label={`${date} 감사일기 ${hasEntry ? '작성됨' : '미작성'}`}
                   >
                     <span style={{ ...calendarDayNumber, ...(hasEntry ? calendarDayNumberOn : null) }}>{day}</span>
                     <span style={calendarDayFoot}>
-                      {isToday ? <span style={todayChip}></span> : <span style={calendarDotGhost} />}
+                      {isToday ? <span style={todayChip}>오늘</span> : <span style={calendarDotGhost} />}
                       {hasEntry ? <span style={entryDotStyle} /> : <span style={calendarDayGhost} />}
                     </span>
                   </button>
@@ -246,7 +250,7 @@ export default function GratitudePage() {
         </Card>
 
         <Card pad style={sectionCard}>
-          <SectionHeader eyebrow="ENTRIES" title="" desc={loading ? '' : `${items.length}`} />
+          <SectionHeader eyebrow="ENTRIES" title="이번 달 기록" desc={loading ? '불러오는 중…' : `${items.length}개의 기록이 저장되어 있어요.`} />
 
           {loading ? (
             <div style={skeletonStack}>
@@ -254,7 +258,7 @@ export default function GratitudePage() {
               <div style={skeletonBlock} />
             </div>
           ) : sortedItems.length === 0 ? (
-            <div style={emptyBox}></div>
+            <div style={emptyBox}>이번 달 기록이 없습니다. 오늘의 감사를 남겨보세요.</div>
           ) : (
             <div style={entryList}>
               {sortedItems.slice(0, 31).map((item) => {
@@ -263,7 +267,7 @@ export default function GratitudePage() {
                   <button key={item.id} type="button" style={entryCard} onClick={() => openEditor(item.date)}>
                     <div style={entryTop}>
                       <div style={entryDate}>{item.date}</div>
-                      <div style={isToday ? entryChipToday : entryChip}>{isToday ? '' : ''}</div>
+                      <div style={isToday ? entryChipToday : entryChip}>{isToday ? '오늘' : '기록'}</div>
                     </div>
                     <div style={entryContent}>{item.content}</div>
                   </button>
@@ -275,21 +279,21 @@ export default function GratitudePage() {
 
         <BottomSheet open={editorOpen} onClose={() => setEditorOpen(false)}>
           <div style={sheetEyebrow}>WRITE GRATITUDE</div>
-          <div style={sheetTitle}></div>
+          <div style={sheetTitle}>감사일기 작성</div>
           <div style={sheetDesc}></div>
 
           <div style={editorGrid}>
             <label className="glassField" style={editorFieldCard}>
-              <div className="glassFieldLabel"></div>
+              <div className="glassFieldLabel">기록 날짜</div>
               <input type="date" value={editorDate} onChange={(e) => handleEditorDateChange(e.target.value)} className="glassInput glassInputDate" />
             </label>
 
             <label className="glassField" style={editorFieldCard}>
-              <div className="glassFieldLabel"></div>
+              <div className="glassFieldLabel">감사 내용</div>
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder=""
+                placeholder="예) 오늘도 지켜주셔서 감사합니다"
                 className="glassTextarea"
                 style={{ minHeight: 132 }}
               />
@@ -297,9 +301,9 @@ export default function GratitudePage() {
           </div>
 
           <div style={sheetFooter}>
-            <div style={countStyle}>{content.length}</div>
+            <div style={countStyle}>{content.length}자</div>
             <Button variant="primary" size="lg" onClick={saveEntry} disabled={saving || !editorDate}>
-              {saving ? '' : ''}
+              {saving ? '저장 중…' : '저장'}
             </Button>
           </div>
         </BottomSheet>
@@ -329,7 +333,9 @@ function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () =
         </div>
         {children}
         <div style={{ marginTop: 14 }}>
-          <Button variant="secondary" wide onClick={onClose}>{''}</Button>
+          <Button variant="secondary" wide onClick={onClose}>
+            닫기
+          </Button>
         </div>
       </div>
     </div>
