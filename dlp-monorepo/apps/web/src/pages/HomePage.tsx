@@ -1722,11 +1722,13 @@ const sectionHeading: CSSProperties = {
 
 const quickGrid: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
   gap: 12
 };
 
 const quickBtn: CSSProperties = {
+  width: '100%',
+  minWidth: 0,
   padding: 0,
   border: 0,
   background: 'transparent',
@@ -1735,6 +1737,8 @@ const quickBtn: CSSProperties = {
 };
 
 const quickCard: CSSProperties = {
+  width: '100%',
+  minWidth: 0,
   minHeight: 86,
   borderRadius: 20,
   background: 'rgba(255,255,255,0.72)',
@@ -1747,7 +1751,9 @@ const quickInner: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 10,
-  padding: '14px 12px'
+  padding: '14px 12px',
+  width: '100%',
+  boxSizing: 'border-box'
 };
 
 const quickIconWrap: CSSProperties = {
@@ -1771,7 +1777,9 @@ const quickTitle: CSSProperties = {
   fontWeight: 800,
   lineHeight: 1.2,
   letterSpacing: '-0.02em',
-  whiteSpace: 'nowrap'
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis'
 };
 
 const quickDesc: CSSProperties = {
