@@ -649,7 +649,7 @@ export default function BibleGamePage() {
       <div style={pageInner}>
         <TopBar title="바이블 게임" backTo="/" hideAuthActions />
 
-        <Card pad style={{ ...stageCard, background: tierPalette.card, borderColor: tierPalette.border }}>
+        <Card pad style={stageCard}>
           <div style={stageHeader}>
             <div style={stageHeaderMain}>
               <div style={sectionEyebrow}>PLAY NOW</div>
@@ -693,8 +693,8 @@ export default function BibleGamePage() {
             ref={stageRef}
             style={{
               ...stageArea,
-              background: `linear-gradient(180deg, ${tierPalette.skyTop} 0%, #eef9ff 34%, ${tierPalette.skyBottom} 100%)`,
-              borderColor: tierPalette.border,
+              background: stageArea.background,
+              borderColor: stageArea.borderColor,
               animation: feedbackTone === 'danger' ? 'errorShake 360ms ease' : undefined,
               boxShadow:
                 feedbackTone === 'success'
@@ -814,7 +814,7 @@ export default function BibleGamePage() {
         </Card>
 
         <div style={infoGrid}>
-          <Card pad style={{ ...heroCard, background: 'linear-gradient(180deg, rgba(255,255,255,0.97), rgba(242,249,255,0.94))', borderColor: 'rgba(216,232,244,0.9)' }}>
+          <Card pad style={heroCard}>
             <div style={leaderboardHeroRow}>
               <div>
                 <div style={sectionEyebrow}>CURRENT RUN</div>
@@ -830,7 +830,7 @@ export default function BibleGamePage() {
             </div>
           </Card>
 
-          <Card pad style={{ ...heroCard, background: 'linear-gradient(180deg, rgba(255,255,255,0.97), rgba(255,248,241,0.94))', borderColor: 'rgba(243,210,196,0.52)' }}>
+          <Card pad style={heroCard}>
             <div style={leaderboardHeroRow}>
               <div>
                 <div style={sectionEyebrow}>MY BEST</div>
@@ -1174,7 +1174,7 @@ function shuffleArray<T>(items: T[]) {
 const page: CSSProperties = {
   minHeight: '100dvh',
   padding: '8px 8px 20px',
-  background: 'linear-gradient(180deg, #eef8ff 0%, #f7fbff 48%, #fff7ea 100%)'
+  background: 'transparent'
 };
 
 const pageInner: CSSProperties = {
@@ -1187,10 +1187,10 @@ const pageInner: CSSProperties = {
 
 const heroCard: CSSProperties = {
   borderRadius: 22,
-  background: 'linear-gradient(180deg, rgba(255,255,255,0.94), rgba(242,250,255,0.92))',
-  border: '1px solid rgba(214,232,245,0.92)',
-  boxShadow: '0 14px 26px rgba(77,90,110,0.08)',
-  backdropFilter: 'blur(16px)'
+  background: 'var(--surface-1)',
+  border: '1px solid var(--border)',
+  boxShadow: 'var(--shadow-sm)',
+  backdropFilter: 'blur(8px)'
 };
 
 const badgeMint: CSSProperties = {
@@ -1347,9 +1347,9 @@ const heroActionGridCompact: CSSProperties = {
 
 const questionCard: CSSProperties = {
   borderRadius: 24,
-  background: 'linear-gradient(180deg, rgba(255,255,255,0.98), rgba(241,248,255,0.92))',
-  border: '1px solid rgba(214,231,244,0.9)',
-  boxShadow: '0 16px 30px rgba(77,90,110,0.09)'
+  background: 'var(--surface-1)',
+  border: '1px solid var(--border)',
+  boxShadow: 'var(--shadow-sm)'
 };
 
 const sectionEyebrow: CSSProperties = {
@@ -1397,10 +1397,11 @@ const questionMetaRow: CSSProperties = {
 
 const stageCard: CSSProperties = {
   borderRadius: 24,
-  background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(240,248,255,0.94))',
-  border: '1px solid rgba(210,229,244,0.92)',
-  boxShadow: '0 18px 32px rgba(77,90,110,0.09)',
-  overflow: 'hidden'
+  background: 'var(--surface-1)',
+  border: '1px solid var(--border)',
+  boxShadow: 'var(--shadow-sm)',
+  overflow: 'hidden',
+  backdropFilter: 'blur(8px)'
 };
 
 const stageQuickBar: CSSProperties = {
@@ -1577,9 +1578,9 @@ const stageArea: CSSProperties = {
   height: STAGE_HEIGHT,
   borderRadius: 22,
   overflow: 'hidden',
-  background: 'linear-gradient(180deg, #d8f0ff 0%, #eef9ff 38%, #fff4dc 100%)',
-  border: '1px solid rgba(168, 209, 236, 0.82)',
-  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.58), 0 18px 30px rgba(96,165,250,0.12)',
+  background: 'var(--bg-grad)',
+  border: '1px solid var(--border-strong)',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.58), 0 12px 24px rgba(0,0,0,0.06)',
   touchAction: 'none',
   userSelect: 'none'
 };
@@ -1859,9 +1860,10 @@ const infoGrid: CSSProperties = {
 
 const sectionCard: CSSProperties = {
   borderRadius: 24,
-  background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(246,250,255,0.92))',
-  border: '1px solid rgba(216,232,244,0.9)',
-  boxShadow: '0 16px 30px rgba(77,90,110,0.08)'
+  background: 'var(--surface-1)',
+  border: '1px solid var(--border)',
+  boxShadow: 'var(--shadow-sm)',
+  backdropFilter: 'blur(8px)'
 };
 
 const infoTabRow: CSSProperties = {
@@ -1924,10 +1926,11 @@ const leaderboardScopeButtonActive: CSSProperties = {
 const leaderboardSummaryCard: CSSProperties = {
   padding: '12px 12px 11px',
   borderRadius: 18,
-  background: 'linear-gradient(180deg, rgba(244,249,255,0.98), rgba(232,244,255,0.94))',
-  border: '1px solid rgba(199,222,243,0.92)',
-  boxShadow: '0 10px 20px rgba(77,90,110,0.05)',
-  marginBottom: 10
+  background: 'rgba(255,255,255,0.72)',
+  border: '1px solid var(--border)',
+  boxShadow: '0 10px 20px rgba(0,0,0,0.04)',
+  marginBottom: 10,
+  backdropFilter: 'blur(8px)'
 };
 
 const leaderboardSummaryLabel: CSSProperties = {
