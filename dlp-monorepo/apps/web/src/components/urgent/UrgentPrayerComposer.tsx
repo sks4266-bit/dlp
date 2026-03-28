@@ -78,7 +78,7 @@ export default function UrgentPrayerComposer({ onDone, onUnauthorized }: Props) 
 
         <div style={exampleBoxStyle}>
           <div style={exampleTitleStyle}>작성 팁</div>
-          <div style={exampleTextStyle}></div>
+          <div style={exampleTextStyle}>누가, 어떤 상황인지 너무 길지 않게 적고, 함께 기도해주길 원하는 포인트를 자연스럽게 덧붙이면 더 읽기 쉬워집니다.</div>
         </div>
 
         {err ? <div style={errorStyle}>{err}</div> : null}

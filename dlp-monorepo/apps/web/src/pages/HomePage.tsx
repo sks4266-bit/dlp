@@ -220,7 +220,7 @@ export default function HomePage() {
             <div style={urgentLabelWrap}>
               <div style={sectionEyebrow}>URGENT PRAYER</div>
               <div style={urgentTitleText}>긴급기도</div>
-              <div style={urgentSubText}></div>
+              <div style={urgentSubText}>함께하는 10초의 기도가 기적을 만듭니다.</div>
             </div>
             <div style={urgentActionRow}>
               <button type="button" style={urgentGhostBtn} onClick={() => nav('/urgent-prayers')}>
@@ -474,7 +474,7 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-            <div style={guideFooterNote}></div>
+            <div style={guideFooterNote}>Safari에서는 공유 버튼에서, Android Chrome에서는 우상단 더보기 메뉴에서 홈 화면에 추가를 선택하면 됩니다.</div>
             <div style={{ marginTop: 14 }}>
               <Button
                 type="button"

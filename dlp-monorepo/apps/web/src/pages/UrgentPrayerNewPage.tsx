@@ -29,6 +29,7 @@ export default function UrgentPrayerNewPage() {
               <CardTitle>지금 필요한 한 가지 기도제목</CardTitle>
               <CardDesc>
                 
+                
               </CardDesc>
             </div>
 
@@ -54,7 +55,7 @@ export default function UrgentPrayerNewPage() {
             <div>
               <CardTitle>작성 폼</CardTitle>
               <CardDesc>
-                
+                긴급한 상황을 이해할 수 있도록 핵심만 간단히 적어 주세요.
               </CardDesc>
             </div>
             <div style={sectionBadgePeach}>Compose</div>
@@ -75,7 +76,7 @@ export default function UrgentPrayerNewPage() {
             <div>
               <CardTitle>작성 가이드</CardTitle>
               <CardDesc>
-                
+                아래 기준으로 적으면 다른 성도들이 더 빠르게 이해하고 함께 기도할 수 있어요.
               </CardDesc>
             </div>
             <div style={sectionBadgeMint}>Guide</div>
@@ -86,7 +87,7 @@ export default function UrgentPrayerNewPage() {
           <div style={helperPanel}>
             <div style={helperTitle}>좋은 예시</div>
             <div style={helperDesc}>
-              
+              “오늘 수술을 앞둔 가족을 위해 평안과 회복을 기도해 주세요.”
             </div>
           </div>
 
@@ -95,7 +96,8 @@ export default function UrgentPrayerNewPage() {
           <div style={helperPanel}>
             <div style={helperTitle}>작성 팁</div>
             <div style={helperDesc}>
-              
+              너무 긴 배경 설명보다 <strong>지금 당장 함께 기도해야 할 핵심 한 가지</strong>를
+              적는 것이 좋습니다.
             </div>
           </div>
 
