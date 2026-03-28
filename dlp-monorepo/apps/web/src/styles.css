@@ -51,7 +51,7 @@
   /* Focus ring */
   --ring: rgba(31, 203, 184, 0.28);
 
-  /* ===== Backward compatibility ===== */
+  /* ===== Backward-compat (기존 코드 호환) ===== */
   --card: var(--surface-2);
   --soft: var(--surface-soft);
   --mid: rgba(10, 18, 18, 0.18);
@@ -114,9 +114,9 @@ a { color: inherit; }
 .uiCardTitle { font-weight: 950; letter-spacing: -0.2px; }
 .uiCardDesc { margin-top: 4px; font-size: 12px; color: var(--muted); line-height: 1.45; }
 
-/* ===== Components: Button =====
+/* ===== Components: Button (Button.tsx 호환) =====
    - variant: uiBtnPrimary / uiBtnSecondary / uiBtnGhost / uiBtnDanger
-   - size: uiBtnMd / uiBtnLg + uiBtnSm
+   - size: uiBtnMd / uiBtnLg (권장) + uiBtnSm (옵션)
    - wide: uiBtnWide
 */
 .uiBtn {
