@@ -5,6 +5,7 @@ import { UiPrefsProvider } from './ui/UiPrefsContext';
 import AdminPage from './pages/AdminPage';
 import BibleGamePage from './pages/BibleGamePage';
 import BiblePage from './pages/BiblePage';
+import BibleBookmarksPage from './pages/BibleBookmarksPage';
 import BibleSearchPage from './pages/BibleSearchPage';
 import ChannelDetailPage from './pages/ChannelDetailPage';
 import ChannelsPage from './pages/ChannelsPage';
@@ -108,6 +109,7 @@ export default function App() {
                 <Route path="/mcheyne-calendar" element={<McheyneCalendarPage />} />
                 <Route path="/bible" element={<BiblePage />} />
                 <Route path="/bible-search" element={<BibleSearchPage />} />
+                <Route path="/bible-bookmarks" element={<BibleBookmarksPage />} />
                 <Route
                   path="/bible-game"
                   element={

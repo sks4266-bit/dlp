@@ -184,6 +184,10 @@ function makeVerseId(book: string, c: number, v: number) {
   return `${book}__${c}__${v}`;
 }
 
+function makeVerseRef(book: string, c: number, v: number) {
+  return `${book} ${c}:${v}`;
+}
+
 function parseSingleVerseRef(ref: string) {
   const match = ref.trim().match(/^(.+?)\s+(\d+):(\d+)$/);
   if (!match) return null;
@@ -278,6 +282,7 @@ export default function BibleSearchPage() {
   const [recentReads, setRecentReads] = useState<string[]>([]);
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
   const [currentBookmarkNote, setCurrentBookmarkNote] = useState('');
+  const [selectedVerseIds, setSelectedVerseIds] = useState<string[]>([]);
   const [highlightVerseIds, setHighlightVerseIds] = useState<string[]>([]);
   const [readData, setReadData] = useState<PassagePayload | null>(null);
   const [readLoading, setReadLoading] = useState(false);
@@ -456,13 +461,13 @@ export default function BibleSearchPage() {
       if (!options?.skipRecent) {
         setRecentReads((prev) => upsertRecent(RECENT_READ_KEY, prev, query));
       }
-      setHighlightVerseIds(
-        explicitHighlights.length
-          ? explicitHighlights
-          : inferredSingle
-            ? [makeVerseId(inferredSingle.book, inferredSingle.c, inferredSingle.v)]
-            : []
-      );
+      const nextSelectedVerseIds = explicitHighlights.length
+        ? explicitHighlights
+        : inferredSingle
+          ? [makeVerseId(inferredSingle.book, inferredSingle.c, inferredSingle.v)]
+          : [];
+      setHighlightVerseIds(nextSelectedVerseIds);
+      setSelectedVerseIds(nextSelectedVerseIds);
       setActiveTab('read');
       syncUrl('read', q, query);
       return true;
@@ -533,6 +538,47 @@ export default function BibleSearchPage() {
     void loadPassage(targetRef, { highlightVerseIds: [makeVerseId(item.book, item.c, item.v)] });
   }
 
+  function toggleVerseSelection(book: string, c: number, v: number) {
+    const verseId = makeVerseId(book, c, v);
+    setSelectedVerseIds((prev) => (prev.includes(verseId) ? prev.filter((item) => item !== verseId) : [...prev, verseId]));
+  }
+
+  function saveSelectedBookmarks(note: string) {
+    if (!readData || selectedVerseIds.length === 0) return;
+
+    const selectedRefs = readData.verses
+      .filter((verse) => selectedVerseIds.includes(makeVerseId(readData.book, verse.c, verse.v)))
+      .map((verse) => makeVerseRef(readData.book, verse.c, verse.v));
+
+    setBookmarks((prev) => {
+      const now = Date.now();
+      const noteValue = note.trim();
+      const next = [...prev];
+
+      selectedRefs.forEach((ref) => {
+        const existingIndex = next.findIndex((item) => item.ref === ref);
+        if (existingIndex >= 0) {
+          next[existingIndex] = { ...next[existingIndex], note: noteValue, updatedAt: now };
+        } else {
+          next.unshift({ ref, note: noteValue, savedAt: now, updatedAt: now });
+        }
+      });
+
+      const normalized = normalizeBookmarks(next);
+      saveBookmarks(BOOKMARK_READ_KEY, normalized);
+      return normalized;
+    });
+  }
+
+  function deleteSelectedBookmarks() {
+    if (selectedVerseIds.length === 0) return;
+    setBookmarks((prev) => {
+      const next = prev.filter((item) => !selectedVerseRefs.includes(item.ref));
+      saveBookmarks(BOOKMARK_READ_KEY, next);
+      return next;
+    });
+  }
+
   function saveOrUpdateBookmark(ref: string, note: string) {
     setBookmarks((prev) => {
       const now = Date.now();
@@ -598,16 +644,31 @@ export default function BibleSearchPage() {
     return () => window.clearTimeout(timer);
   }, [readData, highlightVerseIds]);
 
-  const currentBookmark = readData ? bookmarks.find((item) => item.ref === readData.ref) ?? null : null;
+  const selectedVerseRefs = useMemo(() => {
+    if (!readData) return [];
+    return readData.verses
+      .filter((verse) => selectedVerseIds.includes(makeVerseId(readData.book, verse.c, verse.v)))
+      .map((verse) => makeVerseRef(readData.book, verse.c, verse.v));
+  }, [readData, selectedVerseIds]);
+
+  const selectedBookmarks = useMemo(
+    () => bookmarks.filter((item) => selectedVerseRefs.includes(item.ref)),
+    [bookmarks, selectedVerseRefs]
+  );
 
   useEffect(() => {
-    setCurrentBookmarkNote(currentBookmark?.note ?? '');
-  }, [currentBookmark?.ref, currentBookmark?.note]);
+    if (selectedVerseRefs.length === 0) {
+      setCurrentBookmarkNote('');
+      return;
+    }
+    if (selectedVerseRefs.length === 1) {
+      setCurrentBookmarkNote(bookmarks.find((item) => item.ref === selectedVerseRefs[0])?.note ?? '');
+    }
+  }, [bookmarks, selectedVerseRefs]);
 
   const canPrev = data?.kind === 'text' && offset > 0;
   const canNext = data?.kind === 'text' ? offset + (data.items?.length ?? 0) < (data.total ?? 0) : false;
-  const isBookmarked = !!currentBookmark;
-  const sortedBookmarks = useMemo(() => [...bookmarks].sort((a, b) => b.updatedAt - a.updatedAt), [bookmarks]);
+  const allSelectedBookmarked = selectedVerseRefs.length > 0 && selectedVerseRefs.every((ref) => bookmarks.some((item) => item.ref === ref));
   const currentChapterRef = `${selectedBook || readData?.book || ''} ${readData?.range.c1 ?? selectedChapter}장`.trim();
 
   return (
@@ -851,54 +912,6 @@ export default function BibleSearchPage() {
                   ))}
                 </div>
 
-                {sortedBookmarks.length > 0 ? (
-                  <div style={bookmarkManageSection}>
-                    <div style={bookmarkManageHead}>
-                      <div style={miniLabel}>북마크 관리</div>
-                      <div style={bookmarkMetaText}>최신 수정 순으로 정렬됩니다.</div>
-                    </div>
-                    <div style={bookmarkList}>
-                      {sortedBookmarks.map((item) => (
-                        <div key={item.ref} style={bookmarkCard}>
-                          <div style={bookmarkCardTop}>
-                            <div>
-                              <div style={bookmarkRef}>★ {item.ref}</div>
-                              <div style={bookmarkDate}>저장 {formatBookmarkDate(item.savedAt)} · 수정 {formatBookmarkDate(item.updatedAt)}</div>
-                            </div>
-                            <div style={bookmarkActionInline}>
-                              <button
-                                type="button"
-                                style={bookmarkGhostBtn}
-                                onClick={() => {
-                                  setRefInput(item.ref);
-                                  setCurrentBookmarkNote(item.note);
-                                  void loadPassage(item.ref, { skipRecent: true });
-                                }}
-                              >
-                                열기
-                              </button>
-                              <button type="button" style={bookmarkDeleteBtn} onClick={() => deleteBookmark(item.ref)}>
-                                삭제
-                              </button>
-                            </div>
-                          </div>
-                          <textarea
-                            value={item.note}
-                            onChange={(e) => updateBookmarkDraft(item.ref, e.target.value)}
-                            placeholder="이 본문에 대한 메모를 남겨보세요."
-                            style={bookmarkNoteInput}
-                          />
-                          <div style={bookmarkCardFooter}>
-                            <button type="button" style={bookmarkSaveBtn} onClick={() => persistBookmarkNote(item.ref)}>
-                              메모 저장
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
                 {recentReads.length > 0 ? (
                   <div style={recentWrap}>
                     <div style={miniLabel}>최근 읽은 본문</div>
@@ -958,7 +971,7 @@ export default function BibleSearchPage() {
               <div style={guideList}>
                 <div style={guideItem}>• 카드형 책 선택: 구약 / 신약을 분리한 카드 버튼으로 원하는 책을 바로 선택</div>
                 <div style={guideItem}>• 장 네비게이션: 이전 장 / 다음 장 버튼으로 연속 읽기</div>
-                <div style={guideItem}>• 북마크와 강조: 자주 읽는 본문을 저장하고, 검색 결과에서 넘어온 절은 자동 강조</div>
+                <div style={guideItem}>• 절 선택 북마크: 원하는 절을 눌러 선택하고, 여러 절을 한 번에 북마크할 수 있어요.</div>
               </div>
             </Card>
           </section>
@@ -1074,22 +1087,31 @@ export default function BibleSearchPage() {
                 <div>
                   <div style={miniEyebrow}>READING</div>
                   <CardTitle style={sectionCardTitle}>{readData.ref}</CardTitle>
-                  <CardDesc style={sectionCardDesc}>{readData.totalVerses}절 · 검색 결과에서 이동한 절은 강조 표시됩니다.</CardDesc>
+                  <CardDesc style={sectionCardDesc}>{readData.totalVerses}절 · 북마크할 절을 눌러 선택하면 여러 절을 함께 저장할 수 있어요.</CardDesc>
                 </div>
                 <div style={readHeaderActions}>
                   <Button
                     type="button"
-                    variant={isBookmarked ? 'primary' : 'secondary'}
+                    variant={selectedVerseRefs.length > 0 ? 'primary' : 'secondary'}
                     size="md"
-                    onClick={() => saveOrUpdateBookmark(readData.ref, currentBookmarkNote)}
+                    onClick={() => saveSelectedBookmarks(currentBookmarkNote)}
+                    disabled={selectedVerseRefs.length === 0}
                   >
-                    {isBookmarked ? '북마크 업데이트' : '북마크 저장'}
+                    {selectedVerseRefs.length > 0 ? `선택 ${selectedVerseRefs.length}절 북마크 저장` : '절을 먼저 선택하세요'}
                   </Button>
-                  {isBookmarked ? (
-                    <Button type="button" variant="ghost" size="md" onClick={() => deleteBookmark(readData.ref)}>
-                      북마크 삭제
+                  {selectedVerseRefs.length > 0 ? (
+                    <Button type="button" variant="ghost" size="md" onClick={() => setSelectedVerseIds([])}>
+                      선택 해제
                     </Button>
                   ) : null}
+                  {allSelectedBookmarked ? (
+                    <Button type="button" variant="ghost" size="md" onClick={deleteSelectedBookmarks}>
+                      선택 북마크 삭제
+                    </Button>
+                  ) : null}
+                  <Button type="button" variant="secondary" size="md" onClick={() => nav('/bible-bookmarks')}>
+                    북마크 페이지
+                  </Button>
                   <Button
                     type="button"
                     variant="secondary"
@@ -1109,14 +1131,25 @@ export default function BibleSearchPage() {
               </div>
 
               <div style={bookmarkEditorBox}>
-                <div style={bookmarkEditorLabel}>북마크 메모</div>
+                <div style={bookmarkEditorLabel}>선택한 절 메모</div>
                 <textarea
                   value={currentBookmarkNote}
                   onChange={(e) => setCurrentBookmarkNote(e.target.value)}
-                  placeholder="이 본문에 남기고 싶은 묵상, 기도제목, 핵심 문장을 적어보세요."
+                  placeholder="선택한 절에 함께 저장할 묵상, 기도제목, 핵심 문장을 적어보세요."
                   style={bookmarkEditorInput}
                 />
-                <div style={bookmarkEditorHint}>{isBookmarked ? '메모를 수정한 뒤 북마크 업데이트를 누르면 최신 날짜로 정렬됩니다.' : '메모를 입력한 뒤 북마크 저장을 누르면 함께 저장됩니다.'}</div>
+                <div style={bookmarkEditorHint}>
+                  {selectedVerseRefs.length === 0
+                    ? '먼저 본문 아래에서 북마크할 절을 선택해 주세요.'
+                    : selectedVerseRefs.length === 1
+                      ? '선택한 절 1개에 메모를 저장합니다.'
+                      : `선택한 ${selectedVerseRefs.length}개 절에 같은 메모가 함께 저장됩니다.`}
+                </div>
+                <div style={bookmarkSelectionMeta}>
+                  {selectedVerseRefs.length > 0
+                    ? `선택한 절: ${selectedVerseRefs.join(', ')}`
+                    : '아직 선택한 절이 없습니다.'}
+                </div>
               </div>
 
               <div style={chapterNavRowRead}>
@@ -1133,11 +1166,28 @@ export default function BibleSearchPage() {
                 {readData.verses.map((verse) => {
                   const verseId = makeVerseId(readData.book, verse.c, verse.v);
                   const focused = highlightVerseIds.includes(verseId);
+                  const selected = selectedVerseIds.includes(verseId);
+                  const isSaved = bookmarks.some((item) => item.ref === makeVerseRef(readData.book, verse.c, verse.v));
+                  const verseCardStyle = focused
+                    ? selected
+                      ? readerVerseCardSelectedFocus
+                      : readerVerseCardFocus
+                    : selected
+                      ? readerVerseCardSelected
+                      : readerVerseCard;
                   return (
-                    <div id={`bible-verse-${verseId}`} key={`${verse.c}:${verse.v}`} style={focused ? readerVerseCardFocus : readerVerseCard}>
-                      <div style={readerVerseNo}>{verse.v}</div>
+                    <div
+                      id={`bible-verse-${verseId}`}
+                      key={`${verse.c}:${verse.v}`}
+                      style={verseCardStyle}
+                      onClick={() => toggleVerseSelection(readData.book, verse.c, verse.v)}
+                    >
+                      <div style={selected ? readerVerseNoSelected : readerVerseNo}>{verse.v}</div>
                       <div style={readerVerseBody}>
-                        <div style={readerVerseRef}>{`${readData.book} ${verse.c}:${verse.v}`}</div>
+                        <div style={readerVerseTopRow}>
+                          <div style={readerVerseRef}>{`${readData.book} ${verse.c}:${verse.v}`}</div>
+                          {isSaved ? <div style={readerVerseSavedBadge}>저장됨</div> : null}
+                        </div>
                         <div style={readerVerseText}>{verse.t}</div>
                       </div>
                     </div>
@@ -1832,7 +1882,8 @@ const readerVerseCard: CSSProperties = {
   borderRadius: 18,
   border: '1px solid rgba(224,231,236,0.9)',
   background: 'rgba(250,252,255,0.88)',
-  scrollMarginTop: 100
+  scrollMarginTop: 100,
+  cursor: 'pointer'
 };
 
 const readerVerseCardFocus: CSSProperties = {
@@ -1840,6 +1891,20 @@ const readerVerseCardFocus: CSSProperties = {
   border: '1px solid rgba(245,188,72,0.65)',
   background: 'linear-gradient(180deg, rgba(255,248,220,0.96), rgba(255,255,255,0.92))',
   boxShadow: '0 12px 26px rgba(245,188,72,0.18)'
+};
+
+const readerVerseCardSelected: CSSProperties = {
+  ...readerVerseCard,
+  border: '1px solid rgba(114,215,199,0.5)',
+  background: 'linear-gradient(180deg, rgba(236,253,248,0.96), rgba(255,255,255,0.92))',
+  boxShadow: '0 12px 26px rgba(114,215,199,0.14)'
+};
+
+const readerVerseCardSelectedFocus: CSSProperties = {
+  ...readerVerseCard,
+  border: '1px solid rgba(71,180,162,0.72)',
+  background: 'linear-gradient(180deg, rgba(230,255,246,0.98), rgba(255,249,228,0.94))',
+  boxShadow: '0 12px 28px rgba(114,215,199,0.18)'
 };
 
 const readerVerseNo: CSSProperties = {
@@ -1855,8 +1920,22 @@ const readerVerseNo: CSSProperties = {
   justifyContent: 'center'
 };
 
+const readerVerseNoSelected: CSSProperties = {
+  ...readerVerseNo,
+  background: '#2f7f73',
+  color: '#ffffff'
+};
+
 const readerVerseBody: CSSProperties = {
   minWidth: 0
+};
+
+const readerVerseTopRow: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 8,
+  flexWrap: 'wrap'
 };
 
 const readerVerseRef: CSSProperties = {
@@ -1870,6 +1949,18 @@ const readerVerseText: CSSProperties = {
   color: '#24313a',
   fontSize: 15,
   lineHeight: 1.72
+};
+
+const readerVerseSavedBadge: CSSProperties = {
+  minHeight: 24,
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: '0 9px',
+  borderRadius: 999,
+  background: 'rgba(114,215,199,0.16)',
+  color: '#2f7f73',
+  fontSize: 11,
+  fontWeight: 900
 };
 
 const bookmarkManageSection: CSSProperties = {
@@ -2017,6 +2108,15 @@ const bookmarkEditorHint: CSSProperties = {
   color: '#738089',
   fontSize: 12,
   lineHeight: 1.5
+};
+
+const bookmarkSelectionMeta: CSSProperties = {
+  marginTop: 10,
+  color: '#4d5d66',
+  fontSize: 12,
+  lineHeight: 1.6,
+  fontWeight: 700,
+  wordBreak: 'keep-all'
 };
 
 const mark: CSSProperties = {
