@@ -32,7 +32,7 @@ type SearchPayloadRef = {
   text: string;
 };
 
-type Payload = SearchPayloadText | SearchPayloadRef;
+type SearchPayload = SearchPayloadText | SearchPayloadRef;
 
 type ContextPayload = {
   book: string;
@@ -44,11 +44,30 @@ type ContextPayload = {
   text: string;
 };
 
-const RECENT_KEY = 'dlp_recent_bible_searches_v1';
+type PassagePayload = {
+  refRaw: string;
+  ref: string;
+  book: string;
+  range: { kind: 'chapter' | 'verse'; c1: number; v1: number | null; c2: number; v2: number | null };
+  verses: { c: number; v: number; t: string }[];
+  totalVerses: number;
+  text: string;
+};
 
-function loadRecent(): string[] {
+type BooksPayload = {
+  version: string;
+  books: string[];
+};
+
+type TabType = 'search' | 'read';
+
+const RECENT_SEARCH_KEY = 'dlp_recent_bible_searches_v1';
+const RECENT_READ_KEY = 'dlp_recent_bible_reads_v1';
+const QUICK_READ_REFS = ['창세기 1장', '시편 23편', '요한복음 3장', '로마서 8장'];
+
+function loadRecent(key: string): string[] {
   try {
-    const raw = localStorage.getItem(RECENT_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return [];
     const arr = JSON.parse(raw);
     return Array.isArray(arr) ? arr.map((x) => String(x)).filter(Boolean) : [];
@@ -57,19 +76,19 @@ function loadRecent(): string[] {
   }
 }
 
-function saveRecent(list: string[]) {
+function saveRecent(key: string, list: string[]) {
   try {
-    localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 10)));
+    localStorage.setItem(key, JSON.stringify(list.slice(0, 10)));
   } catch {
     // ignore
   }
 }
 
-function upsertRecent(list: string[], q: string) {
-  const s = q.trim();
+function upsertRecent(key: string, list: string[], value: string) {
+  const s = value.trim();
   if (!s) return list;
   const next = [s, ...list.filter((x) => x !== s)].slice(0, 10);
-  saveRecent(next);
+  saveRecent(key, next);
   return next;
 }
 
@@ -129,10 +148,14 @@ export default function BibleSearchPage() {
 
   const qs = useMemo(() => new URLSearchParams(loc.search), [loc.search]);
   const initialQ = qs.get('q') || '';
+  const initialRef = qs.get('ref') || '';
+  const initialTab = qs.get('tab') === 'read' || initialRef.trim() ? 'read' : 'search';
+
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
 
   const [q, setQ] = useState(initialQ);
   const [recent, setRecent] = useState<string[]>([]);
-  const [data, setData] = useState<Payload | null>(null);
+  const [data, setData] = useState<SearchPayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
@@ -143,9 +166,38 @@ export default function BibleSearchPage() {
   const [ctxErr, setCtxErr] = useState<string | null>(null);
   const [ctxData, setCtxData] = useState<ContextPayload | null>(null);
 
+  const [refInput, setRefInput] = useState(initialRef);
+  const [recentReads, setRecentReads] = useState<string[]>([]);
+  const [readData, setReadData] = useState<PassagePayload | null>(null);
+  const [readLoading, setReadLoading] = useState(false);
+  const [readError, setReadError] = useState<string | null>(null);
+  const [readCooldownUntil, setReadCooldownUntil] = useState(0);
+  const [books, setBooks] = useState<string[]>([]);
+  const [selectedBook, setSelectedBook] = useState('');
+  const [selectedChapter, setSelectedChapter] = useState<number>(1);
+
   const limit = 20;
   const needles = useMemo(() => tokenizeNeedles(q), [q]);
   const cooldownSec = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
+  const readCooldownSec = Math.max(0, Math.ceil((readCooldownUntil - Date.now()) / 1000));
+
+  function syncUrl(tab: TabType, nextQ?: string, nextRef?: string) {
+    const params = new URLSearchParams();
+    params.set('tab', tab);
+
+    const qValue = (nextQ ?? q).trim();
+    const refValue = (nextRef ?? refInput).trim();
+
+    if (tab === 'search' && qValue) params.set('q', qValue);
+    if (tab === 'read' && refValue) params.set('ref', refValue);
+
+    nav(`/bible-search${params.toString() ? `?${params.toString()}` : ''}`, { replace: true });
+  }
+
+  function switchTab(tab: TabType) {
+    setActiveTab(tab);
+    syncUrl(tab);
+  }
 
   function goLogin() {
     const next = `${loc.pathname}${loc.search}`;
@@ -188,11 +240,12 @@ export default function BibleSearchPage() {
         throw new Error(await readErrorMessage(res, '검색에 실패했습니다.'));
       }
 
-      const payload = (await res.json()) as Payload;
+      const payload = (await res.json()) as SearchPayload;
       setData(payload);
       setOffset(nextOffset);
-      setRecent((prev) => upsertRecent(prev, query));
-      nav(`/bible-search?${new URLSearchParams({ q: query }).toString()}`, { replace: true });
+      setRecent((prev) => upsertRecent(RECENT_SEARCH_KEY, prev, query));
+      setActiveTab('search');
+      syncUrl('search', query, refInput);
     } catch (e: any) {
       setData(null);
       setError(String(e?.message ?? '검색에 실패했습니다.'));
@@ -239,17 +292,95 @@ export default function BibleSearchPage() {
     }
   }
 
+  async function loadPassage(targetRef: string) {
+    const query = targetRef.trim();
+    if (!query) {
+      setReadError('읽을 본문을 입력해 주세요.');
+      setReadData(null);
+      return;
+    }
+
+    setReadLoading(true);
+    setReadError(null);
+
+    try {
+      const res = await apiFetch(`/api/bible/passage?${new URLSearchParams({ ref: query }).toString()}`);
+
+      if (res.status === 401) {
+        goLogin();
+        return;
+      }
+
+      if (res.status === 429) {
+        const waitMs = Number(res.headers.get('X-RateLimit-Reset') ?? 0) - Date.now();
+        const safeWait = waitMs > 1000 ? waitMs : 30000;
+        setReadCooldownUntil(Date.now() + safeWait);
+        throw new Error(`본문 조회 요청이 많습니다. ${Math.ceil(safeWait / 1000)}초 후 다시 시도해 주세요.`);
+      }
+
+      if (!res.ok) {
+        throw new Error(await readErrorMessage(res, '본문을 불러오지 못했습니다.'));
+      }
+
+      const payload = (await res.json()) as PassagePayload;
+      setReadData(payload);
+      setRefInput(query);
+      setSelectedBook(payload.book);
+      setSelectedChapter(payload.range.c1);
+      setRecentReads((prev) => upsertRecent(RECENT_READ_KEY, prev, query));
+      setActiveTab('read');
+      syncUrl('read', q, query);
+    } catch (e: any) {
+      setReadData(null);
+      setReadError(String(e?.message ?? '본문을 불러오지 못했습니다.'));
+    } finally {
+      setReadLoading(false);
+    }
+  }
+
+  async function loadBooks() {
+    try {
+      const res = await apiFetch('/api/bible/books');
+      if (!res.ok) return;
+      const payload = (await res.json()) as BooksPayload;
+      const nextBooks = Array.isArray(payload?.books) ? payload.books : [];
+      setBooks(nextBooks);
+      setSelectedBook((prev) => prev || nextBooks[0] || '');
+    } catch {
+      // ignore
+    }
+  }
+
+  function openChapterSelection() {
+    if (!selectedBook || !Number.isFinite(selectedChapter) || selectedChapter <= 0) {
+      setReadError('책과 장을 확인해 주세요.');
+      return;
+    }
+    void loadPassage(`${selectedBook} ${selectedChapter}장`);
+  }
+
+  function openReadTabWithRef(targetRef: string) {
+    setCtxOpen(false);
+    setActiveTab('read');
+    setRefInput(targetRef);
+    void loadPassage(targetRef);
+  }
+
   useEffect(() => {
-    setRecent(loadRecent());
-    if (initialQ.trim()) {
-      run(initialQ, 0);
+    setRecent(loadRecent(RECENT_SEARCH_KEY));
+    setRecentReads(loadRecent(RECENT_READ_KEY));
+    void loadBooks();
+
+    if (initialRef.trim()) {
+      void loadPassage(initialRef);
+    } else if (initialQ.trim()) {
+      void run(initialQ, 0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const canPrev = data?.kind === 'text' && offset > 0;
-  const canNext =
-    data?.kind === 'text' ? offset + (data.items?.length ?? 0) < (data.total ?? 0) : false;
+  const canNext = data?.kind === 'text' ? offset + (data.items?.length ?? 0) < (data.total ?? 0) : false;
 
   return (
     <div style={page}>
@@ -258,84 +389,218 @@ export default function BibleSearchPage() {
 
         <Card pad style={heroCard}>
           <div style={badgeMint}>BIBLE SEARCH</div>
-          <CardTitle style={heroTitle}>단어와 구절로 바로 찾기</CardTitle>
-          <CardDesc style={heroDesc}>
+          <CardTitle style={heroTitle}>찾기와 읽기를 한곳에서</CardTitle>
+          <CardDesc style={heroDesc}>검색 탭에서는 단어와 구절을 찾고, 본문 읽기 탭에서는 개역개정 본문을 바로 열어 읽을 수 있어요.</CardDesc>
 
-          </CardDesc>
+          <div style={tabRow}>
+            <button
+              type="button"
+              style={{ ...tabButton, ...(activeTab === 'search' ? tabButtonActive : null) }}
+              onClick={() => switchTab('search')}
+            >
+              검색
+            </button>
+            <button
+              type="button"
+              style={{ ...tabButton, ...(activeTab === 'read' ? tabButtonActive : null) }}
+              onClick={() => switchTab('read')}
+            >
+              본문 읽기
+            </button>
+          </div>
 
-          <form
-            style={searchForm}
-            onSubmit={(e) => {
-              e.preventDefault();
-              run(q, 0);
-            }}
-          >
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              style={input}
-              placeholder="예) 사랑 / 요 3:16 / 믿음 소망 사랑"
-            />
-
-            <div style={actionGrid}>
-              <Button type="submit" variant="primary" size="lg" wide disabled={loading}>
-                {loading ? '검색 중…' : '검색'}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="lg"
-                wide
-                onClick={() => {
-                  setQ('');
-                  setData(null);
-                  setError(null);
-                  nav('/bible-search', { replace: true });
+          {activeTab === 'search' ? (
+            <>
+              <form
+                style={searchForm}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void run(q, 0);
                 }}
               >
-                초기화
-              </Button>
-            </div>
-          </form>
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  style={input}
+                  placeholder="예) 사랑 / 요 3:16 / 믿음 소망 사랑"
+                />
 
-          {recent.length > 0 ? (
-            <div style={recentWrap}>
-              <div style={miniLabel}>최근 검색</div>
-              <div style={chipRow}>
-                {recent.slice(0, 8).map((item) => (
-                  <button
-                    key={item}
+                <div style={actionGrid}>
+                  <Button type="submit" variant="primary" size="lg" wide disabled={loading}>
+                    {loading ? '검색 중…' : '검색'}
+                  </Button>
+                  <Button
                     type="button"
-                    style={chipBtn}
+                    variant="secondary"
+                    size="lg"
+                    wide
                     onClick={() => {
-                      setQ(item);
-                      run(item, 0);
+                      setQ('');
+                      setData(null);
+                      setError(null);
+                      syncUrl('search', '', refInput);
                     }}
                   >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
+                    초기화
+                  </Button>
+                </div>
+              </form>
 
-          {cooldownSec > 0 ? (
-            <div style={cooldownBox}>
-              요청이 많습니다. {cooldownSec}초 후 다시 시도해 주세요.
-              {!me ? ' 로그인하면 제한이 완화될 수 있어요.' : ''}
-            </div>
-          ) : null}
+              {recent.length > 0 ? (
+                <div style={recentWrap}>
+                  <div style={miniLabel}>최근 검색</div>
+                  <div style={chipRow}>
+                    {recent.slice(0, 8).map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        style={chipBtn}
+                        onClick={() => {
+                          setQ(item);
+                          void run(item, 0);
+                        }}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {cooldownSec > 0 ? (
+                <div style={cooldownBox}>
+                  요청이 많습니다. {cooldownSec}초 후 다시 시도해 주세요.
+                  {!me ? ' 로그인하면 제한이 완화될 수 있어요.' : ''}
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <div style={readerStack}>
+                <div style={readerPanel}>
+                  <div style={miniLabel}>빠른 장 읽기</div>
+                  <div style={readerSelectGrid}>
+                    <select value={selectedBook} onChange={(e) => setSelectedBook(e.target.value)} style={selectInput}>
+                      {books.length === 0 ? <option value="">책 불러오는 중…</option> : null}
+                      {books.map((book) => (
+                        <option key={book} value={book}>
+                          {book}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min={1}
+                      value={selectedChapter}
+                      onChange={(e) => setSelectedChapter(Math.max(1, Number(e.target.value || 1)))}
+                      style={chapterInput}
+                      placeholder="장"
+                    />
+                  </div>
+                  <div style={actionGridCompact}>
+                    <Button type="button" variant="primary" size="md" wide onClick={openChapterSelection} disabled={readLoading || !selectedBook}>
+                      선택한 장 열기
+                    </Button>
+                  </div>
+                </div>
+
+                <form
+                  style={searchForm}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void loadPassage(refInput);
+                  }}
+                >
+                  <div style={miniLabel}>구간 직접 열기</div>
+                  <input
+                    value={refInput}
+                    onChange={(e) => setRefInput(e.target.value)}
+                    style={input}
+                    placeholder="예) 창세기 1장 / 요한복음 3:16~18 / 시편 119:1~24"
+                  />
+
+                  <div style={actionGrid}>
+                    <Button type="submit" variant="primary" size="lg" wide disabled={readLoading}>
+                      {readLoading ? '불러오는 중…' : '본문 열기'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="lg"
+                      wide
+                      onClick={() => {
+                        setRefInput('');
+                        setReadData(null);
+                        setReadError(null);
+                        syncUrl('read', q, '');
+                      }}
+                    >
+                      초기화
+                    </Button>
+                  </div>
+                </form>
+
+                <div style={readerHintBox}>
+                  지원 형식: <b>책 장</b> / <b>책 장~장</b> / <b>책 장:절~절</b> / <b>책 장:절~장:절</b>
+                </div>
+
+                <div style={miniLabel}>바로 열기</div>
+                <div style={chipRow}>
+                  {QUICK_READ_REFS.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      style={chipBtn}
+                      onClick={() => {
+                        setRefInput(item);
+                        void loadPassage(item);
+                      }}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+
+                {recentReads.length > 0 ? (
+                  <div style={recentWrap}>
+                    <div style={miniLabel}>최근 읽은 본문</div>
+                    <div style={chipRow}>
+                      {recentReads.slice(0, 8).map((item) => (
+                        <button
+                          key={item}
+                          type="button"
+                          style={chipBtn}
+                          onClick={() => {
+                            setRefInput(item);
+                            void loadPassage(item);
+                          }}
+                        >
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {readCooldownSec > 0 ? (
+                  <div style={cooldownBox}>
+                    본문 조회 요청이 많습니다. {readCooldownSec}초 후 다시 시도해 주세요.
+                    {!me ? ' 로그인하면 제한이 완화될 수 있어요.' : ''}
+                  </div>
+                ) : null}
+              </div>
+            </>
+          )}
         </Card>
 
-        {error ? <ErrorBox text={error} onRetry={() => run(q, offset)} /> : null}
+        {activeTab === 'search' ? error ? <ErrorBox text={error} onRetry={() => void run(q, offset)} /> : null : null}
+        {activeTab === 'read' ? readError ? <ErrorBox text={readError} onRetry={() => void loadPassage(refInput)} /> : null : null}
 
-        {!data && !loading ? (
+        {activeTab === 'search' && !data && !loading ? (
           <section style={sectionWrap}>
             <Card pad style={sectionCard}>
               <CardTitle style={sectionCardTitle}>검색 안내</CardTitle>
-              <CardDesc style={sectionCardDesc}>
-                단어 검색과 성경 구절 검색을 모두 지원합니다.
-              </CardDesc>
+              <CardDesc style={sectionCardDesc}>단어 검색과 성경 구절 검색을 모두 지원합니다.</CardDesc>
 
               <div style={guideList}>
                 <div style={guideItem}>• 단어 검색: 믿음 소망 사랑</div>
@@ -346,7 +611,22 @@ export default function BibleSearchPage() {
           </section>
         ) : null}
 
-        {loading ? (
+        {activeTab === 'read' && !readData && !readLoading ? (
+          <section style={sectionWrap}>
+            <Card pad style={sectionCard}>
+              <CardTitle style={sectionCardTitle}>본문 읽기 안내</CardTitle>
+              <CardDesc style={sectionCardDesc}>개역개정 본문을 장 단위로 열거나 원하는 절 범위를 직접 입력해 읽을 수 있어요.</CardDesc>
+
+              <div style={guideList}>
+                <div style={guideItem}>• 빠른 장 읽기: 책과 장을 선택해서 바로 열기</div>
+                <div style={guideItem}>• 구간 직접 열기: 예) 요한복음 3:16~18</div>
+                <div style={guideItem}>• 검색 결과나 문맥 보기에서 원하는 본문을 바로 읽기 탭으로 이동 가능</div>
+              </div>
+            </Card>
+          </section>
+        ) : null}
+
+        {activeTab === 'search' && loading ? (
           <div style={{ marginTop: 14, display: 'grid', gap: 12 }}>
             <SkeletonCard />
             <SkeletonCard />
@@ -354,7 +634,14 @@ export default function BibleSearchPage() {
           </div>
         ) : null}
 
-        {data?.kind === 'ref' ? (
+        {activeTab === 'read' && readLoading ? (
+          <div style={{ marginTop: 14, display: 'grid', gap: 12 }}>
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        ) : null}
+
+        {activeTab === 'search' && data?.kind === 'ref' ? (
           <section style={sectionWrap}>
             <Card pad style={sectionCard}>
               <div style={resultTop}>
@@ -362,6 +649,9 @@ export default function BibleSearchPage() {
                   <div style={miniEyebrow}>REFERENCE</div>
                   <CardTitle style={sectionCardTitle}>{data.ref}</CardTitle>
                 </div>
+                <Button type="button" variant="secondary" size="md" onClick={() => openReadTabWithRef(data.ref)}>
+                  본문 읽기
+                </Button>
               </div>
 
               <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
@@ -376,7 +666,7 @@ export default function BibleSearchPage() {
           </section>
         ) : null}
 
-        {data?.kind === 'text' ? (
+        {activeTab === 'search' && data?.kind === 'text' ? (
           <section style={sectionWrap}>
             <Card pad style={sectionCard}>
               <div style={resultTop}>
@@ -398,12 +688,10 @@ export default function BibleSearchPage() {
                       key={`${item.book}-${item.c}-${item.v}`}
                       type="button"
                       style={resultBtn}
-                      onClick={() => openContext(item)}
+                      onClick={() => void openContext(item)}
                     >
                       <div style={resultRef}>{`${item.book} ${item.c}:${item.v}`}</div>
-                      <div style={resultText}>
-                        {highlightText(item.snippet || item.t, needles)}
-                      </div>
+                      <div style={resultText}>{highlightText(item.snippet || item.t, needles)}</div>
                     </button>
                   ))
                 )}
@@ -415,7 +703,7 @@ export default function BibleSearchPage() {
                     type="button"
                     variant="secondary"
                     size="md"
-                    onClick={() => run(q, Math.max(0, offset - limit))}
+                    onClick={() => void run(q, Math.max(0, offset - limit))}
                     disabled={!canPrev}
                   >
                     이전
@@ -427,13 +715,44 @@ export default function BibleSearchPage() {
                     type="button"
                     variant="secondary"
                     size="md"
-                    onClick={() => run(q, offset + limit)}
+                    onClick={() => void run(q, offset + limit)}
                     disabled={!canNext}
                   >
                     다음
                   </Button>
                 </div>
               ) : null}
+            </Card>
+          </section>
+        ) : null}
+
+        {activeTab === 'read' && readData ? (
+          <section style={sectionWrap}>
+            <Card pad style={sectionCard}>
+              <div style={resultTop}>
+                <div>
+                  <div style={miniEyebrow}>READING</div>
+                  <CardTitle style={sectionCardTitle}>{readData.ref}</CardTitle>
+                  <CardDesc style={sectionCardDesc}>{readData.totalVerses}절</CardDesc>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="md"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(readData.text);
+                      alert('본문을 복사했습니다.');
+                    } catch {
+                      alert('복사에 실패했습니다.');
+                    }
+                  }}
+                >
+                  복사
+                </Button>
+              </div>
+
+              <pre style={readerTextBox}>{readData.text}</pre>
             </Card>
           </section>
         ) : null}
@@ -467,9 +786,20 @@ export default function BibleSearchPage() {
                 })}
               </div>
 
-              <Button type="button" variant="secondary" size="lg" wide onClick={() => setCtxOpen(false)}>
-                닫기
-              </Button>
+              <div style={sheetActionRow}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="lg"
+                  wide
+                  onClick={() => openReadTabWithRef(`${ctxData.book} ${ctxData.focus.c}:${ctxData.focus.v}`)}
+                >
+                  이 본문 읽기
+                </Button>
+                <Button type="button" variant="ghost" size="lg" wide onClick={() => setCtxOpen(false)}>
+                  닫기
+                </Button>
+              </div>
             </div>
           ) : null}
         </Sheet>
@@ -513,7 +843,7 @@ function Sheet({
   if (!open) return null;
 
   return (
-    <div role="dialog" aria-modal="true" style={sheetBackdrop} onClick={onClose}>
+    <div style={sheetBackdrop} onClick={onClose}>
       <div style={sheet} onClick={(e) => e.stopPropagation()}>
         <div style={sheetHandleWrap}>
           <div style={sheetHandle} />
@@ -572,6 +902,32 @@ const heroDesc: CSSProperties = {
   lineHeight: 1.6
 };
 
+const tabRow: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 8,
+  marginTop: 16,
+  marginBottom: 4
+};
+
+const tabButton: CSSProperties = {
+  minHeight: 44,
+  borderRadius: 16,
+  border: '1px solid rgba(221,228,233,0.95)',
+  background: 'rgba(255,255,255,0.84)',
+  color: '#61707a',
+  fontSize: 14,
+  fontWeight: 900,
+  cursor: 'pointer',
+  boxShadow: '0 8px 18px rgba(77,90,110,0.05)'
+};
+
+const tabButtonActive: CSSProperties = {
+  background: 'linear-gradient(180deg, rgba(236,253,248,0.96), rgba(222,247,241,0.92))',
+  border: '1px solid rgba(114,215,199,0.3)',
+  color: '#257567'
+};
+
 const searchForm: CSSProperties = {
   display: 'grid',
   gap: 10,
@@ -591,10 +947,72 @@ const input: CSSProperties = {
   boxSizing: 'border-box'
 };
 
+const selectInput: CSSProperties = {
+  width: '100%',
+  height: 48,
+  borderRadius: 16,
+  border: '1px solid rgba(221,228,233,0.95)',
+  background: 'rgba(255,255,255,0.92)',
+  padding: '0 14px',
+  fontSize: 14,
+  color: '#24313a',
+  outline: 'none',
+  boxSizing: 'border-box'
+};
+
+const chapterInput: CSSProperties = {
+  width: '100%',
+  height: 48,
+  borderRadius: 16,
+  border: '1px solid rgba(221,228,233,0.95)',
+  background: 'rgba(255,255,255,0.92)',
+  padding: '0 14px',
+  fontSize: 14,
+  color: '#24313a',
+  outline: 'none',
+  boxSizing: 'border-box'
+};
+
 const actionGrid: CSSProperties = {
   display: 'grid',
   gap: 10,
   marginTop: 4
+};
+
+const actionGridCompact: CSSProperties = {
+  display: 'grid',
+  gap: 8,
+  marginTop: 10
+};
+
+const readerStack: CSSProperties = {
+  display: 'grid',
+  gap: 14,
+  marginTop: 16
+};
+
+const readerPanel: CSSProperties = {
+  padding: '14px 14px 12px',
+  borderRadius: 18,
+  border: '1px solid rgba(224,231,236,0.9)',
+  background: 'rgba(255,255,255,0.74)'
+};
+
+const readerSelectGrid: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 92px',
+  gap: 8,
+  marginTop: 8
+};
+
+const readerHintBox: CSSProperties = {
+  padding: '12px 14px',
+  borderRadius: 16,
+  background: 'rgba(247,250,251,0.88)',
+  border: '1px solid rgba(224,231,236,0.9)',
+  color: '#5f6d75',
+  fontSize: 13,
+  lineHeight: 1.55
 };
 
 const recentWrap: CSSProperties = {
@@ -760,6 +1178,21 @@ const verseText: CSSProperties = {
   lineHeight: 1.65
 };
 
+const readerTextBox: CSSProperties = {
+  marginTop: 14,
+  marginBottom: 0,
+  whiteSpace: 'pre-wrap',
+  fontSize: 14,
+  lineHeight: 1.72,
+  color: '#24313a',
+  padding: 14,
+  borderRadius: 18,
+  border: '1px solid rgba(224,231,236,0.9)',
+  background: 'rgba(250,252,255,0.88)',
+  maxHeight: 620,
+  overflow: 'auto'
+};
+
 const mark: CSSProperties = {
   background: 'rgba(255,235,153,0.88)',
   color: '#4e4320',
@@ -864,6 +1297,11 @@ const sheetTitle: CSSProperties = {
 const sheetBody: CSSProperties = {
   display: 'grid',
   gap: 14
+};
+
+const sheetActionRow: CSSProperties = {
+  display: 'grid',
+  gap: 8
 };
 
 const contextRef: CSSProperties = {
