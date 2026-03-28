@@ -133,7 +133,7 @@ export default function DlpPage() {
   return (
     <div style={page}>
       <div style={pageInner}>
-        <TopBar title="DLP 체크리스트" backTo="/" />
+        <TopBar title="DLP 체크리스트" backTo="/" hideAuthActions />
 
         <Card pad style={heroCard}>
           <div style={badgeMint}>TODAY CHECK</div>
@@ -409,12 +409,15 @@ const heroDesc: CSSProperties = {
 const fieldGrid: CSSProperties = {
   display: 'grid',
   gap: 10,
-  marginTop: 16
+  marginTop: 16,
+  width: '100%',
+  minWidth: 0
 };
 
 const field: CSSProperties = {
   display: 'grid',
-  gap: 8
+  gap: 8,
+  minWidth: 0
 };
 
 const fieldLabel: CSSProperties = {
@@ -424,7 +427,10 @@ const fieldLabel: CSSProperties = {
 };
 
 const input: CSSProperties = {
+  display: 'block',
   width: '100%',
+  minWidth: 0,
+  maxWidth: '100%',
   height: 52,
   borderRadius: 18,
   border: '1px solid rgba(221,228,233,0.95)',
@@ -433,7 +439,9 @@ const input: CSSProperties = {
   fontSize: 15,
   color: '#24313a',
   outline: 'none',
-  boxSizing: 'border-box'
+  boxSizing: 'border-box',
+  WebkitAppearance: 'none',
+  appearance: 'none'
 };
 
 const statGrid: CSSProperties = {

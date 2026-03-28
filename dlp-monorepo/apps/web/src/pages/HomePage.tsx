@@ -1739,7 +1739,7 @@ const quickBtn: CSSProperties = {
 const quickCard: CSSProperties = {
   width: '100%',
   minWidth: 0,
-  minHeight: 86,
+  minHeight: 96,
   borderRadius: 20,
   background: 'rgba(255,255,255,0.72)',
   border: '1px solid rgba(255,255,255,0.56)',
@@ -1747,19 +1747,19 @@ const quickCard: CSSProperties = {
 };
 
 const quickInner: CSSProperties = {
-  minHeight: 86,
+  minHeight: 96,
   display: 'flex',
   alignItems: 'center',
-  gap: 10,
-  padding: '14px 12px',
+  gap: 8,
+  padding: '13px 10px',
   width: '100%',
   boxSizing: 'border-box'
 };
 
 const quickIconWrap: CSSProperties = {
-  width: 40,
-  height: 40,
-  borderRadius: 14,
+  width: 36,
+  height: 36,
+  borderRadius: 12,
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -1773,19 +1773,22 @@ const quickTextWrap: CSSProperties = {
 
 const quickTitle: CSSProperties = {
   color: '#24313a',
-  fontSize: 13,
+  fontSize: 12,
   fontWeight: 800,
-  lineHeight: 1.2,
+  lineHeight: 1.25,
   letterSpacing: '-0.02em',
-  whiteSpace: 'nowrap',
+  whiteSpace: 'normal',
+  wordBreak: 'keep-all',
   overflow: 'hidden',
-  textOverflow: 'ellipsis'
+  display: '-webkit-box',
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: 'vertical'
 };
 
 const quickDesc: CSSProperties = {
-  marginTop: 3,
+  marginTop: 4,
   color: '#69767e',
-  fontSize: 11,
+  fontSize: 10.5,
   fontWeight: 700,
   lineHeight: 1.2,
   whiteSpace: 'nowrap',
@@ -1795,9 +1798,10 @@ const quickDesc: CSSProperties = {
 
 const quickArrow: CSSProperties = {
   color: '#96a1a8',
-  fontSize: 18,
+  fontSize: 16,
   fontWeight: 700,
-  flex: '0 0 auto'
+  flex: '0 0 auto',
+  marginLeft: 2
 };
 
 const wideBtn: CSSProperties = {
