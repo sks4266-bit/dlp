@@ -7,6 +7,13 @@ import UrgentPrayerComposer from '../components/urgent/UrgentPrayerComposer';
 import Button from '../ui/Button';
 import { Card, CardDesc, CardTitle } from '../ui/Card';
 
+type HomeBookmarkItem = {
+  ref: string;
+  note: string;
+  savedAt: number;
+  updatedAt: number;
+};
+
 type HomePayload = {
   urgentTicker: UrgentTickerItem[];
   mcheyneToday: null | {
@@ -34,10 +41,106 @@ type HomePayload = {
 
 const HOME_AD_IMAGE_URL = '/ads/albi-banner.png';
 const HOME_AD_TARGET_URL = 'https://albi.kr';
+const RECENT_BIBLE_READ_KEY = 'dlp_recent_bible_reads_v1';
+const BOOKMARK_BIBLE_READ_KEY = 'dlp_bible_read_bookmarks_v1';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+}
+
+function loadRecentBibleReads() {
+  try {
+    const raw = localStorage.getItem(RECENT_BIBLE_READ_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map((item) => String(item).trim()).filter(Boolean).slice(0, 6) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentBibleReads(list: string[]) {
+  try {
+    localStorage.setItem(RECENT_BIBLE_READ_KEY, JSON.stringify(list.slice(0, 10)));
+  } catch {
+    // ignore
+  }
+}
+
+function removeRecentBibleReadItem(target: string) {
+  const next = loadRecentBibleReads().filter((item) => item !== target);
+  saveRecentBibleReads(next);
+  return next.slice(0, 6);
+}
+
+function normalizeHomeBookmarks(input: unknown): HomeBookmarkItem[] {
+  const now = Date.now();
+  if (!Array.isArray(input)) return [];
+
+  return input
+    .map((item, idx) => {
+      if (typeof item === 'string') {
+        const ref = item.trim();
+        if (!ref) return null;
+        const ts = now - idx;
+        return { ref, note: '', savedAt: ts, updatedAt: ts };
+      }
+
+      if (!item || typeof item !== 'object') return null;
+
+      const ref = String((item as any).ref ?? '').trim();
+      if (!ref) return null;
+
+      const savedAt = Number((item as any).savedAt ?? now - idx);
+      const updatedAt = Number((item as any).updatedAt ?? savedAt);
+      return {
+        ref,
+        note: String((item as any).note ?? '').trim(),
+        savedAt: Number.isFinite(savedAt) ? savedAt : now - idx,
+        updatedAt: Number.isFinite(updatedAt) ? updatedAt : savedAt
+      };
+    })
+    .filter((item): item is HomeBookmarkItem => Boolean(item))
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, 6);
+}
+
+function loadHomeBookmarks() {
+  try {
+    const raw = localStorage.getItem(BOOKMARK_BIBLE_READ_KEY);
+    if (!raw) return [];
+    return normalizeHomeBookmarks(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+function saveHomeBookmarks(list: HomeBookmarkItem[]) {
+  try {
+    localStorage.setItem(BOOKMARK_BIBLE_READ_KEY, JSON.stringify(normalizeHomeBookmarks(list)));
+  } catch {
+    // ignore
+  }
+}
+
+function removeHomeBookmarkItem(targetRef: string) {
+  const next = loadHomeBookmarks().filter((item) => item.ref !== targetRef);
+  saveHomeBookmarks(next);
+  return next.slice(0, 6);
+}
+
+function formatBookmarkUpdatedAt(ts: number) {
+  try {
+    return new Intl.DateTimeFormat('ko-KR', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(new Date(ts));
+  } catch {
+    return '';
+  }
 }
 
 export default function HomePage() {
@@ -46,6 +149,8 @@ export default function HomePage() {
   const [installGuideOpen, setInstallGuideOpen] = useState(false);
   const [mcheyneBulkSaving, setMcheyneBulkSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [recentBibleReads, setRecentBibleReads] = useState<string[]>([]);
+  const [homeBookmarks, setHomeBookmarks] = useState<HomeBookmarkItem[]>([]);
   const deferredInstallPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
 
   const nav = useNavigate();
@@ -100,6 +205,27 @@ export default function HomePage() {
 
   useEffect(() => {
     loadHome();
+  }, []);
+
+  useEffect(() => {
+    const syncBibleWidgets = () => {
+      setRecentBibleReads(loadRecentBibleReads());
+      setHomeBookmarks(loadHomeBookmarks());
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') syncBibleWidgets();
+    };
+
+    syncBibleWidgets();
+    window.addEventListener('focus', syncBibleWidgets);
+    window.addEventListener('storage', syncBibleWidgets);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', syncBibleWidgets);
+      window.removeEventListener('storage', syncBibleWidgets);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -164,6 +290,22 @@ export default function HomePage() {
     } finally {
       deferredInstallPromptRef.current = null;
     }
+  }
+
+  function openRecentBibleRead(ref: string) {
+    nav(`/bible-search?${new URLSearchParams({ tab: 'read', ref }).toString()}`);
+  }
+
+  function openBookmarkedBibleRead(ref: string) {
+    nav(`/bible-search?${new URLSearchParams({ tab: 'read', ref }).toString()}`);
+  }
+
+  function deleteHomeBookmark(ref: string) {
+    setHomeBookmarks(removeHomeBookmarkItem(ref));
+  }
+
+  function deleteRecentBibleRead(ref: string) {
+    setRecentBibleReads(removeRecentBibleReadItem(ref));
   }
 
   async function completeTodayAll() {
@@ -317,6 +459,95 @@ export default function HomePage() {
             </div>
           ) : null}
         </Card>
+
+        <div style={bibleWidgetGrid}>
+          <Card pad style={bookmarkWidgetCard}>
+            <div style={bookmarkWidgetHead}>
+              <div>
+                <div style={sectionEyebrow}>MY BOOKMARKS</div>
+                <div style={sectionHeadingSmall}>내 북마크</div>
+                <div style={bookmarkWidgetDesc}>즐겨찾기한 성경 구절을 홈에서 바로 다시 볼 수 있어요.</div>
+              </div>
+              <button type="button" style={bookmarkWidgetLinkBtn} onClick={() => nav('/bible-search?tab=read')}>
+                관리
+              </button>
+            </div>
+
+            {homeBookmarks.length > 0 ? (
+              <div style={bookmarkWidgetList}>
+                {homeBookmarks.map((item, idx) => (
+                  <div
+                    key={`${item.ref}-${item.updatedAt}-${idx}`}
+                    style={{
+                      ...bookmarkItemBtn,
+                      ...(idx === 0 ? bookmarkItemBtnPrimary : null)
+                    }}
+                  >
+                    <div style={bookmarkItemTop}>
+                      <span style={{ ...bookmarkItemBadge, ...(idx === 0 ? bookmarkItemBadgePrimary : null) }}>
+                        {idx === 0 ? '대표' : '북마크'}
+                      </span>
+                      <div style={widgetActionInlineRow}>
+                        <span style={bookmarkItemDate}>{formatBookmarkUpdatedAt(item.updatedAt)}</span>
+                        <button type="button" style={widgetDeleteBtnPeach} onClick={() => deleteHomeBookmark(item.ref)}>
+                          삭제
+                        </button>
+                      </div>
+                    </div>
+                    <button type="button" style={widgetOpenBtn} onClick={() => openBookmarkedBibleRead(item.ref)}>
+                      <div style={bookmarkItemRef}>{item.ref}</div>
+                      {item.note ? <div style={bookmarkItemNote}>{item.note}</div> : <div style={bookmarkItemNoteMuted}>메모 없음</div>}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={emptyNote}>아직 저장한 북마크가 없어요. 본문 읽기 탭에서 북마크를 추가하면 여기에 표시됩니다.</div>
+            )}
+          </Card>
+
+          <Card pad style={recentBibleWidgetCard}>
+            <div style={recentBibleWidgetHead}>
+              <div>
+                <div style={sectionEyebrow}>RECENT BIBLE</div>
+                <div style={sectionHeadingSmall}>최근 읽은 성경</div>
+                <div style={recentBibleWidgetDesc}>방금 읽던 본문을 홈에서 바로 다시 열 수 있어요.</div>
+              </div>
+              <button type="button" style={recentBibleWidgetLinkBtn} onClick={() => nav('/bible-search?tab=read')}>
+                열기
+              </button>
+            </div>
+
+            {recentBibleReads.length > 0 ? (
+              <div style={recentBibleWidgetList}>
+                {recentBibleReads.map((item, idx) => (
+                  <div
+                    key={item}
+                    style={{
+                      ...recentBibleItemBtn,
+                      ...(idx === 0 ? recentBibleItemBtnPrimary : null)
+                    }}
+                  >
+                    <div style={recentBibleItemTop}>
+                      <span style={{ ...recentBibleItemBadge, ...(idx === 0 ? recentBibleItemBadgePrimary : null) }}>
+                        {idx === 0 ? '최신' : `최근 ${idx + 1}`}
+                      </span>
+                      <button type="button" style={widgetDeleteBtnMint} onClick={() => deleteRecentBibleRead(item)}>
+                        삭제
+                      </button>
+                    </div>
+                    <button type="button" style={widgetOpenBtn} onClick={() => openRecentBibleRead(item)}>
+                      <div style={recentBibleItemRef}>{item}</div>
+                      <div style={recentBibleItemArrow}>본문 바로 열기 ›</div>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={emptyNote}>최근 읽은 본문이 아직 없어요. 성경 검색에서 본문을 읽으면 여기에 자동으로 표시됩니다.</div>
+            )}
+          </Card>
+        </div>
 
         <Card pad style={statsCard}>
           <div style={statsHead}>
@@ -1086,6 +1317,281 @@ const heroActions: CSSProperties = {
   display: 'grid',
   gap: 10,
   marginTop: 18
+};
+
+const bibleWidgetGrid: CSSProperties = {
+  marginTop: 12,
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 12,
+  alignItems: 'stretch'
+};
+
+const bookmarkWidgetCard: CSSProperties = {
+  borderRadius: 22,
+  background: 'linear-gradient(180deg, rgba(255,249,240,0.9), rgba(255,255,255,0.82))',
+  border: '1px solid rgba(243,180,156,0.28)',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)',
+  height: '100%'
+};
+
+const bookmarkWidgetHead: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 12
+};
+
+const bookmarkWidgetDesc: CSSProperties = {
+  marginTop: 4,
+  color: '#6d7a83',
+  fontSize: 13,
+  lineHeight: 1.5
+};
+
+const bookmarkWidgetLinkBtn: CSSProperties = {
+  border: 0,
+  background: 'rgba(255,255,255,0.82)',
+  color: '#9d6550',
+  minHeight: 34,
+  padding: '0 12px',
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 800,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  boxShadow: 'inset 0 0 0 1px rgba(243,180,156,0.24)'
+};
+
+const bookmarkWidgetList: CSSProperties = {
+  marginTop: 14,
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 10
+};
+
+const bookmarkItemBtn: CSSProperties = {
+  width: '100%',
+  padding: '12px 12px 11px',
+  borderRadius: 18,
+  border: '1px solid rgba(236,223,214,0.92)',
+  background: 'rgba(255,255,255,0.9)',
+  textAlign: 'left',
+  display: 'grid',
+  gap: 10
+};
+
+const bookmarkItemBtnPrimary: CSSProperties = {
+  border: '1px solid rgba(243,180,156,0.34)',
+  background: 'linear-gradient(180deg, rgba(255,246,239,0.98), rgba(255,255,255,0.92))',
+  boxShadow: '0 10px 24px rgba(243,180,156,0.12)'
+};
+
+const bookmarkItemTop: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 10
+};
+
+const bookmarkItemBadge: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: 24,
+  padding: '0 10px',
+  borderRadius: 999,
+  background: 'rgba(247,242,238,0.96)',
+  color: '#8a6a5a',
+  fontSize: 11,
+  fontWeight: 800
+};
+
+const bookmarkItemBadgePrimary: CSSProperties = {
+  background: 'rgba(243,180,156,0.18)',
+  color: '#9d6550'
+};
+
+const bookmarkItemDate: CSSProperties = {
+  color: '#95a0a7',
+  fontSize: 11,
+  fontWeight: 700,
+  whiteSpace: 'nowrap'
+};
+
+const bookmarkItemRef: CSSProperties = {
+  marginTop: 10,
+  color: '#24313a',
+  fontSize: 16,
+  fontWeight: 800,
+  lineHeight: 1.35,
+  letterSpacing: '-0.02em'
+};
+
+const bookmarkItemNote: CSSProperties = {
+  marginTop: 6,
+  color: '#6d7a83',
+  fontSize: 13,
+  lineHeight: 1.5,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  display: '-webkit-box',
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: 'vertical'
+};
+
+const recentBibleWidgetCard: CSSProperties = {
+  borderRadius: 22,
+  background: 'linear-gradient(180deg, rgba(247,252,250,0.88), rgba(255,255,255,0.8))',
+  border: '1px solid rgba(214,231,224,0.92)',
+  boxShadow: '0 12px 28px rgba(77,90,110,0.08)',
+  height: '100%'
+};
+
+const recentBibleWidgetHead: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 12
+};
+
+const recentBibleWidgetDesc: CSSProperties = {
+  marginTop: 4,
+  color: '#6d7a83',
+  fontSize: 13,
+  lineHeight: 1.5
+};
+
+const recentBibleWidgetLinkBtn: CSSProperties = {
+  border: 0,
+  background: 'rgba(255,255,255,0.82)',
+  color: '#2f7f73',
+  minHeight: 34,
+  padding: '0 12px',
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 800,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  boxShadow: 'inset 0 0 0 1px rgba(114,215,199,0.24)'
+};
+
+const recentBibleWidgetList: CSSProperties = {
+  marginTop: 14,
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 10
+};
+
+const recentBibleItemBtn: CSSProperties = {
+  width: '100%',
+  padding: '12px 12px 11px',
+  borderRadius: 18,
+  border: '1px solid rgba(224,231,236,0.9)',
+  background: 'rgba(255,255,255,0.86)',
+  display: 'grid',
+  gap: 10,
+  textAlign: 'left'
+};
+
+const recentBibleItemBtnPrimary: CSSProperties = {
+  border: '1px solid rgba(114,215,199,0.34)',
+  background: 'linear-gradient(180deg, rgba(236,253,248,0.96), rgba(255,255,255,0.92))',
+  boxShadow: '0 10px 24px rgba(114,215,199,0.12)'
+};
+
+const recentBibleItemTop: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 8
+};
+
+const recentBibleItemLeft: CSSProperties = {
+  minWidth: 0,
+  display: 'grid',
+  gap: 8
+};
+
+const recentBibleItemBadge: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: 24,
+  width: 'fit-content',
+  padding: '0 10px',
+  borderRadius: 999,
+  background: 'rgba(244,247,249,0.92)',
+  color: '#73818a',
+  fontSize: 11,
+  fontWeight: 800
+};
+
+const recentBibleItemBadgePrimary: CSSProperties = {
+  background: 'rgba(114,215,199,0.16)',
+  color: '#2f7f73'
+};
+
+const recentBibleItemRef: CSSProperties = {
+  color: '#24313a',
+  fontSize: 16,
+  fontWeight: 800,
+  lineHeight: 1.35,
+  letterSpacing: '-0.02em'
+};
+
+const recentBibleItemArrow: CSSProperties = {
+  marginTop: 8,
+  color: '#7a8790',
+  fontSize: 12,
+  fontWeight: 800,
+  whiteSpace: 'nowrap'
+};
+
+const bookmarkItemNoteMuted: CSSProperties = {
+  marginTop: 6,
+  color: '#9aa4aa',
+  fontSize: 12,
+  fontWeight: 700
+};
+
+const widgetActionInlineRow: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6
+};
+
+const widgetOpenBtn: CSSProperties = {
+  width: '100%',
+  padding: 0,
+  border: 0,
+  background: 'transparent',
+  textAlign: 'left',
+  cursor: 'pointer'
+};
+
+const widgetDeleteBtnPeach: CSSProperties = {
+  border: 0,
+  minHeight: 24,
+  padding: '0 8px',
+  borderRadius: 999,
+  background: 'rgba(243,180,156,0.18)',
+  color: '#9d6550',
+  fontSize: 11,
+  fontWeight: 800,
+  cursor: 'pointer'
+};
+
+const widgetDeleteBtnMint: CSSProperties = {
+  border: 0,
+  minHeight: 24,
+  padding: '0 8px',
+  borderRadius: 999,
+  background: 'rgba(114,215,199,0.18)',
+  color: '#2f7f73',
+  fontSize: 11,
+  fontWeight: 800,
+  cursor: 'pointer'
 };
 
 const statsCard: CSSProperties = {

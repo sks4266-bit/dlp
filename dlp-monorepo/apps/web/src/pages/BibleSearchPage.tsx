@@ -59,11 +59,46 @@ type BooksPayload = {
   books: string[];
 };
 
+type BookmarkItem = {
+  ref: string;
+  note: string;
+  savedAt: number;
+  updatedAt: number;
+};
+
 type TabType = 'search' | 'read';
 
 const RECENT_SEARCH_KEY = 'dlp_recent_bible_searches_v1';
 const RECENT_READ_KEY = 'dlp_recent_bible_reads_v1';
+const BOOKMARK_READ_KEY = 'dlp_bible_read_bookmarks_v1';
 const QUICK_READ_REFS = ['창세기 1장', '시편 23편', '요한복음 3장', '로마서 8장'];
+
+const BIBLE_SECTIONS = [
+  {
+    testament: '구약',
+    subtitle: '39권',
+    groups: [
+      { label: '모세오경', books: ['창세기', '출애굽기', '레위기', '민수기', '신명기'] },
+      { label: '역사서', books: ['여호수아', '사사기', '룻기', '사무엘상', '사무엘하', '열왕기상', '열왕기하', '역대상', '역대하', '에스라', '느헤미야', '에스더'] },
+      { label: '시가서', books: ['욥기', '시편', '잠언', '전도서', '아가'] },
+      { label: '대선지서', books: ['이사야', '예레미야', '예레미야애가', '에스겔', '다니엘'] },
+      { label: '소선지서', books: ['호세아', '요엘', '아모스', '오바댜', '요나', '미가', '나훔', '하박국', '스바냐', '학개', '스가랴', '말라기'] }
+    ]
+  },
+  {
+    testament: '신약',
+    subtitle: '27권',
+    groups: [
+      { label: '복음서', books: ['마태복음', '마가복음', '누가복음', '요한복음'] },
+      { label: '역사서', books: ['사도행전'] },
+      { label: '바울서신', books: ['로마서', '고린도전서', '고린도후서', '갈라디아서', '에베소서', '빌립보서', '골로새서', '데살로니가전서', '데살로니가후서', '디모데전서', '디모데후서', '디도서', '빌레몬서'] },
+      { label: '일반서신', books: ['히브리서', '야고보서', '베드로전서', '베드로후서', '요한일서', '요한이서', '요한삼서', '유다서'] },
+      { label: '예언서', books: ['요한계시록'] }
+    ]
+  }
+] as const;
+
+const CANONICAL_BOOKS = BIBLE_SECTIONS.flatMap((section) => section.groups.flatMap((group) => group.books));
 
 function loadRecent(key: string): string[] {
   try {
@@ -84,6 +119,55 @@ function saveRecent(key: string, list: string[]) {
   }
 }
 
+function normalizeBookmarks(input: unknown): BookmarkItem[] {
+  const now = Date.now();
+  if (!Array.isArray(input)) return [];
+
+  return input
+    .map((item, idx) => {
+      if (typeof item === 'string') {
+        const ref = item.trim();
+        if (!ref) return null;
+        const ts = now - idx;
+        return { ref, note: '', savedAt: ts, updatedAt: ts };
+      }
+      if (!item || typeof item !== 'object') return null;
+
+      const ref = String((item as any).ref ?? '').trim();
+      if (!ref) return null;
+
+      const savedAt = Number((item as any).savedAt ?? now - idx);
+      const updatedAt = Number((item as any).updatedAt ?? savedAt);
+      return {
+        ref,
+        note: String((item as any).note ?? ''),
+        savedAt: Number.isFinite(savedAt) ? savedAt : now - idx,
+        updatedAt: Number.isFinite(updatedAt) ? updatedAt : savedAt
+      };
+    })
+    .filter((item): item is BookmarkItem => Boolean(item))
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, 20);
+}
+
+function loadBookmarks(key: string): BookmarkItem[] {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    return normalizeBookmarks(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+function saveBookmarks(key: string, list: BookmarkItem[]) {
+  try {
+    localStorage.setItem(key, JSON.stringify(normalizeBookmarks(list)));
+  } catch {
+    // ignore
+  }
+}
+
 function upsertRecent(key: string, list: string[], value: string) {
   const s = value.trim();
   if (!s) return list;
@@ -94,6 +178,30 @@ function upsertRecent(key: string, list: string[], value: string) {
 
 function escapeRegExp(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function makeVerseId(book: string, c: number, v: number) {
+  return `${book}__${c}__${v}`;
+}
+
+function parseSingleVerseRef(ref: string) {
+  const match = ref.trim().match(/^(.+?)\s+(\d+):(\d+)$/);
+  if (!match) return null;
+  return { book: match[1], c: Number(match[2]), v: Number(match[3]) };
+}
+
+function formatBookmarkDate(ts: number) {
+  try {
+    return new Intl.DateTimeFormat('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(new Date(ts));
+  } catch {
+    return '';
+  }
 }
 
 function tokenizeNeedles(q: string) {
@@ -168,6 +276,9 @@ export default function BibleSearchPage() {
 
   const [refInput, setRefInput] = useState(initialRef);
   const [recentReads, setRecentReads] = useState<string[]>([]);
+  const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
+  const [currentBookmarkNote, setCurrentBookmarkNote] = useState('');
+  const [highlightVerseIds, setHighlightVerseIds] = useState<string[]>([]);
   const [readData, setReadData] = useState<PassagePayload | null>(null);
   const [readLoading, setReadLoading] = useState(false);
   const [readError, setReadError] = useState<string | null>(null);
@@ -180,6 +291,17 @@ export default function BibleSearchPage() {
   const needles = useMemo(() => tokenizeNeedles(q), [q]);
   const cooldownSec = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
   const readCooldownSec = Math.max(0, Math.ceil((readCooldownUntil - Date.now()) / 1000));
+  const orderedBooks = useMemo(() => CANONICAL_BOOKS.filter((book) => books.includes(book)), [books]);
+  const groupedBooks = useMemo(
+    () =>
+      BIBLE_SECTIONS.map((section) => ({
+        ...section,
+        groups: section.groups
+          .map((group) => ({ ...group, books: group.books.filter((book) => books.includes(book)) }))
+          .filter((group) => group.books.length > 0)
+      })).filter((section) => section.groups.length > 0),
+    [books]
+  );
 
   function syncUrl(tab: TabType, nextQ?: string, nextRef?: string) {
     const params = new URLSearchParams();
@@ -292,12 +414,13 @@ export default function BibleSearchPage() {
     }
   }
 
-  async function loadPassage(targetRef: string) {
+  async function loadPassage(targetRef: string, options?: { highlightVerseIds?: string[]; skipRecent?: boolean }) {
     const query = targetRef.trim();
     if (!query) {
       setReadError('읽을 본문을 입력해 주세요.');
       setReadData(null);
-      return;
+      setHighlightVerseIds([]);
+      return false;
     }
 
     setReadLoading(true);
@@ -308,7 +431,7 @@ export default function BibleSearchPage() {
 
       if (res.status === 401) {
         goLogin();
-        return;
+        return false;
       }
 
       if (res.status === 429) {
@@ -323,16 +446,29 @@ export default function BibleSearchPage() {
       }
 
       const payload = (await res.json()) as PassagePayload;
+      const explicitHighlights = options?.highlightVerseIds ?? [];
+      const inferredSingle = explicitHighlights.length ? null : parseSingleVerseRef(query);
+
       setReadData(payload);
       setRefInput(query);
       setSelectedBook(payload.book);
       setSelectedChapter(payload.range.c1);
-      setRecentReads((prev) => upsertRecent(RECENT_READ_KEY, prev, query));
+      if (!options?.skipRecent) {
+        setRecentReads((prev) => upsertRecent(RECENT_READ_KEY, prev, query));
+      }
+      setHighlightVerseIds(
+        explicitHighlights.length
+          ? explicitHighlights
+          : inferredSingle
+            ? [makeVerseId(inferredSingle.book, inferredSingle.c, inferredSingle.v)]
+            : []
+      );
       setActiveTab('read');
       syncUrl('read', q, query);
+      return true;
     } catch (e: any) {
-      setReadData(null);
       setReadError(String(e?.message ?? '본문을 불러오지 못했습니다.'));
+      return false;
     } finally {
       setReadLoading(false);
     }
@@ -345,7 +481,7 @@ export default function BibleSearchPage() {
       const payload = (await res.json()) as BooksPayload;
       const nextBooks = Array.isArray(payload?.books) ? payload.books : [];
       setBooks(nextBooks);
-      setSelectedBook((prev) => prev || nextBooks[0] || '');
+      setSelectedBook((prev) => prev || CANONICAL_BOOKS.find((book) => nextBooks.includes(book)) || nextBooks[0] || '');
     } catch {
       // ignore
     }
@@ -359,16 +495,90 @@ export default function BibleSearchPage() {
     void loadPassage(`${selectedBook} ${selectedChapter}장`);
   }
 
-  function openReadTabWithRef(targetRef: string) {
+  function stepChapter(delta: number) {
+    setSelectedChapter((prev) => Math.max(1, prev + delta));
+  }
+
+  async function openAdjacentChapter(delta: number) {
+    const baseBook = selectedBook || readData?.book;
+    const baseChapter = readData?.range.c1 ?? selectedChapter;
+    const nextChapter = baseChapter + delta;
+    if (!baseBook || nextChapter <= 0) return;
+
+    setSelectedBook(baseBook);
+    setSelectedChapter(nextChapter);
+    setRefInput(`${baseBook} ${nextChapter}장`);
+    const ok = await loadPassage(`${baseBook} ${nextChapter}장`);
+    if (!ok) {
+      setSelectedChapter(baseChapter);
+      setRefInput(`${baseBook} ${baseChapter}장`);
+    }
+  }
+
+  function openReadTabWithRef(targetRef: string, highlight?: { book: string; c: number; v: number }) {
     setCtxOpen(false);
     setActiveTab('read');
     setRefInput(targetRef);
-    void loadPassage(targetRef);
+    void loadPassage(targetRef, {
+      highlightVerseIds: highlight ? [makeVerseId(highlight.book, highlight.c, highlight.v)] : undefined
+    });
+  }
+
+  function openSearchResultInReader(item: SearchItem) {
+    const targetRef = `${item.book} ${item.c}장`;
+    setActiveTab('read');
+    setSelectedBook(item.book);
+    setSelectedChapter(item.c);
+    setRefInput(targetRef);
+    void loadPassage(targetRef, { highlightVerseIds: [makeVerseId(item.book, item.c, item.v)] });
+  }
+
+  function saveOrUpdateBookmark(ref: string, note: string) {
+    setBookmarks((prev) => {
+      const now = Date.now();
+      const existing = prev.find((item) => item.ref === ref);
+      const next = existing
+        ? prev.map((item) =>
+            item.ref === ref
+              ? { ...item, note: note.trim(), updatedAt: now }
+              : item
+          )
+        : [{ ref, note: note.trim(), savedAt: now, updatedAt: now }, ...prev];
+      const normalized = normalizeBookmarks(next);
+      saveBookmarks(BOOKMARK_READ_KEY, normalized);
+      return normalized;
+    });
+  }
+
+  function deleteBookmark(ref: string) {
+    setBookmarks((prev) => {
+      const next = prev.filter((item) => item.ref !== ref);
+      saveBookmarks(BOOKMARK_READ_KEY, next);
+      return next;
+    });
+  }
+
+  function updateBookmarkDraft(ref: string, note: string) {
+    setBookmarks((prev) => prev.map((item) => (item.ref === ref ? { ...item, note } : item)));
+  }
+
+  function persistBookmarkNote(ref: string) {
+    setBookmarks((prev) => {
+      const next = prev.map((item) =>
+        item.ref === ref
+          ? { ...item, note: item.note.trim(), updatedAt: Date.now() }
+          : item
+      );
+      const normalized = normalizeBookmarks(next);
+      saveBookmarks(BOOKMARK_READ_KEY, normalized);
+      return normalized;
+    });
   }
 
   useEffect(() => {
     setRecent(loadRecent(RECENT_SEARCH_KEY));
     setRecentReads(loadRecent(RECENT_READ_KEY));
+    setBookmarks(loadBookmarks(BOOKMARK_READ_KEY));
     void loadBooks();
 
     if (initialRef.trim()) {
@@ -379,8 +589,26 @@ export default function BibleSearchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!readData || highlightVerseIds.length === 0) return;
+    const timer = window.setTimeout(() => {
+      const el = document.getElementById(`bible-verse-${highlightVerseIds[0]}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [readData, highlightVerseIds]);
+
+  const currentBookmark = readData ? bookmarks.find((item) => item.ref === readData.ref) ?? null : null;
+
+  useEffect(() => {
+    setCurrentBookmarkNote(currentBookmark?.note ?? '');
+  }, [currentBookmark?.ref, currentBookmark?.note]);
+
   const canPrev = data?.kind === 'text' && offset > 0;
   const canNext = data?.kind === 'text' ? offset + (data.items?.length ?? 0) < (data.total ?? 0) : false;
+  const isBookmarked = !!currentBookmark;
+  const sortedBookmarks = useMemo(() => [...bookmarks].sort((a, b) => b.updatedAt - a.updatedAt), [bookmarks]);
+  const currentChapterRef = `${selectedBook || readData?.book || ''} ${readData?.range.c1 ?? selectedChapter}장`.trim();
 
   return (
     <div style={page}>
@@ -478,30 +706,92 @@ export default function BibleSearchPage() {
             <>
               <div style={readerStack}>
                 <div style={readerPanel}>
-                  <div style={miniLabel}>빠른 장 읽기</div>
-                  <div style={readerSelectGrid}>
-                    <select value={selectedBook} onChange={(e) => setSelectedBook(e.target.value)} style={selectInput}>
-                      {books.length === 0 ? <option value="">책 불러오는 중…</option> : null}
-                      {books.map((book) => (
-                        <option key={book} value={book}>
-                          {book}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="number"
-                      min={1}
-                      value={selectedChapter}
-                      onChange={(e) => setSelectedChapter(Math.max(1, Number(e.target.value || 1)))}
-                      style={chapterInput}
-                      placeholder="장"
-                    />
+                  <div style={readerPanelHeader}>
+                    <div>
+                      <div style={miniLabel}>66권 정경 순서</div>
+                      <div style={readerPanelTitle}>책 선택 후 장을 바로 읽어보세요</div>
+                      <div style={readerPanelDesc}>구약 39권과 신약 27권을 분류 순서대로 재배치했습니다.</div>
+                    </div>
+                    <div style={selectedBookPill}>{selectedBook || '책 선택'}</div>
                   </div>
-                  <div style={actionGridCompact}>
+
+                  <div style={chapterControlSection}>
+                    <div style={chapterControlRow}>
+                      <button type="button" style={chapterStepBtn} onClick={() => stepChapter(-1)} disabled={selectedChapter <= 1}>
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min={1}
+                        value={selectedChapter}
+                        onChange={(e) => setSelectedChapter(Math.max(1, Number(e.target.value || 1)))}
+                        style={chapterInput}
+                        placeholder="장"
+                      />
+                      <button type="button" style={chapterStepBtn} onClick={() => stepChapter(1)}>
+                        +
+                      </button>
+                    </div>
                     <Button type="button" variant="primary" size="md" wide onClick={openChapterSelection} disabled={readLoading || !selectedBook}>
-                      선택한 장 열기
+                      {selectedBook ? `${selectedBook} ${selectedChapter}장 열기` : '책을 먼저 선택하세요'}
                     </Button>
+                    <div style={chapterNavRow}>
+                      <button type="button" style={chapterNavBtn} onClick={() => void openAdjacentChapter(-1)} disabled={readLoading || !(selectedBook || readData?.book) || selectedChapter <= 1}>
+                        이전 장
+                      </button>
+                      <div style={chapterNavLabel}>{currentChapterRef || '장 네비게이션'}</div>
+                      <button type="button" style={chapterNavBtn} onClick={() => void openAdjacentChapter(1)} disabled={readLoading || !(selectedBook || readData?.book)}>
+                        다음 장
+                      </button>
+                    </div>
                   </div>
+
+                  {groupedBooks.length === 0 ? (
+                    <div style={emptyBookNote}>성경 권 목록을 불러오는 중입니다.</div>
+                  ) : (
+                    <div style={testamentStack}>
+                      {groupedBooks.map((section) => {
+                        const totalCount = section.groups.reduce((sum, group) => sum + group.books.length, 0);
+                        const isOldTestament = section.testament === '구약';
+                        return (
+                          <div key={section.testament} style={{ ...testamentCard, ...(isOldTestament ? testamentCardOld : testamentCardNew) }}>
+                            <div style={testamentHeader}>
+                              <div>
+                                <div style={isOldTestament ? testamentEyebrowOld : testamentEyebrowNew}>{isOldTestament ? 'OLD TESTAMENT' : 'NEW TESTAMENT'}</div>
+                                <div style={testamentTitle}>{section.testament}</div>
+                              </div>
+                              <div style={testamentMeta}>{section.subtitle} · {totalCount}권</div>
+                            </div>
+
+                            <div style={categoryStack}>
+                              {section.groups.map((group) => (
+                                <div key={`${section.testament}-${group.label}`} style={categoryBlock}>
+                                  <div style={categoryLabel}>{group.label}</div>
+                                  <div style={bookGrid}>
+                                    {group.books.map((book) => {
+                                      const active = selectedBook === book;
+                                      return (
+                                        <button
+                                          key={book}
+                                          type="button"
+                                          style={active ? bookCardActive : bookCard}
+                                          onClick={() => setSelectedBook(book)}
+                                        >
+                                          <span style={bookCardText}>{book}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div style={readerSummary}>전체 {orderedBooks.length}권 기준으로 표시됩니다.</div>
                 </div>
 
                 <form
@@ -561,6 +851,54 @@ export default function BibleSearchPage() {
                   ))}
                 </div>
 
+                {sortedBookmarks.length > 0 ? (
+                  <div style={bookmarkManageSection}>
+                    <div style={bookmarkManageHead}>
+                      <div style={miniLabel}>북마크 관리</div>
+                      <div style={bookmarkMetaText}>최신 수정 순으로 정렬됩니다.</div>
+                    </div>
+                    <div style={bookmarkList}>
+                      {sortedBookmarks.map((item) => (
+                        <div key={item.ref} style={bookmarkCard}>
+                          <div style={bookmarkCardTop}>
+                            <div>
+                              <div style={bookmarkRef}>★ {item.ref}</div>
+                              <div style={bookmarkDate}>저장 {formatBookmarkDate(item.savedAt)} · 수정 {formatBookmarkDate(item.updatedAt)}</div>
+                            </div>
+                            <div style={bookmarkActionInline}>
+                              <button
+                                type="button"
+                                style={bookmarkGhostBtn}
+                                onClick={() => {
+                                  setRefInput(item.ref);
+                                  setCurrentBookmarkNote(item.note);
+                                  void loadPassage(item.ref, { skipRecent: true });
+                                }}
+                              >
+                                열기
+                              </button>
+                              <button type="button" style={bookmarkDeleteBtn} onClick={() => deleteBookmark(item.ref)}>
+                                삭제
+                              </button>
+                            </div>
+                          </div>
+                          <textarea
+                            value={item.note}
+                            onChange={(e) => updateBookmarkDraft(item.ref, e.target.value)}
+                            placeholder="이 본문에 대한 메모를 남겨보세요."
+                            style={bookmarkNoteInput}
+                          />
+                          <div style={bookmarkCardFooter}>
+                            <button type="button" style={bookmarkSaveBtn} onClick={() => persistBookmarkNote(item.ref)}>
+                              메모 저장
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
                 {recentReads.length > 0 ? (
                   <div style={recentWrap}>
                     <div style={miniLabel}>최근 읽은 본문</div>
@@ -615,12 +953,12 @@ export default function BibleSearchPage() {
           <section style={sectionWrap}>
             <Card pad style={sectionCard}>
               <CardTitle style={sectionCardTitle}>본문 읽기 안내</CardTitle>
-              <CardDesc style={sectionCardDesc}>개역개정 본문을 장 단위로 열거나 원하는 절 범위를 직접 입력해 읽을 수 있어요.</CardDesc>
+              <CardDesc style={sectionCardDesc}>개역개정 본문을 정경 순서 66권 기준으로 탐색하고, 장 단위 또는 원하는 구간으로 바로 열 수 있어요.</CardDesc>
 
               <div style={guideList}>
-                <div style={guideItem}>• 빠른 장 읽기: 책과 장을 선택해서 바로 열기</div>
-                <div style={guideItem}>• 구간 직접 열기: 예) 요한복음 3:16~18</div>
-                <div style={guideItem}>• 검색 결과나 문맥 보기에서 원하는 본문을 바로 읽기 탭으로 이동 가능</div>
+                <div style={guideItem}>• 카드형 책 선택: 구약 / 신약을 분리한 카드 버튼으로 원하는 책을 바로 선택</div>
+                <div style={guideItem}>• 장 네비게이션: 이전 장 / 다음 장 버튼으로 연속 읽기</div>
+                <div style={guideItem}>• 북마크와 강조: 자주 읽는 본문을 저장하고, 검색 결과에서 넘어온 절은 자동 강조</div>
               </div>
             </Card>
           </section>
@@ -684,15 +1022,18 @@ export default function BibleSearchPage() {
                   <div style={emptyNote}>일치하는 구절을 찾지 못했습니다.</div>
                 ) : (
                   data.items.map((item) => (
-                    <button
-                      key={`${item.book}-${item.c}-${item.v}`}
-                      type="button"
-                      style={resultBtn}
-                      onClick={() => void openContext(item)}
-                    >
-                      <div style={resultRef}>{`${item.book} ${item.c}:${item.v}`}</div>
-                      <div style={resultText}>{highlightText(item.snippet || item.t, needles)}</div>
-                    </button>
+                    <div key={`${item.book}-${item.c}-${item.v}`} style={resultCardWrap}>
+                      <button type="button" style={resultBtn} onClick={() => openSearchResultInReader(item)}>
+                        <div style={resultRef}>{`${item.book} ${item.c}:${item.v}`}</div>
+                        <div style={resultText}>{highlightText(item.snippet || item.t, needles)}</div>
+                        <div style={resultHint}>본문 읽기 탭으로 이동해 해당 절을 강조해서 보여줍니다.</div>
+                      </button>
+                      <div style={resultActionRow}>
+                        <button type="button" style={resultTextActionBtn} onClick={() => void openContext(item)}>
+                          문맥 보기
+                        </button>
+                      </div>
+                    </div>
                   ))
                 )}
               </div>
@@ -733,26 +1074,76 @@ export default function BibleSearchPage() {
                 <div>
                   <div style={miniEyebrow}>READING</div>
                   <CardTitle style={sectionCardTitle}>{readData.ref}</CardTitle>
-                  <CardDesc style={sectionCardDesc}>{readData.totalVerses}절</CardDesc>
+                  <CardDesc style={sectionCardDesc}>{readData.totalVerses}절 · 검색 결과에서 이동한 절은 강조 표시됩니다.</CardDesc>
                 </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="md"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(readData.text);
-                      alert('본문을 복사했습니다.');
-                    } catch {
-                      alert('복사에 실패했습니다.');
-                    }
-                  }}
-                >
-                  복사
-                </Button>
+                <div style={readHeaderActions}>
+                  <Button
+                    type="button"
+                    variant={isBookmarked ? 'primary' : 'secondary'}
+                    size="md"
+                    onClick={() => saveOrUpdateBookmark(readData.ref, currentBookmarkNote)}
+                  >
+                    {isBookmarked ? '북마크 업데이트' : '북마크 저장'}
+                  </Button>
+                  {isBookmarked ? (
+                    <Button type="button" variant="ghost" size="md" onClick={() => deleteBookmark(readData.ref)}>
+                      북마크 삭제
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="md"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(readData.text);
+                        alert('본문을 복사했습니다.');
+                      } catch {
+                        alert('복사에 실패했습니다.');
+                      }
+                    }}
+                  >
+                    복사
+                  </Button>
+                </div>
               </div>
 
-              <pre style={readerTextBox}>{readData.text}</pre>
+              <div style={bookmarkEditorBox}>
+                <div style={bookmarkEditorLabel}>북마크 메모</div>
+                <textarea
+                  value={currentBookmarkNote}
+                  onChange={(e) => setCurrentBookmarkNote(e.target.value)}
+                  placeholder="이 본문에 남기고 싶은 묵상, 기도제목, 핵심 문장을 적어보세요."
+                  style={bookmarkEditorInput}
+                />
+                <div style={bookmarkEditorHint}>{isBookmarked ? '메모를 수정한 뒤 북마크 업데이트를 누르면 최신 날짜로 정렬됩니다.' : '메모를 입력한 뒤 북마크 저장을 누르면 함께 저장됩니다.'}</div>
+              </div>
+
+              <div style={chapterNavRowRead}>
+                <button type="button" style={chapterNavBtn} onClick={() => void openAdjacentChapter(-1)} disabled={readLoading || readData.range.c1 <= 1}>
+                  이전 장
+                </button>
+                <div style={chapterNavLabelStrong}>{`${readData.book} ${readData.range.c1}장`}</div>
+                <button type="button" style={chapterNavBtn} onClick={() => void openAdjacentChapter(1)} disabled={readLoading}>
+                  다음 장
+                </button>
+              </div>
+
+              <div style={readerVerseList}>
+                {readData.verses.map((verse) => {
+                  const verseId = makeVerseId(readData.book, verse.c, verse.v);
+                  const focused = highlightVerseIds.includes(verseId);
+                  return (
+                    <div id={`bible-verse-${verseId}`} key={`${verse.c}:${verse.v}`} style={focused ? readerVerseCardFocus : readerVerseCard}>
+                      <div style={readerVerseNo}>{verse.v}</div>
+                      <div style={readerVerseBody}>
+                        <div style={readerVerseRef}>{`${readData.book} ${verse.c}:${verse.v}`}</div>
+                        <div style={readerVerseText}>{verse.t}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </Card>
           </section>
         ) : null}
@@ -792,7 +1183,7 @@ export default function BibleSearchPage() {
                   variant="secondary"
                   size="lg"
                   wide
-                  onClick={() => openReadTabWithRef(`${ctxData.book} ${ctxData.focus.c}:${ctxData.focus.v}`)}
+                  onClick={() => openReadTabWithRef(`${ctxData.book} ${ctxData.focus.c}장`, { book: ctxData.book, c: ctxData.focus.c, v: ctxData.focus.v })}
                 >
                   이 본문 읽기
                 </Button>
@@ -947,19 +1338,6 @@ const input: CSSProperties = {
   boxSizing: 'border-box'
 };
 
-const selectInput: CSSProperties = {
-  width: '100%',
-  height: 48,
-  borderRadius: 16,
-  border: '1px solid rgba(221,228,233,0.95)',
-  background: 'rgba(255,255,255,0.92)',
-  padding: '0 14px',
-  fontSize: 14,
-  color: '#24313a',
-  outline: 'none',
-  boxSizing: 'border-box'
-};
-
 const chapterInput: CSSProperties = {
   width: '100%',
   height: 48,
@@ -967,10 +1345,81 @@ const chapterInput: CSSProperties = {
   border: '1px solid rgba(221,228,233,0.95)',
   background: 'rgba(255,255,255,0.92)',
   padding: '0 14px',
-  fontSize: 14,
+  fontSize: 16,
+  fontWeight: 800,
   color: '#24313a',
   outline: 'none',
-  boxSizing: 'border-box'
+  boxSizing: 'border-box',
+  textAlign: 'center'
+};
+
+const chapterControlSection: CSSProperties = {
+  marginTop: 12,
+  display: 'grid',
+  gap: 10
+};
+
+const chapterControlRow: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '52px 1fr 52px',
+  gap: 8,
+  alignItems: 'center'
+};
+
+const chapterStepBtn: CSSProperties = {
+  height: 48,
+  borderRadius: 16,
+  border: '1px solid rgba(221,228,233,0.95)',
+  background: 'rgba(255,255,255,0.92)',
+  color: '#4f6472',
+  fontSize: 22,
+  fontWeight: 800,
+  cursor: 'pointer'
+};
+
+const chapterNavRow: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '96px 1fr 96px',
+  gap: 8,
+  alignItems: 'center'
+};
+
+const chapterNavBtn: CSSProperties = {
+  minHeight: 42,
+  borderRadius: 14,
+  border: '1px solid rgba(210,220,228,0.95)',
+  background: 'rgba(255,255,255,0.92)',
+  color: '#4f6472',
+  fontSize: 13,
+  fontWeight: 800,
+  cursor: 'pointer'
+};
+
+const chapterNavLabel: CSSProperties = {
+  minHeight: 42,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: 14,
+  background: 'rgba(247,250,251,0.9)',
+  border: '1px solid rgba(224,231,236,0.92)',
+  color: '#5f6d75',
+  fontSize: 12,
+  fontWeight: 800,
+  textAlign: 'center',
+  padding: '0 10px'
+};
+
+const chapterNavRowRead: CSSProperties = {
+  ...chapterNavRow,
+  marginTop: 16
+};
+
+const chapterNavLabelStrong: CSSProperties = {
+  ...chapterNavLabel,
+  color: '#257567',
+  background: 'rgba(236,253,248,0.92)',
+  border: '1px solid rgba(114,215,199,0.3)'
 };
 
 const actionGrid: CSSProperties = {
@@ -992,17 +1441,172 @@ const readerStack: CSSProperties = {
 };
 
 const readerPanel: CSSProperties = {
-  padding: '14px 14px 12px',
+  padding: '16px 14px 14px',
   borderRadius: 18,
   border: '1px solid rgba(224,231,236,0.9)',
   background: 'rgba(255,255,255,0.74)'
 };
 
-const readerSelectGrid: CSSProperties = {
+const readerPanelHeader: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 10
+};
+
+const readerPanelTitle: CSSProperties = {
+  color: '#24313a',
+  fontSize: 18,
+  fontWeight: 800,
+  lineHeight: 1.3
+};
+
+const readerPanelDesc: CSSProperties = {
+  marginTop: 4,
+  color: '#6b7982',
+  fontSize: 13,
+  lineHeight: 1.5
+};
+
+const selectedBookPill: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 30,
+  padding: '0 12px',
+  borderRadius: 999,
+  background: 'rgba(114,215,199,0.14)',
+  border: '1px solid rgba(114,215,199,0.24)',
+  color: '#257567',
+  fontSize: 12,
+  fontWeight: 900,
+  whiteSpace: 'nowrap'
+};
+
+const testamentStack: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '1fr 92px',
+  gap: 12,
+  marginTop: 14
+};
+
+const testamentCard: CSSProperties = {
+  padding: '14px 12px 12px',
+  borderRadius: 20,
+  background: 'rgba(250,252,255,0.82)',
+  border: '1px solid rgba(224,231,236,0.92)'
+};
+
+const testamentCardOld: CSSProperties = {
+  background: 'linear-gradient(180deg, rgba(255,249,240,0.96), rgba(255,255,255,0.9))',
+  border: '1px solid rgba(236,208,150,0.42)'
+};
+
+const testamentCardNew: CSSProperties = {
+  background: 'linear-gradient(180deg, rgba(240,251,255,0.96), rgba(255,255,255,0.9))',
+  border: '1px solid rgba(170,218,232,0.42)'
+};
+
+const testamentHeader: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
   gap: 8,
-  marginTop: 8
+  marginBottom: 10
+};
+
+const testamentTitle: CSSProperties = {
+  color: '#24313a',
+  fontSize: 18,
+  fontWeight: 900,
+  marginTop: 4
+};
+
+const testamentEyebrowOld: CSSProperties = {
+  color: '#9a6a23',
+  fontSize: 10,
+  fontWeight: 900,
+  letterSpacing: '0.12em'
+};
+
+const testamentEyebrowNew: CSSProperties = {
+  color: '#2f7f73',
+  fontSize: 10,
+  fontWeight: 900,
+  letterSpacing: '0.12em'
+};
+
+const testamentMeta: CSSProperties = {
+  color: '#6f7d86',
+  fontSize: 12,
+  fontWeight: 700
+};
+
+const categoryStack: CSSProperties = {
+  display: 'grid',
+  gap: 10
+};
+
+const categoryBlock: CSSProperties = {
+  display: 'grid',
+  gap: 6
+};
+
+const categoryLabel: CSSProperties = {
+  color: '#5f6d75',
+  fontSize: 12,
+  fontWeight: 800
+};
+
+const bookGrid: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+  gap: 8
+};
+
+const bookCard: CSSProperties = {
+  minHeight: 54,
+  width: '100%',
+  border: '1px solid rgba(224,231,236,0.9)',
+  background: 'rgba(255,255,255,0.96)',
+  color: '#4f6472',
+  borderRadius: 16,
+  padding: '10px 8px',
+  fontSize: 12,
+  fontWeight: 800,
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  textAlign: 'center',
+  boxShadow: '0 8px 18px rgba(77,90,110,0.04)'
+};
+
+const bookCardActive: CSSProperties = {
+  ...bookCard,
+  border: '1px solid rgba(114,215,199,0.34)',
+  background: 'linear-gradient(180deg, rgba(236,253,248,0.96), rgba(222,247,241,0.92))',
+  color: '#257567',
+  boxShadow: '0 10px 20px rgba(114,215,199,0.16)'
+};
+
+const bookCardText: CSSProperties = {
+  lineHeight: 1.35
+};
+
+const emptyBookNote: CSSProperties = {
+  marginTop: 14,
+  padding: '12px 14px',
+  borderRadius: 16,
+  background: 'rgba(247,250,251,0.88)',
+  border: '1px solid rgba(224,231,236,0.9)',
+  color: '#6d7a83',
+  fontSize: 13
+};
+
+const readerSummary: CSSProperties = {
+  marginTop: 12,
+  color: '#6f7d86',
+  fontSize: 12,
+  fontWeight: 700
 };
 
 const readerHintBox: CSSProperties = {
@@ -1111,13 +1715,19 @@ const resultList: CSSProperties = {
   marginTop: 14
 };
 
-const resultBtn: CSSProperties = {
-  width: '100%',
-  textAlign: 'left',
-  padding: '14px 15px',
+const resultCardWrap: CSSProperties = {
   borderRadius: 18,
   border: '1px solid rgba(224,231,236,0.9)',
   background: 'rgba(255,255,255,0.9)',
+  overflow: 'hidden'
+};
+
+const resultBtn: CSSProperties = {
+  width: '100%',
+  textAlign: 'left',
+  padding: '14px 15px 10px',
+  border: 'none',
+  background: 'transparent',
   cursor: 'pointer'
 };
 
@@ -1132,6 +1742,29 @@ const resultText: CSSProperties = {
   color: '#33424b',
   fontSize: 15,
   lineHeight: 1.65
+};
+
+const resultHint: CSSProperties = {
+  marginTop: 8,
+  color: '#70808a',
+  fontSize: 12,
+  lineHeight: 1.45
+};
+
+const resultActionRow: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'flex-end',
+  padding: '0 15px 12px'
+};
+
+const resultTextActionBtn: CSSProperties = {
+  border: 'none',
+  background: 'transparent',
+  color: '#2f7f73',
+  fontSize: 12,
+  fontWeight: 800,
+  cursor: 'pointer',
+  padding: 0
 };
 
 const emptyNote: CSSProperties = {
@@ -1178,19 +1811,215 @@ const verseText: CSSProperties = {
   lineHeight: 1.65
 };
 
-const readerTextBox: CSSProperties = {
+const readHeaderActions: CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  justifyContent: 'flex-end',
+  gap: 8
+};
+
+const readerVerseList: CSSProperties = {
   marginTop: 14,
-  marginBottom: 0,
-  whiteSpace: 'pre-wrap',
-  fontSize: 14,
-  lineHeight: 1.72,
-  color: '#24313a',
-  padding: 14,
+  display: 'grid',
+  gap: 10,
+  maxHeight: 620,
+  overflow: 'auto',
+  paddingRight: 2
+};
+
+const readerVerseCard: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '44px 1fr',
+  gap: 12,
+  padding: '14px 15px',
   borderRadius: 18,
   border: '1px solid rgba(224,231,236,0.9)',
   background: 'rgba(250,252,255,0.88)',
-  maxHeight: 620,
-  overflow: 'auto'
+  scrollMarginTop: 100
+};
+
+const readerVerseCardFocus: CSSProperties = {
+  ...readerVerseCard,
+  border: '1px solid rgba(245,188,72,0.65)',
+  background: 'linear-gradient(180deg, rgba(255,248,220,0.96), rgba(255,255,255,0.92))',
+  boxShadow: '0 12px 26px rgba(245,188,72,0.18)'
+};
+
+const readerVerseNo: CSSProperties = {
+  width: 44,
+  height: 44,
+  borderRadius: 14,
+  background: 'rgba(236,253,248,0.95)',
+  color: '#257567',
+  fontSize: 15,
+  fontWeight: 900,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center'
+};
+
+const readerVerseBody: CSSProperties = {
+  minWidth: 0
+};
+
+const readerVerseRef: CSSProperties = {
+  color: '#6d7a83',
+  fontSize: 12,
+  fontWeight: 800
+};
+
+const readerVerseText: CSSProperties = {
+  marginTop: 6,
+  color: '#24313a',
+  fontSize: 15,
+  lineHeight: 1.72
+};
+
+const bookmarkManageSection: CSSProperties = {
+  marginTop: 16,
+  display: 'grid',
+  gap: 10
+};
+
+const bookmarkManageHead: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 8
+};
+
+const bookmarkMetaText: CSSProperties = {
+  color: '#7b8790',
+  fontSize: 12,
+  fontWeight: 700
+};
+
+const bookmarkList: CSSProperties = {
+  display: 'grid',
+  gap: 10
+};
+
+const bookmarkCard: CSSProperties = {
+  borderRadius: 18,
+  border: '1px solid rgba(224,231,236,0.9)',
+  background: 'rgba(255,255,255,0.9)',
+  padding: '14px 14px 12px'
+};
+
+const bookmarkCardTop: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 10
+};
+
+const bookmarkRef: CSSProperties = {
+  color: '#257567',
+  fontSize: 14,
+  fontWeight: 900,
+  lineHeight: 1.4
+};
+
+const bookmarkDate: CSSProperties = {
+  marginTop: 4,
+  color: '#7b8790',
+  fontSize: 12,
+  lineHeight: 1.45
+};
+
+const bookmarkActionInline: CSSProperties = {
+  display: 'flex',
+  gap: 8,
+  flexWrap: 'wrap',
+  justifyContent: 'flex-end'
+};
+
+const bookmarkGhostBtn: CSSProperties = {
+  minHeight: 34,
+  borderRadius: 12,
+  border: '1px solid rgba(214,223,229,0.92)',
+  background: 'rgba(247,250,251,0.9)',
+  color: '#4f6472',
+  fontSize: 12,
+  fontWeight: 800,
+  padding: '0 12px',
+  cursor: 'pointer'
+};
+
+const bookmarkDeleteBtn: CSSProperties = {
+  ...bookmarkGhostBtn,
+  color: '#a14c43',
+  border: '1px solid rgba(234,178,161,0.6)',
+  background: 'rgba(255,243,240,0.95)'
+};
+
+const bookmarkNoteInput: CSSProperties = {
+  width: '100%',
+  minHeight: 76,
+  marginTop: 12,
+  borderRadius: 14,
+  border: '1px solid rgba(221,228,233,0.95)',
+  background: 'rgba(250,252,255,0.96)',
+  padding: '12px 14px',
+  fontSize: 14,
+  lineHeight: 1.6,
+  color: '#24313a',
+  boxSizing: 'border-box',
+  resize: 'vertical'
+};
+
+const bookmarkCardFooter: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'flex-end',
+  marginTop: 10
+};
+
+const bookmarkSaveBtn: CSSProperties = {
+  minHeight: 36,
+  borderRadius: 12,
+  border: '1px solid rgba(114,215,199,0.3)',
+  background: 'rgba(236,253,248,0.92)',
+  color: '#257567',
+  fontSize: 12,
+  fontWeight: 900,
+  padding: '0 12px',
+  cursor: 'pointer'
+};
+
+const bookmarkEditorBox: CSSProperties = {
+  marginTop: 14,
+  padding: '14px',
+  borderRadius: 18,
+  background: 'rgba(247,250,251,0.9)',
+  border: '1px solid rgba(224,231,236,0.9)'
+};
+
+const bookmarkEditorLabel: CSSProperties = {
+  color: '#5f6d75',
+  fontSize: 12,
+  fontWeight: 900,
+  marginBottom: 8
+};
+
+const bookmarkEditorInput: CSSProperties = {
+  width: '100%',
+  minHeight: 88,
+  borderRadius: 14,
+  border: '1px solid rgba(221,228,233,0.95)',
+  background: 'rgba(255,255,255,0.96)',
+  padding: '12px 14px',
+  fontSize: 14,
+  lineHeight: 1.6,
+  color: '#24313a',
+  boxSizing: 'border-box',
+  resize: 'vertical'
+};
+
+const bookmarkEditorHint: CSSProperties = {
+  marginTop: 8,
+  color: '#738089',
+  fontSize: 12,
+  lineHeight: 1.5
 };
 
 const mark: CSSProperties = {
