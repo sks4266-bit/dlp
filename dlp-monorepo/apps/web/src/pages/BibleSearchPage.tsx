@@ -710,7 +710,7 @@ export default function BibleSearchPage() {
                     <div>
                       <div style={miniLabel}>66권 정경 순서</div>
                       <div style={readerPanelTitle}>책 선택 후 장을 바로 읽어보세요</div>
-                      <div style={readerPanelDesc}>구약 39권과 신약 27권을 분류 순서대로 재배치했습니다.</div>
+                      <div style={readerPanelDesc} />
                     </div>
                     <div style={selectedBookPill}>{selectedBook || '책 선택'}</div>
                   </div>
@@ -1462,10 +1462,7 @@ const readerPanelTitle: CSSProperties = {
 };
 
 const readerPanelDesc: CSSProperties = {
-  marginTop: 4,
-  color: '#6b7982',
-  fontSize: 13,
-  lineHeight: 1.5
+  display: 'none'
 };
 
 const selectedBookPill: CSSProperties = {

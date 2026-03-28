@@ -465,8 +465,8 @@ export default function HomePage() {
             <div style={bookmarkWidgetHead}>
               <div>
                 <div style={sectionEyebrow}>MY BOOKMARKS</div>
-                <div style={sectionHeadingSmall}>내 북마크</div>
-                <div style={bookmarkWidgetDesc}>즐겨찾기한 성경 구절을 홈에서 바로 다시 볼 수 있어요.</div>
+                <div style={{ ...sectionHeadingSmall, ...homeBibleWidgetTitle }}>내 북마크</div>
+                <div style={bookmarkWidgetDesc} />
               </div>
               <button type="button" style={bookmarkWidgetLinkBtn} onClick={() => nav('/bible-search?tab=read')}>
                 관리
@@ -510,8 +510,8 @@ export default function HomePage() {
             <div style={recentBibleWidgetHead}>
               <div>
                 <div style={sectionEyebrow}>RECENT BIBLE</div>
-                <div style={sectionHeadingSmall}>최근 읽은 성경</div>
-                <div style={recentBibleWidgetDesc}>방금 읽던 본문을 홈에서 바로 다시 열 수 있어요.</div>
+                <div style={{ ...sectionHeadingSmall, ...homeBibleWidgetTitle }}>최근 읽은 성경</div>
+                <div style={recentBibleWidgetDesc} />
               </div>
               <button type="button" style={recentBibleWidgetLinkBtn} onClick={() => nav('/bible-search?tab=read')}>
                 열기
@@ -1342,21 +1342,25 @@ const bookmarkWidgetHead: CSSProperties = {
   gap: 12
 };
 
+const homeBibleWidgetTitle: CSSProperties = {
+  fontSize: 16,
+  lineHeight: 1.28,
+  letterSpacing: '-0.03em',
+  wordBreak: 'keep-all'
+};
+
 const bookmarkWidgetDesc: CSSProperties = {
-  marginTop: 4,
-  color: '#6d7a83',
-  fontSize: 13,
-  lineHeight: 1.5
+  display: 'none'
 };
 
 const bookmarkWidgetLinkBtn: CSSProperties = {
   border: 0,
   background: 'rgba(255,255,255,0.82)',
   color: '#9d6550',
-  minHeight: 34,
-  padding: '0 12px',
+  minHeight: 30,
+  padding: '0 10px',
   borderRadius: 999,
-  fontSize: 12,
+  fontSize: 11,
   fontWeight: 800,
   cursor: 'pointer',
   whiteSpace: 'nowrap',
@@ -1366,7 +1370,7 @@ const bookmarkWidgetLinkBtn: CSSProperties = {
 const bookmarkWidgetList: CSSProperties = {
   marginTop: 14,
   display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
+  gridTemplateColumns: '1fr',
   gap: 10
 };
 
@@ -1398,12 +1402,12 @@ const bookmarkItemBadge: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  minHeight: 24,
-  padding: '0 10px',
+  minHeight: 22,
+  padding: '0 8px',
   borderRadius: 999,
   background: 'rgba(247,242,238,0.96)',
   color: '#8a6a5a',
-  fontSize: 11,
+  fontSize: 10,
   fontWeight: 800
 };
 
@@ -1414,30 +1418,32 @@ const bookmarkItemBadgePrimary: CSSProperties = {
 
 const bookmarkItemDate: CSSProperties = {
   color: '#95a0a7',
-  fontSize: 11,
+  fontSize: 10,
   fontWeight: 700,
   whiteSpace: 'nowrap'
 };
 
 const bookmarkItemRef: CSSProperties = {
-  marginTop: 10,
+  marginTop: 8,
   color: '#24313a',
-  fontSize: 16,
+  fontSize: 15,
   fontWeight: 800,
-  lineHeight: 1.35,
-  letterSpacing: '-0.02em'
+  lineHeight: 1.32,
+  letterSpacing: '-0.02em',
+  wordBreak: 'keep-all'
 };
 
 const bookmarkItemNote: CSSProperties = {
   marginTop: 6,
   color: '#6d7a83',
-  fontSize: 13,
-  lineHeight: 1.5,
+  fontSize: 12,
+  lineHeight: 1.45,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   display: '-webkit-box',
   WebkitLineClamp: 2,
-  WebkitBoxOrient: 'vertical'
+  WebkitBoxOrient: 'vertical',
+  wordBreak: 'keep-all'
 };
 
 const recentBibleWidgetCard: CSSProperties = {
@@ -1456,20 +1462,17 @@ const recentBibleWidgetHead: CSSProperties = {
 };
 
 const recentBibleWidgetDesc: CSSProperties = {
-  marginTop: 4,
-  color: '#6d7a83',
-  fontSize: 13,
-  lineHeight: 1.5
+  display: 'none'
 };
 
 const recentBibleWidgetLinkBtn: CSSProperties = {
   border: 0,
   background: 'rgba(255,255,255,0.82)',
   color: '#2f7f73',
-  minHeight: 34,
-  padding: '0 12px',
+  minHeight: 30,
+  padding: '0 10px',
   borderRadius: 999,
-  fontSize: 12,
+  fontSize: 11,
   fontWeight: 800,
   cursor: 'pointer',
   whiteSpace: 'nowrap',
@@ -1479,7 +1482,7 @@ const recentBibleWidgetLinkBtn: CSSProperties = {
 const recentBibleWidgetList: CSSProperties = {
   marginTop: 14,
   display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
+  gridTemplateColumns: '1fr',
   gap: 10
 };
 
@@ -1517,13 +1520,13 @@ const recentBibleItemBadge: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  minHeight: 24,
+  minHeight: 22,
   width: 'fit-content',
-  padding: '0 10px',
+  padding: '0 8px',
   borderRadius: 999,
   background: 'rgba(244,247,249,0.92)',
   color: '#73818a',
-  fontSize: 11,
+  fontSize: 10,
   fontWeight: 800
 };
 
@@ -1534,16 +1537,17 @@ const recentBibleItemBadgePrimary: CSSProperties = {
 
 const recentBibleItemRef: CSSProperties = {
   color: '#24313a',
-  fontSize: 16,
+  fontSize: 15,
   fontWeight: 800,
-  lineHeight: 1.35,
-  letterSpacing: '-0.02em'
+  lineHeight: 1.32,
+  letterSpacing: '-0.02em',
+  wordBreak: 'keep-all'
 };
 
 const recentBibleItemArrow: CSSProperties = {
-  marginTop: 8,
+  marginTop: 7,
   color: '#7a8790',
-  fontSize: 12,
+  fontSize: 11,
   fontWeight: 800,
   whiteSpace: 'nowrap'
 };
@@ -1551,8 +1555,9 @@ const recentBibleItemArrow: CSSProperties = {
 const bookmarkItemNoteMuted: CSSProperties = {
   marginTop: 6,
   color: '#9aa4aa',
-  fontSize: 12,
-  fontWeight: 700
+  fontSize: 11,
+  fontWeight: 700,
+  wordBreak: 'keep-all'
 };
 
 const widgetActionInlineRow: CSSProperties = {
@@ -1572,24 +1577,24 @@ const widgetOpenBtn: CSSProperties = {
 
 const widgetDeleteBtnPeach: CSSProperties = {
   border: 0,
-  minHeight: 24,
-  padding: '0 8px',
+  minHeight: 22,
+  padding: '0 7px',
   borderRadius: 999,
   background: 'rgba(243,180,156,0.18)',
   color: '#9d6550',
-  fontSize: 11,
+  fontSize: 10,
   fontWeight: 800,
   cursor: 'pointer'
 };
 
 const widgetDeleteBtnMint: CSSProperties = {
   border: 0,
-  minHeight: 24,
-  padding: '0 8px',
+  minHeight: 22,
+  padding: '0 7px',
   borderRadius: 999,
   background: 'rgba(114,215,199,0.18)',
   color: '#2f7f73',
-  fontSize: 11,
+  fontSize: 10,
   fontWeight: 800,
   cursor: 'pointer'
 };
