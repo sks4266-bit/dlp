@@ -71,33 +71,33 @@ export default function ChannelDetailPage() {
   const [commentSaving, setCommentSaving] = useState(false);
   const [kickingUserId, setKickingUserId] = useState<string | null>(null);
 
-  const boardLabel = tab === 'notice' ? '공지' : '기도';
-  const boardDesc = '';
+  const boardLabel = tab === 'notice' ? '' : '';
+  const boardDesc = tab === 'notice' ? '' : '';
 
   const summaryItems = useMemo(
     () => [
       {
-        label: '참여 상태',
-        value: isMember ? '참여 중' : '미가입',
-        subValue: isMember ? channel?.myRole ?? '멤버' : '누구나 즉시 입장 가능',
+        label: '',
+        value: isMember ? '' : '',
+        subValue: isMember ? channel?.myRole ?? '' : '',
         tone: 'mint' as Tone
       },
       {
-        label: '채널 구성원',
-        value: loading ? '…' : `${channel?.memberCount ?? members.length}명`,
-        subValue: isManager ? '관리자 강퇴 가능' : '구성원과 함께 사용',
+        label: '',
+        value: loading ? '' : `${channel?.memberCount ?? members.length}`,
+        subValue: isManager ? '' : '',
         tone: 'sky' as Tone
       },
       {
-        label: '현재 보드',
+        label: '',
         value: boardLabel,
-        subValue: tab === 'notice' ? '전달 중심' : '나눔 중심',
+        subValue: tab === 'notice' ? '' : '',
         tone: tab === 'notice' ? ('peach' as Tone) : ('mint' as Tone)
       },
       {
-        label: '게시글 수',
-        value: loading ? '…' : `${posts.length}개`,
-        subValue: `${boardLabel} 기준`,
+        label: '',
+        value: loading ? '' : `${posts.length}`,
+        subValue: `${boardLabel}`,
         tone: 'neutral' as Tone
       }
     ],
@@ -117,7 +117,7 @@ export default function ChannelDetailPage() {
       goLogin();
       return null;
     }
-    if (!res.ok) throw new Error('채널 정보를 불러오지 못했습니다.');
+    if (!res.ok) throw new Error('');
     const data = (await res.json()) as Channel;
     setChannel(data);
     return data;
@@ -131,7 +131,7 @@ export default function ChannelDetailPage() {
       goLogin();
       return;
     }
-    if (!res.ok) throw new Error('게시글을 불러오지 못했습니다.');
+    if (!res.ok) throw new Error('');
     setPosts(await res.json());
   }
 
@@ -149,7 +149,7 @@ export default function ChannelDetailPage() {
         setMembers([]);
         return;
       }
-      if (!res.ok) throw new Error('구성원 정보를 불러오지 못했습니다.');
+      if (!res.ok) throw new Error('');
       setMembers(await res.json());
     } finally {
       setMembersLoading(false);
@@ -168,7 +168,7 @@ export default function ChannelDetailPage() {
         setMembers([]);
       }
     } catch (e: any) {
-      setErr(e?.message ?? '불러오기에 실패했습니다.');
+      setErr(e?.message ?? '');
     } finally {
       setLoading(false);
     }
@@ -204,7 +204,7 @@ export default function ChannelDetailPage() {
   async function submitJoin(mode: 'open' | 'code') {
     if (!channel) return;
     if (mode === 'code' && joinCode.trim().length < 4) {
-      window.alert('초대코드를 입력하세요.');
+      window.alert('');
       return;
     }
 
@@ -221,13 +221,13 @@ export default function ChannelDetailPage() {
       }
 
       if (!res.ok) {
-        window.alert(mode === 'code' ? '가입 실패: 초대코드를 확인하세요.' : '채널 입장에 실패했습니다.');
+        window.alert(mode === 'code' ? '' : '');
         return;
       }
 
       setJoinCode('');
       await loadAll();
-      window.alert('채널에 입장되었습니다.');
+      window.alert('');
     } finally {
       setJoinSaving(false);
     }
@@ -236,7 +236,7 @@ export default function ChannelDetailPage() {
   async function submitPost() {
     if (!id) return;
     if (!content.trim()) {
-      window.alert('내용을 입력하세요.');
+      window.alert('');
       return;
     }
 
@@ -263,7 +263,7 @@ export default function ChannelDetailPage() {
       setComposerOpen(false);
       await loadPosts();
     } catch {
-      window.alert('등록에 실패했습니다.');
+      window.alert('');
     } finally {
       setSaving(false);
     }
@@ -272,7 +272,7 @@ export default function ChannelDetailPage() {
   async function submitComment() {
     if (!activePost) return;
     if (!commentText.trim()) {
-      window.alert('댓글을 입력하세요.');
+      window.alert('');
       return;
     }
 
@@ -293,7 +293,7 @@ export default function ChannelDetailPage() {
       setCommentText('');
       await openComments(activePost);
     } catch {
-      window.alert('댓글 등록에 실패했습니다.');
+      window.alert('');
     } finally {
       setCommentSaving(false);
     }
@@ -301,7 +301,7 @@ export default function ChannelDetailPage() {
 
   async function kickMember(member: Member) {
     if (!id) return;
-    if (!window.confirm(`${member.name} 님을 채널에서 내보낼까요?`)) return;
+    if (!window.confirm(`${member.name}`)) return;
 
     setKickingUserId(member.userId);
     try {
@@ -316,7 +316,7 @@ export default function ChannelDetailPage() {
       }
 
       if (!res.ok) {
-        window.alert('강퇴 처리에 실패했습니다.');
+        window.alert('');
         return;
       }
 
@@ -328,7 +328,7 @@ export default function ChannelDetailPage() {
 
   function openComposerForCurrentTab() {
     if (!isMember) {
-      window.alert('먼저 채널에 입장하세요.');
+      window.alert('');
       return;
     }
     setComposerOpen(true);
@@ -337,22 +337,22 @@ export default function ChannelDetailPage() {
   return (
     <div style={page}>
       <div style={pageInner}>
-        <TopBar title="교회 채널" backTo="/channels" hideAuthActions />
+        <TopBar title="" backTo="/channels" hideAuthActions />
 
         <Card pad style={heroCard}>
           <div style={heroTop}>
             <div style={heroCopy}>
               <div style={badgeMint}>CHANNEL DETAIL</div>
-              <div style={heroTitle}>{channel?.name ?? '교회 채널'}</div>
+              <div style={heroTitle}>{channel?.name ?? ''}</div>
               <div style={heroDesc}>{channel?.description ?? ''}</div>
             </div>
-            <div style={roleChip}>{channel?.myRole ?? '미가입'}</div>
+            <div style={roleChip}>{channel?.myRole ?? ''}</div>
           </div>
 
           <div style={heroPillRow}>
-            <span style={heroMintPill}>검색으로 누구나 바로 입장</span>
-            <span style={heroPeachPill}>초대코드 입장 지원</span>
-            <span style={heroSkyPill}>{isManager ? '관리자 강퇴 권한 활성화' : '관리자만 강퇴 가능'}</span>
+            <span style={heroMintPill}></span>
+            <span style={heroPeachPill}></span>
+            <span style={heroSkyPill}>{isManager ? '' : ''}</span>
           </div>
 
           <div style={summaryGrid}>
@@ -362,30 +362,24 @@ export default function ChannelDetailPage() {
           </div>
 
           <div style={actionGrid}>
-            <Button variant="primary" size="md" onClick={openComposerForCurrentTab}>
-              {boardLabel} 글 작성
-            </Button>
-            <Button variant="secondary" size="md" onClick={loadAll}>
-              새로고침
-            </Button>
+            <Button variant="primary" size="md" onClick={openComposerForCurrentTab}>{''}</Button>
+            <Button variant="secondary" size="md" onClick={loadAll}>{''}</Button>
           </div>
 
           {!isMember && channel ? (
             <div style={joinCard}>
-              <div style={joinTitle}>채널 입장</div>
+              <div style={joinTitle}></div>
               <div style={joinDesc}></div>
               <div className="stack10" />
               <Button variant="primary" size="lg" wide onClick={() => submitJoin('open')} disabled={joinSaving}>
-                {joinSaving ? '입장 중…' : '바로 입장'}
+                {joinSaving ? '' : ''}
               </Button>
               <div className="stack10" />
-              <Field label="초대코드로 입장(선택)">
-                <input value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} placeholder="예) ABC123" className="glassInput" />
+              <Field label="">
+                <input value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} placeholder=") ABC123" className="glassInput" />
               </Field>
               <div className="stack10" />
-              <Button variant="secondary" size="lg" wide onClick={() => submitJoin('code')} disabled={joinSaving}>
-                초대코드로 입장
-              </Button>
+              <Button variant="secondary" size="lg" wide onClick={() => submitJoin('code')} disabled={joinSaving}>{''}</Button>
             </div>
           ) : null}
         </Card>
@@ -396,8 +390,8 @@ export default function ChannelDetailPage() {
           <Card pad style={sectionCard}>
             <SectionHeader
               eyebrow="MEMBERS"
-              title="채널 구성원"
-              desc=""
+              title=""
+              desc={isManager ? '' : ''}
             />
 
             <div style={cardList}>
@@ -407,7 +401,7 @@ export default function ChannelDetailPage() {
                   <div className="glassSkeletonBlock" style={{ height: 88, borderRadius: 18 }} />
                 </div>
               ) : members.length === 0 ? (
-                <div className="glassEmpty">아직 구성원 정보가 없습니다.</div>
+                <div className="glassEmpty"></div>
               ) : (
                 members.map((member) => (
                   <MemberRow
@@ -424,16 +418,16 @@ export default function ChannelDetailPage() {
         ) : null}
 
         <Card pad style={sectionCard}>
-          <SectionHeader eyebrow="BOARD" title={`${boardLabel} 게시판`} desc={boardDesc} />
+          <SectionHeader eyebrow="BOARD" title={`${boardLabel}`} desc={boardDesc} />
 
           <div style={tabGaugeGrid}>
-            <GaugeTabButton label="공지" title="공지 보드" hint="" tone="peach" active={tab === 'notice'} onClick={() => setTab('notice')} />
-            <GaugeTabButton label="기도" title="기도 보드" hint="" tone="mint" active={tab === 'prayer'} onClick={() => setTab('prayer')} />
+            <GaugeTabButton label="" title="" hint="" tone="peach" active={tab === 'notice'} onClick={() => setTab('notice')} />
+            <GaugeTabButton label="" title="" hint="" tone="mint" active={tab === 'prayer'} onClick={() => setTab('prayer')} />
           </div>
         </Card>
 
         <Card pad style={sectionCard}>
-          <SectionHeader eyebrow="POSTS" title="게시글 목록" desc={loading ? '게시글을 불러오는 중이에요.' : `${posts.length}개의 ${boardLabel} 글을 확인할 수 있어요.`} />
+          <SectionHeader eyebrow="POSTS" title="" desc={loading ? '' : `${posts.length}${boardLabel}`} />
 
           <div style={cardList}>
             {loading ? (
@@ -443,14 +437,14 @@ export default function ChannelDetailPage() {
                 <div className="glassSkeletonBlock" style={{ height: 118, borderRadius: 22 }} />
               </div>
             ) : posts.length === 0 ? (
-              <div className="glassEmpty">아직 게시글이 없습니다. 첫 번째 {boardLabel} 글을 남겨보세요.</div>
+              <div className="glassEmpty"></div>
             ) : (
               posts.map((post) => (
                 <button key={post.id} type="button" style={listCardButton} onClick={() => openComments(post)}>
                   <div style={listCardTop}>
                     <div style={listCardTitleWrap}>
-                      <div style={post.boardType === 'notice' ? rowBadgePeach : rowBadgeMint}>{post.boardType === 'notice' ? '공지' : '기도'}</div>
-                      <div style={listCardTitle}>{post.title || (post.boardType === 'notice' ? '공지 제목' : '기도제목')}</div>
+                      <div style={post.boardType === 'notice' ? rowBadgePeach : rowBadgeMint}>{post.boardType === 'notice' ? '' : ''}</div>
+                      <div style={listCardTitle}>{post.title || (post.boardType === 'notice' ? '' : '')}</div>
                     </div>
                     <div style={postTime}>{formatTime(post.createdAt)}</div>
                   </div>
@@ -459,7 +453,7 @@ export default function ChannelDetailPage() {
 
                   <div style={listCardMeta}>
                     <span style={authorPill}>{post.authorName}</span>
-                    <span style={metaPillNeutral}>댓글 보기 ›</span>
+                    <span style={metaPillNeutral}></span>
                   </div>
                 </button>
               ))
@@ -469,37 +463,37 @@ export default function ChannelDetailPage() {
 
         <BottomSheet open={composerOpen} onClose={() => setComposerOpen(false)}>
           <div style={sheetEyebrow}>{tab === 'notice' ? 'NOTICE POST' : 'PRAYER POST'}</div>
-          <div className="sheetTitle">새 글 작성</div>
+          <div className="sheetTitle"></div>
           <div style={sheetDesc}></div>
           <div className="stack10" />
 
-          <Field label="제목(선택)">
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목을 입력하세요" className="glassInput" />
+          <Field label="">
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="" className="glassInput" />
           </Field>
 
           <div className="stack10" />
 
-          <Field label="내용">
-            <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="내용을 입력하세요" className="glassTextarea" style={{ minHeight: 100 }} />
+          <Field label="">
+            <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="" className="glassTextarea" style={{ minHeight: 100 }} />
           </Field>
 
           <div className="stack12" />
 
           <Button variant="primary" size="lg" wide onClick={submitPost} disabled={saving}>
-            {saving ? '등록 중…' : '등록'}
+            {saving ? '' : ''}
           </Button>
         </BottomSheet>
 
         <BottomSheet open={commentsOpen} onClose={() => setCommentsOpen(false)}>
           <div style={sheetEyebrow}>COMMENTS</div>
-          <div className="sheetTitle">댓글 나눔</div>
+          <div className="sheetTitle"></div>
           {activePost ? (
             <div style={commentHeroCard}>
               <div style={commentHeroTop}>
-                <span style={activePost.boardType === 'notice' ? heroPeachPill : heroMintPill}>{activePost.boardType === 'notice' ? '공지' : '기도'}</span>
-                <span style={heroNeutralPill}>{commentsLoading ? '불러오는 중' : `${comments.length}개 댓글`}</span>
+                <span style={activePost.boardType === 'notice' ? heroPeachPill : heroMintPill}>{activePost.boardType === 'notice' ? '' : ''}</span>
+                <span style={heroNeutralPill}>{commentsLoading ? '' : `${comments.length}`}</span>
               </div>
-              <div style={commentHeroTitle}>{activePost.title ?? '댓글'}</div>
+              <div style={commentHeroTitle}>{activePost.title ?? ''}</div>
               <div style={commentHeroDesc}>{activePost.content}</div>
             </div>
           ) : null}
@@ -513,7 +507,7 @@ export default function ChannelDetailPage() {
                 <div className="glassSkeletonBlock" style={{ height: 88, borderRadius: 18 }} />
               </div>
             ) : comments.length === 0 ? (
-              <div className="glassEmpty">아직 댓글이 없습니다. 첫 번째 댓글로 마음을 나눠보세요.</div>
+              <div className="glassEmpty"></div>
             ) : (
               comments.map((comment) => (
                 <div key={comment.id} style={commentCard}>
@@ -530,16 +524,16 @@ export default function ChannelDetailPage() {
           <div className="stack12" />
 
           <div style={commentEditorCard}>
-            <div style={commentEditorTitle}>댓글 입력</div>
+            <div style={commentEditorTitle}></div>
             <div style={commentEditorDesc}></div>
             <div className="stack10" />
-            <textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="댓글을 입력하세요" className="glassTextarea" style={{ minHeight: 88 }} />
+            <textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="" className="glassTextarea" style={{ minHeight: 88 }} />
           </div>
 
           <div className="stack10" />
 
           <Button variant="primary" size="lg" wide onClick={submitComment} disabled={commentSaving}>
-            {commentSaving ? '등록 중…' : '댓글 등록'}
+            {commentSaving ? '' : ''}
           </Button>
         </BottomSheet>
       </div>
@@ -602,7 +596,7 @@ function GaugeTabButton({
   return (
     <button type="button" onClick={onClick} style={{ ...gaugeTabButton, border: `1px solid ${border}` }}>
       <div style={gaugeTrack}>
-        <div style={{ ...gaugeFill, width: `${percent}%`, background: fill }} />
+        <div style={{ ...gaugeFill, width: `${percent}`, background: fill }} />
       </div>
       <div style={gaugeContent}>
         <div style={gaugeTopRow}>
@@ -632,18 +626,18 @@ function MemberRow({
       <div style={memberTop}>
         <div>
           <div style={memberName}>{member.name}</div>
-          <div style={memberMeta}>{formatTime(member.joinedAt)} 참여</div>
+          <div style={memberMeta}>{formatTime(member.joinedAt)}</div>
         </div>
         <div style={memberPillRow}>
           <span style={member.role === 'OWNER' ? heroPeachPill : heroMintPill}>{member.role}</span>
-          {member.isMe ? <span style={heroNeutralPill}>나</span> : null}
+          {member.isMe ? <span style={heroNeutralPill}></span> : null}
         </div>
       </div>
 
       {canKick ? (
         <div style={memberActionWrap}>
           <Button variant="danger" size="md" onClick={onKick} disabled={kicking}>
-            {kicking ? '처리 중…' : '강퇴'}
+            {kicking ? '' : ''}
           </Button>
         </div>
       ) : null}
@@ -671,9 +665,7 @@ function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () =
         </div>
         {children}
         <div className="stack10" />
-        <Button variant="secondary" size="lg" wide onClick={onClose}>
-          닫기
-        </Button>
+        <Button variant="secondary" size="lg" wide onClick={onClose}>{''}</Button>
       </div>
     </div>
   );
@@ -681,7 +673,7 @@ function BottomSheet({ open, onClose, children }: { open: boolean; onClose: () =
 
 function formatTime(ts: number) {
   const d = new Date(ts);
-  return `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return `${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 function getToneCardStyle(tone: Tone): CSSProperties {

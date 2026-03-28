@@ -31,8 +31,8 @@ export default function TopBar({
             variant="ghost"
             className="topBarBackBtn"
             onClick={() => nav(backTo)}
-            aria-label="뒤로"
-            title="뒤로"
+            aria-label=""
+            title=""
           >
             ‹
           </Button>
@@ -52,20 +52,20 @@ export default function TopBar({
           <>
             {!me && !loading ? (
               <Button variant="secondary" className="topBarAuthBtn" onClick={goLogin}>
-                로그인
+                {' '}
               </Button>
             ) : null}
 
             {me ? (
               <>
                 {me.isAdmin ? (
-                  <Button variant="ghost" className="topBarMiniBtn" onClick={() => nav('/admin')} aria-label="ADMIN 대시보드">
+                  <Button variant="ghost" className="topBarMiniBtn" onClick={() => nav('/admin')} aria-label="ADMIN">
                     ADMIN
                   </Button>
                 ) : null}
 
-                <Button variant="ghost" className="topBarMiniBtn" onClick={() => nav('/me')} aria-label="내정보">
-                  내정보
+                <Button variant="ghost" className="topBarMiniBtn" onClick={() => nav('/me')} aria-label="">
+                  {' '}
                 </Button>
 
                 <Button
@@ -75,9 +75,9 @@ export default function TopBar({
                     logout();
                     nav('/');
                   }}
-                  aria-label="로그아웃"
+                  aria-label=""
                 >
-                  로그아웃
+                  {' '}
                 </Button>
               </>
             ) : null}

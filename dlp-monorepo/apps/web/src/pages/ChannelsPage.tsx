@@ -57,12 +57,12 @@ export default function ChannelsPage() {
         return;
       }
 
-      if (!r1.ok || !r2.ok) throw new Error('교회 채널을 불러오지 못했습니다.');
+      if (!r1.ok || !r2.ok) throw new Error('');
 
       setReco(await r1.json());
       setAll(await r2.json());
     } catch (e: any) {
-      setErr(e?.message ?? '교회 채널을 불러오지 못했습니다.');
+      setErr(e?.message ?? '');
     } finally {
       setLoading(false);
     }
@@ -87,7 +87,7 @@ export default function ChannelsPage() {
 
   async function onCreate() {
     if (name.trim().length < 2) {
-      window.alert('채널 이름을 2자 이상 입력하세요.');
+      window.alert(' 2 .');
       return;
     }
 
@@ -107,7 +107,7 @@ export default function ChannelsPage() {
       }
 
       if (!res.ok) {
-        window.alert('채널 생성에 실패했습니다.');
+        window.alert('');
         return;
       }
 
@@ -136,7 +136,7 @@ export default function ChannelsPage() {
       }
 
       if (!res.ok) {
-        window.alert('채널 입장에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        window.alert('');
         return;
       }
 
@@ -149,7 +149,7 @@ export default function ChannelsPage() {
   async function joinWithInviteCode() {
     const code = inviteCode.trim().toUpperCase();
     if (code.length < 4) {
-      window.alert('초대코드를 입력하세요.');
+      window.alert('');
       return;
     }
 
@@ -166,7 +166,7 @@ export default function ChannelsPage() {
       }
 
       if (!res.ok) {
-        window.alert('초대코드를 확인해주세요.');
+        window.alert('');
         return;
       }
 
@@ -181,25 +181,21 @@ export default function ChannelsPage() {
   return (
     <div style={page}>
       <div style={pageInner}>
-        <TopBar title="교회 채널" backTo="/" hideAuthActions />
+        <TopBar title="" backTo="" hideAuthActions />
 
         <Card pad style={heroCard}>
           <div style={badgePeach}>CHURCH CHANNEL</div>
-          <div style={heroTitle}>교회 채널 입장 방식을 두 가지로 정리했어요</div>
+          <div style={heroTitle}></div>
           <div style={heroDesc}></div>
 
           <div style={statRow}>
-            <StatChip label="추천 채널" value={`${reco.length}`} tone="mint" />
-            <StatChip label="전체 채널" value={`${all.length}`} tone="peach" />
+            <StatChip label="" value={`${reco.length}`} tone="mint" />
+            <StatChip label="" value={`${all.length}`} tone="peach" />
           </div>
 
           <div style={heroActions}>
-            <Button type="button" variant="primary" size="md" onClick={() => setCreateOpen(true)}>
-              새 채널 만들기
-            </Button>
-            <Button type="button" variant="secondary" size="md" onClick={load}>
-              새로고침
-            </Button>
+            <Button type="button" variant="primary" size="md" onClick={() => setCreateOpen(true)}>{''}</Button>
+            <Button type="button" variant="secondary" size="md" onClick={load}>{''}</Button>
           </div>
         </Card>
 
@@ -208,17 +204,17 @@ export default function ChannelsPage() {
         <div style={entryGrid}>
           <Card pad style={entryCard}>
             <div style={entryEyebrow}>SEARCH ENTRY</div>
-            <div style={entryTitle}>채널명으로 찾아서 바로 입장</div>
+            <div style={entryTitle}></div>
             <div style={entryDesc}></div>
             <div className="stack10" />
 
             <label className="glassField">
-              <div className="glassFieldLabel">채널명 검색</div>
+              <div className="glassFieldLabel"></div>
               <input
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 className="glassInput"
-                placeholder="예) 청년부, 중보기도팀, 00교회"
+                placeholder=") , , 00"
               />
             </label>
 
@@ -231,7 +227,7 @@ export default function ChannelsPage() {
                   <div className="glassSkeletonBlock" style={{ height: 96, borderRadius: 20 }} />
                 </div>
               ) : searchedChannels.length === 0 ? (
-                <div className="glassEmpty">검색된 채널이 없습니다.</div>
+                <div className="glassEmpty"></div>
               ) : (
                 searchedChannels.map((channel) => (
                   <SearchJoinRow
@@ -248,17 +244,17 @@ export default function ChannelsPage() {
 
           <Card pad style={entryCard}>
             <div style={entryEyebrow}>INVITE CODE</div>
-            <div style={entryTitle}>초대코드로 빠르게 입장</div>
+            <div style={entryTitle}></div>
             <div style={entryDesc}></div>
             <div className="stack10" />
 
             <label className="glassField">
-              <div className="glassFieldLabel">초대코드</div>
+              <div className="glassFieldLabel"></div>
               <input
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                 className="glassInput"
-                placeholder="예) ABC123"
+                placeholder=") ABC123"
                 maxLength={12}
               />
             </label>
@@ -266,24 +262,24 @@ export default function ChannelsPage() {
             <div className="stack10" />
 
             <Button type="button" variant="primary" size="lg" wide onClick={joinWithInviteCode} disabled={joiningByCode}>
-              {joiningByCode ? '입장 중…' : '초대코드로 입장'}
+              {joiningByCode ? '' : ''}
             </Button>
 
             <div className="stack12" />
 
             <div style={guideBox}>
-              <div style={guideTitle}>입장 정책</div>
-              <div style={guideText}>모든 로그인 사용자는 채널을 찾거나 초대코드를 입력해 바로 입장할 수 있습니다. 세부 관리 권한은 채널 관리자에게 남겨두었습니다.</div>
+              <div style={guideTitle}></div>
+              <div style={guideText}></div>
             </div>
           </Card>
         </div>
 
         <SectionBlock
           eyebrow="RECOMMENDED"
-          title="추천 채널"
+          title=""
           desc=""
           loading={loading}
-          emptyText="추천할 채널이 없습니다."
+          emptyText=""
           channels={reco.slice(0, 10)}
           joiningId={joiningId}
           onOpen={(channelId) => nav(`/channels/${channelId}`)}
@@ -292,10 +288,10 @@ export default function ChannelsPage() {
 
         <SectionBlock
           eyebrow="ALL CHANNELS"
-          title="전체 채널"
+          title=""
           desc=""
           loading={loading}
-          emptyText="등록된 채널이 없습니다."
+          emptyText=""
           channels={all.slice(0, 20)}
           joiningId={joiningId}
           onOpen={(channelId) => nav(`/channels/${channelId}`)}
@@ -305,25 +301,25 @@ export default function ChannelsPage() {
 
       <Sheet open={createOpen} onClose={() => setCreateOpen(false)}>
         <div style={sheetEyebrow}>CREATE CHANNEL</div>
-        <div className="sheetTitle">새 채널 만들기</div>
+        <div className="sheetTitle"></div>
         <div style={sheetDesc}></div>
 
         <div className="stack10" />
 
-        <Field label="채널 이름">
-          <input value={name} onChange={(e) => setName(e.target.value)} className="glassInput" placeholder="예) 00교회 청년부" />
+        <Field label="">
+          <input value={name} onChange={(e) => setName(e.target.value)} className="glassInput" placeholder=") 00 " />
         </Field>
 
         <div className="stack10" />
 
-        <Field label="설명(선택)">
-          <input value={desc} onChange={(e) => setDesc(e.target.value)} className="glassInput" placeholder="예) 공지 · 기도제목 · 모임안내" />
+        <Field label="">
+          <input value={desc} onChange={(e) => setDesc(e.target.value)} className="glassInput" placeholder="" />
         </Field>
 
         <div className="stack12" />
 
         <Button type="button" variant="primary" size="lg" wide onClick={onCreate} disabled={createSaving}>
-          {createSaving ? '생성 중…' : '생성'}
+          {createSaving ? '' : ''}
         </Button>
       </Sheet>
     </div>
@@ -398,18 +394,16 @@ function SearchJoinRow({
     <div style={searchResultCard}>
       <div style={searchResultTop}>
         <div>
-          <div style={rowBadge}>검색 결과</div>
+          <div style={rowBadge}></div>
           <div style={searchResultTitle}>{channel.name}</div>
         </div>
-        <span style={metaPillMint}>즉시 입장</span>
+        <span style={metaPillMint}></span>
       </div>
-      <div style={searchResultDesc}>{channel.description ?? '설명 없음'}</div>
+      <div style={searchResultDesc}>{channel.description ?? ''}</div>
       <div style={rowActionGrid}>
-        <Button type="button" variant="secondary" size="md" onClick={onOpen}>
-          상세 보기
-        </Button>
+        <Button type="button" variant="secondary" size="md" onClick={onOpen}>{''}</Button>
         <Button type="button" variant="primary" size="md" onClick={onJoin} disabled={joining}>
-          {joining ? '입장 중…' : '바로 입장'}
+          {joining ? '' : ''}
         </Button>
       </div>
     </div>
@@ -431,22 +425,20 @@ function ChannelRow({
     <div style={listCard}>
       <div style={listCardTop}>
         <div style={listCardTitleWrap}>
-          <div style={rowBadge}>교회 채널</div>
+          <div style={rowBadge}></div>
           <div style={listCardTitle}>{channel.name}</div>
         </div>
         <div style={rowArrow}>›</div>
       </div>
-      <div style={listCardDesc}>{channel.description ?? '설명 없음'}</div>
+      <div style={listCardDesc}>{channel.description ?? ''}</div>
       <div style={listCardMeta}>
-        <span style={metaPillMint}>초대코드 {channel.inviteCode}</span>
-        {typeof channel.score === 'number' ? <span style={metaPillNeutral}>추천점수 {channel.score}</span> : null}
+        <span style={metaPillMint}>{channel.inviteCode}</span>
+        {typeof channel.score === 'number' ? <span style={metaPillNeutral}>{channel.score}</span> : null}
       </div>
       <div style={rowActionGrid}>
-        <Button type="button" variant="secondary" size="md" onClick={onOpen}>
-          상세 보기
-        </Button>
+        <Button type="button" variant="secondary" size="md" onClick={onOpen}>{''}</Button>
         <Button type="button" variant="primary" size="md" onClick={onJoin} disabled={joining}>
-          {joining ? '입장 중…' : '입장'}
+          {joining ? '' : ''}
         </Button>
       </div>
     </div>
@@ -488,9 +480,7 @@ function Sheet({ open, onClose, children }: { open: boolean; onClose: () => void
         </div>
         {children}
         <div className="stack10" />
-        <Button type="button" variant="secondary" size="lg" wide onClick={onClose}>
-          닫기
-        </Button>
+        <Button type="button" variant="secondary" size="lg" wide onClick={onClose}>{''}</Button>
       </div>
     </div>
   );

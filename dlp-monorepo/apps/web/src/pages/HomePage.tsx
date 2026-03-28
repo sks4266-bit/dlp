@@ -207,10 +207,10 @@ export default function HomePage() {
           <div style={headerActionRow}>
             <button type="button" style={installGiftButton} onClick={openInstallGuide}>
               <span aria-hidden="true">🎁</span>
-              <span>홈화면에 추가</span>
+              <span></span>
             </button>
             <button type="button" style={profileButton} onClick={() => (me ? nav('/me') : goLogin('/me'))}>
-              {me ? '내정보' : '로그인'}
+              {me ? '' : ''}
             </button>
           </div>
         </header>
@@ -219,16 +219,12 @@ export default function HomePage() {
           <div style={urgentHead}>
             <div style={urgentLabelWrap}>
               <div style={sectionEyebrow}>URGENT PRAYER</div>
-              <div style={urgentTitleText}>긴급기도</div>
-              <div style={urgentSubText}></div>
+              <div style={urgentTitleText}></div>
+              <div style={urgentSubText}> 10 .</div>
             </div>
             <div style={urgentActionRow}>
-              <button type="button" style={urgentGhostBtn} onClick={() => nav('/urgent-prayers')}>
-                전체보기
-              </button>
-              <button type="button" style={urgentPrimaryBtn} onClick={() => void openUrgentComposer()}>
-                기도등록
-              </button>
+              <button type="button" style={urgentGhostBtn} onClick={() => nav('/urgent-prayers')}></button>
+              <button type="button" style={urgentPrimaryBtn} onClick={() => void openUrgentComposer()}></button>
             </div>
           </div>
           <div style={urgentCompactRow}>
@@ -251,15 +247,15 @@ export default function HomePage() {
           <div style={heroTop}>
             <div style={heroCopy}>
               <div style={badgeMint}>TODAY READING</div>
-              <CardTitle style={heroTitle}>맥체인 성경읽기</CardTitle>
+              <CardTitle style={heroTitle}></CardTitle>
               <CardDesc style={heroDesc}></CardDesc>
 
               {loading ? (
-                <div style={helperMuted}>불러오는 중…</div>
+                <div style={helperMuted}></div>
               ) : readings.length > 0 ? (
                 <ul style={readingList}>
                   {readings.map((reading, idx) => (
-                    <li key={`${reading}-${idx}`} style={readingItem}>
+                    <li key={`${reading}${idx}`} style={readingItem}>
                       <span style={bulletIconWrap}>
                         <BookIcon />
                       </span>
@@ -268,7 +264,7 @@ export default function HomePage() {
                   ))}
                 </ul>
               ) : (
-                <div style={emptyNote}>오늘 본문을 아직 불러오지 못했습니다.</div>
+                <div style={emptyNote}></div>
               )}
             </div>
 
@@ -281,25 +277,21 @@ export default function HomePage() {
               >
                 <div style={progressRingInner}>
                   <div style={progressMain}>{todayCompleted}/4</div>
-                  <div style={progressLabel}>오늘 진행</div>
+                  <div style={progressLabel}></div>
                 </div>
               </div>
 
               <div style={progressSub}>
                 {home?.mcheyneProgress
-                  ? `전체 ${home.mcheyneProgress.completedReadings}/${home.mcheyneProgress.totalReadings}`
-                  : '로그인 후 진행률 표시'}
+                  ? `${home.mcheyneProgress.completedReadings}${home.mcheyneProgress.totalReadings}`
+                  : ''}
               </div>
             </div>
           </div>
 
           <div style={heroActions}>
-            <Button type="button" variant="primary" size="lg" wide onClick={goTodayReading}>
-              오늘 본문 읽기
-            </Button>
-            <Button type="button" variant="secondary" size="lg" wide onClick={() => nav('/mcheyne-calendar')}>
-              캘린더 보기
-            </Button>
+            <Button type="button" variant="primary" size="lg" wide onClick={goTodayReading}>{''}</Button>
+            <Button type="button" variant="secondary" size="lg" wide onClick={() => nav('/mcheyne-calendar')}>{''}</Button>
           </div>
 
           {me ? (
@@ -312,7 +304,7 @@ export default function HomePage() {
                 onClick={completeTodayAll}
                 disabled={mcheyneBulkSaving}
               >
-                {mcheyneBulkSaving ? '저장 중…' : '오늘 4개 원클릭 완료'}
+                {mcheyneBulkSaving ? '' : ' 4 '}
               </Button>
             </div>
           ) : null}
@@ -322,28 +314,26 @@ export default function HomePage() {
           <div style={statsHead}>
             <div>
               <div style={sectionEyebrow}>PERFORMANCE</div>
-              <div style={sectionHeadingSmall}>성과 통계</div>
+              <div style={sectionHeadingSmall}></div>
               <div style={statsDesc}></div>
             </div>
 
-            <button type="button" style={statsLinkBtn} onClick={() => (me ? nav('/me') : goLogin('/me'))}>
-              자세히
-            </button>
+            <button type="button" style={statsLinkBtn} onClick={() => (me ? nav('/me') : goLogin('/me'))}></button>
           </div>
 
           {me && performance ? (
             <>
               <div style={statsGrid}>
                 <GaugeMetricButton
-                  label="누적 출석"
-                  value={`${performance.attendanceDays}일`}
+                  label=""
+                  value={`${performance.attendanceDays}`}
                   percent={attendancePercent}
-                  hint=""
+                  hint="365 "
                   tone="mint"
                   onClick={() => nav('/me')}
                 />
                 <GaugeMetricButton
-                  label="이번 주 DLP"
+                  label=" DLP"
                   value={`${performance.weekSubmittedCount}/7`}
                   percent={weeklyPercent}
                   hint=""
@@ -351,18 +341,18 @@ export default function HomePage() {
                   onClick={() => nav('/me')}
                 />
                 <GaugeMetricButton
-                  label="이번 달 감사"
-                  value={`${performance.gratitudeCount}개`}
+                  label=""
+                  value={`${performance.gratitudeCount}`}
                   percent={gratitudePercent}
-                  hint={`${formatMonthLabel(performance.gratitudeMonth)} 기록률`}
+                  hint={`${formatMonthLabel(performance.gratitudeMonth)}`}
                   tone="mint"
                   onClick={() => nav('/gratitude')}
                 />
                 <GaugeMetricButton
-                  label="말씀 읽기"
-                  value={`${overallPercent}%`}
+                  label=""
+                  value={`${overallPercent}`}
                   percent={overallPercent}
-                  hint={`오늘 ${todayCompleted}/4 완료`}
+                  hint={`${todayCompleted}/4 `}
                   tone="peach"
                   onClick={() => nav('/mcheyne-calendar')}
                 />
@@ -370,9 +360,7 @@ export default function HomePage() {
 
             </>
           ) : (
-            <div style={statsEmptyBox}>
-로그인하면 누적 출석, 이번 주 DLP, 이번 달 감사 기록과 말씀읽기 성과를 홈에서 한눈에 볼 수 있어요.
-            </div>
+            <div style={statsEmptyBox}> , DLP, . </div>
           )}
         </Card>
 
@@ -380,7 +368,7 @@ export default function HomePage() {
           <div style={sectionHeader}>
             <div>
               <div style={sectionEyebrow}>QUICK MENU</div>
-              <div style={sectionHeading}>자주 쓰는 기능</div>
+              <div style={sectionHeading}></div>
             </div>
           </div>
 
@@ -388,29 +376,29 @@ export default function HomePage() {
             <QuickCard
               icon={<QtIcon />}
               tone="mint"
-              title="매일성경 QT"
-              desc="QT 열기"
+              title=" QT"
+              desc="QT "
               onClick={() => nav('/qt')}
             />
             <QuickCard
               icon={<GratitudeIcon />}
               tone="peach"
-              title="감사일기"
-              desc="감사 기록"
+              title=""
+              desc=""
               onClick={() => nav('/gratitude')}
             />
             <QuickCard
               icon={<ChecklistIcon />}
               tone="peach"
-              title="DLP 체크리스트"
-              desc="오늘 점검"
+              title="DLP "
+              desc=""
               onClick={() => nav('/dlp')}
             />
             <QuickCard
               icon={<SearchIcon />}
               tone="mint"
-              title="성경 검색"
-              desc="바로 찾기"
+              title=""
+              desc=""
               onClick={() => nav('/bible-search')}
             />
           </div>
@@ -420,18 +408,18 @@ export default function HomePage() {
           <WideActionCard
             icon={<ChurchIcon />}
             tone="peach"
-            title="교회 채널"
+            title=""
             desc=""
-            actionLabel="채널 보기"
+            actionLabel=""
             onClick={() => nav('/channels')}
           />
 
           <WideActionCard
             icon={<BibleGameIcon />}
             tone="mint"
-            title="바이블 게임"
+            title=""
             desc=""
-            actionLabel="입장하기"
+            actionLabel=""
             onClick={() => (me ? nav('/bible-game') : goLogin('/bible-game'))}
           />
 
@@ -443,21 +431,21 @@ export default function HomePage() {
             <div style={guideHeaderRow}>
               <div>
                 <div style={sectionEyebrow}>ADD TO HOME</div>
-                <div style={sectionHeadingSmall}>홈화면에 추가하면 앱처럼 바로 열려요</div>
+                <div style={sectionHeadingSmall}></div>
               </div>
-              <div style={installGuideBadge}>추천</div>
+              <div style={installGuideBadge}></div>
             </div>
-            <div style={installGuideLead}></div>
+            <div style={installGuideLead}>DLP , // .</div>
             <div style={guideShotGrid}>
               <div style={guideShotCard}>
                 <div style={guideShotTop}>iPhone · Safari</div>
                 <div style={guideShotBody}>
                   <div style={guideBrowserBar}>christiandlp.com</div>
-                  <div style={guideStepBubble}>① 공유 버튼 누르기</div>
+                  <div style={guideStepBubble}></div>
                   <div style={guideMenuSheet}>
-                    <div style={guideMenuRow}>복사</div>
-                    <div style={{ ...guideMenuRow, ...guideMenuRowHighlight }}>홈 화면에 추가</div>
-                    <div style={guideMenuRow}>북마크</div>
+                    <div style={guideMenuRow}></div>
+                    <div style={{ ...guideMenuRow, ...guideMenuRowHighlight }}></div>
+                    <div style={guideMenuRow}></div>
                   </div>
                 </div>
               </div>
@@ -465,16 +453,16 @@ export default function HomePage() {
                 <div style={guideShotTop}>Android · Chrome</div>
                 <div style={guideShotBody}>
                   <div style={guideBrowserBar}>christiandlp.com ⋮</div>
-                  <div style={guideStepBubble}>① 우상단 메뉴 누르기</div>
+                  <div style={guideStepBubble}></div>
                   <div style={guideMenuSheet}>
-                    <div style={guideMenuRow}>새 탭</div>
-                    <div style={{ ...guideMenuRow, ...guideMenuRowHighlight }}>홈 화면에 추가</div>
-                    <div style={guideMenuRow}>공유</div>
+                    <div style={guideMenuRow}></div>
+                    <div style={{ ...guideMenuRow, ...guideMenuRowHighlight }}></div>
+                    <div style={guideMenuRow}></div>
                   </div>
                 </div>
               </div>
             </div>
-            <div style={guideFooterNote}></div>
+            <div style={guideFooterNote}>Safari , Android Chrome .</div>
             <div style={{ marginTop: 14 }}>
               <Button
                 type="button"
@@ -483,7 +471,7 @@ export default function HomePage() {
                 wide
                 onClick={() => void triggerInstallPrompt()}
               >
-                {deferredInstallPromptRef.current ? 'Android에서 바로 추가' : '안내 확인했어요'}
+                {deferredInstallPromptRef.current ? 'Android ' : ''}
               </Button>
             </div>
           </div>
@@ -547,9 +535,9 @@ function QuickCard({
 }
 
 function formatMonthLabel(value: string) {
-  const [year, month] = value.split('-');
+  const [year, month] = value.split('');
   if (!year || !month) return value;
-  return `${year}.${month}`;
+  return `${year}${month}`;
 }
 
 function clampPercent(value: number) {
@@ -561,7 +549,7 @@ function getAttendancePercent(days: number) {
 }
 
 function getGratitudeGoalDays(monthLabel: string) {
-  const [year, month] = monthLabel.split('-').map(Number);
+  const [year, month] = monthLabel.split('').map(Number);
   if (!year || !month) return 31;
 
   const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -598,7 +586,7 @@ function GaugeMetricButton({
   return (
     <button type="button" onClick={onClick} style={{ ...metricButton, border: `1px solid ${border}` }}>
       <div style={metricFillTrack}>
-        <div style={{ ...metricFillBar, width: `${clampPercent(percent)}%`, background: fill }} />
+        <div style={{ ...metricFillBar, width: `${clampPercent(percent)}`, background: fill }} />
       </div>
       <div style={metricContent}>
         <div style={metricTopRow}>
@@ -664,11 +652,11 @@ function PromoBannerCard() {
       <Card pad={false} style={promoCard}>
         <div style={promoBadgeRow}>
           <span style={promoBadge}>AD</span>
-          <span style={promoBadgeText}>파트너 · 후원</span>
-          <span style={promoCta}>바로가기 ↗</span>
+          <span style={promoBadgeText}></span>
+          <span style={promoCta}></span>
         </div>
         <div style={promoImageFrame}>
-          <img src={HOME_AD_IMAGE_URL} alt="알비 ALBI 올인원 취업준비 플랫폼 광고 배너" style={promoImage} loading="lazy" />
+          <img src={HOME_AD_IMAGE_URL} alt=" ALBI " style={promoImage} loading="lazy" />
         </div>
       </Card>
     </a>
@@ -696,9 +684,7 @@ function BottomSheet({
         {children}
 
         <div style={{ marginTop: 14 }}>
-          <Button type="button" variant="secondary" size="lg" wide onClick={onClose}>
-            닫기
-          </Button>
+          <Button type="button" variant="secondary" size="lg" wide onClick={onClose}>{''}</Button>
         </div>
       </div>
     </div>

@@ -17,7 +17,7 @@ export default function UrgentPrayerComposer({ onDone, onUnauthorized }: Props) 
 
     const trimmed = content.trim();
     if (!trimmed) {
-      setErr('기도제목을 입력해주세요.');
+      setErr('');
       return;
     }
 
@@ -43,7 +43,7 @@ export default function UrgentPrayerComposer({ onDone, onUnauthorized }: Props) 
       setContent('');
       onDone?.(data.id);
     } catch (e: any) {
-      setErr(e?.message ?? '작성에 실패했습니다.');
+      setErr(e?.message ?? '');
     } finally {
       setLoading(false);
     }
@@ -53,23 +53,23 @@ export default function UrgentPrayerComposer({ onDone, onUnauthorized }: Props) 
     <div style={wrapStyle}>
       <div style={heroCard}>
         <div style={eyebrowStyle}>URGENT PRAYER</div>
-        <div style={titleStyle}>지금 함께 기도할 제목을 나눠주세요</div>
+        <div style={titleStyle}></div>
         <div style={descStyle}></div>
 
         <div style={chipRowStyle}>
-          <span style={chipPeach}>실명 표시</span>
-          <span style={chipMint}>24시간 노출</span>
-          <span style={chipNeutral}>한 번에 한 건</span>
+          <span style={chipPeach}></span>
+          <span style={chipMint}>24 </span>
+          <span style={chipNeutral}></span>
         </div>
       </div>
 
       <div style={editorCard}>
         <label className="glassField" style={fieldReset}>
-          <div className="glassFieldLabel">기도 제목</div>
+          <div className="glassFieldLabel"></div>
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="예) 수술을 앞둔 성도님이 평안 가운데 준비하고 회복할 수 있도록 함께 기도해주세요."
+            placeholder=""
             className="glassTextarea"
             style={{ minHeight: 144 }}
             maxLength={280}
@@ -77,7 +77,7 @@ export default function UrgentPrayerComposer({ onDone, onUnauthorized }: Props) 
         </label>
 
         <div style={exampleBoxStyle}>
-          <div style={exampleTitleStyle}>작성 팁</div>
+          <div style={exampleTitleStyle}></div>
           <div style={exampleTextStyle}></div>
         </div>
 
@@ -86,7 +86,7 @@ export default function UrgentPrayerComposer({ onDone, onUnauthorized }: Props) 
         <div style={footerStyle}>
           <div style={countStyle}>{content.length}/280</div>
           <Button type="button" variant="primary" size="lg" onClick={submit} disabled={loading || content.trim().length === 0}>
-            {loading ? '등록 중…' : '기도제목 올리기'}
+            {loading ? '' : ''}
           </Button>
         </div>
       </div>
