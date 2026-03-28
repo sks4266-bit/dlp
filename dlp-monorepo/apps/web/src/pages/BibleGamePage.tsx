@@ -50,6 +50,7 @@ const GROUND_HEIGHT = 54;
 const ROUND_DELAYS = [0, 620, 1240, 1860];
 const BGM_AUDIO_LOCAL_URL = '/audio/Bike_Rides.mp3';
 const BGM_AUDIO_FALLBACK_URL = 'https://www.genspark.ai/api/files/s/5407aOqj';
+const MAX_HEARTS = 3;
 
 export default function BibleGamePage() {
   const { me } = useAuth();
@@ -66,6 +67,7 @@ export default function BibleGamePage() {
   const elapsedRef = useRef(0);
   const scoreRef = useRef(0);
   const correctCountRef = useRef(0);
+  const heartsRef = useRef(MAX_HEARTS);
   const fallersRef = useRef<Faller[]>([]);
   const statusRef = useRef<GameStatus>('idle');
 
@@ -78,6 +80,7 @@ export default function BibleGamePage() {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [score, setScore] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
+  const [hearts, setHearts] = useState(MAX_HEARTS);
   const [playerX, setPlayerX] = useState(195);
   const [stageWidth, setStageWidth] = useState(390);
   const [faceState, setFaceState] = useState<FaceState>('idle');
@@ -120,6 +123,11 @@ export default function BibleGamePage() {
   const syncCorrectCount = useCallback((value: number) => {
     correctCountRef.current = value;
     setCorrectCount(value);
+  }, []);
+
+  const syncHearts = useCallback((value: number) => {
+    heartsRef.current = value;
+    setHearts(value);
   }, []);
 
   const syncPlayerX = useCallback((value: number) => {
@@ -368,7 +376,7 @@ export default function BibleGamePage() {
 
       const now = performance.now();
       const words = shuffleArray([...nextQuestion.choices]);
-      const closenessOffset = Math.min(34, elapsedRef.current / 16000 + correctCountRef.current * 0.75);
+      const closenessOffset = Math.min(18, elapsedRef.current / 26000 + correctCountRef.current * 0.35);
       const laneXs = createLaneCenters(stageWidthRef.current, words.length);
 
       const nextFallers = words.map((word, index) => ({
@@ -459,6 +467,49 @@ export default function BibleGamePage() {
     }
   }, [beginRound, fetchQuestion, finishGame]);
 
+  const handlePenaltyHit = useCallback(
+    (reason: 'wrong' | 'miss', token = runTokenRef.current) => {
+      if (statusRef.current !== 'running' || token !== runTokenRef.current) return;
+
+      const nextHearts = heartsRef.current - 1;
+      if (nextHearts <= 0) {
+        syncHearts(0);
+        void finishGame(reason, token);
+        return;
+      }
+
+      clearLoopArtifacts();
+      syncStatus('transition');
+      syncFallers([]);
+      syncHearts(nextHearts);
+      setFaceState('hurt');
+      setMouthOpen(false);
+      setCombo(0);
+      setFeedbackTone('danger');
+      setFloatingFeedback({
+        id: Date.now(),
+        text: reason === 'wrong' ? '오답! 하트 -1' : '놓쳤어요! 하트 -1',
+        tone: 'danger'
+      });
+      setStatusText(
+        reason === 'wrong'
+          ? `오답을 먹었지만 아직 기회가 있어요. (${nextHearts}/${MAX_HEARTS})`
+          : `정답 단어를 놓쳤지만 아직 기회가 있어요. (${nextHearts}/${MAX_HEARTS})`
+      );
+      playFailSound();
+      vibrate([28, 48, 28]);
+
+      transitionTimerRef.current = window.setTimeout(() => {
+        if (runTokenRef.current !== token) return;
+        setFaceState('idle');
+        setMouthOpen(false);
+        void startBgm();
+        void advanceAfterCorrect();
+      }, 520);
+    },
+    [advanceAfterCorrect, clearLoopArtifacts, finishGame, playFailSound, startBgm, syncFallers, syncHearts, syncStatus, vibrate]
+  );
+
   const handleCorrectCatch = useCallback(() => {
     if (statusRef.current !== 'running') return;
 
@@ -524,10 +575,16 @@ export default function BibleGamePage() {
 
         const moved = { ...item, y: item.y + item.speed * nextDifficulty.speedMultiplier * delta };
         const wordWidth = estimateWordWidth(moved.word);
+        const wordHeight = 26;
         const horizontalGap = Math.abs(moved.x - playerCenterX);
-        const inCatchHeight = moved.y >= playerTop - 16 && moved.y <= STAGE_HEIGHT - GROUND_HEIGHT + 8;
-        const canCatch = horizontalGap <= nextPlayerMetrics.width * 0.34 + wordWidth * 0.34 && inCatchHeight;
-        const nearMouth = horizontalGap <= nextPlayerMetrics.width * 0.48 && moved.y >= playerTop - 130;
+        const playerGrowth = clamp((nextPlayerMetrics.width - 82) / 28, 0, 1);
+        const catchHorizontalThreshold = Math.max(16, nextPlayerMetrics.width * (0.2 + playerGrowth * 0.03) + wordWidth * 0.2);
+        const mouthPreviewThreshold = Math.max(18, nextPlayerMetrics.width * (0.24 + playerGrowth * 0.04));
+        const catchStartY = playerTop + nextPlayerMetrics.height * (0.08 + (1 - playerGrowth) * 0.05);
+        const catchEndY = STAGE_HEIGHT - GROUND_HEIGHT - wordHeight * 0.24;
+        const inCatchHeight = moved.y >= catchStartY && moved.y <= catchEndY;
+        const canCatch = horizontalGap <= catchHorizontalThreshold && inCatchHeight;
+        const nearMouth = horizontalGap <= mouthPreviewThreshold && moved.y >= playerTop - (78 + nextPlayerMetrics.height * 0.12);
 
         if (nearMouth) nextMouthOpen = true;
 
@@ -536,7 +593,7 @@ export default function BibleGamePage() {
           if (moved.isAnswer) {
             handleCorrectCatch();
           } else {
-            void finishGame('wrong', activeToken);
+            handlePenaltyHit('wrong', activeToken);
           }
           break;
         }
@@ -544,7 +601,7 @@ export default function BibleGamePage() {
         if (moved.y >= STAGE_HEIGHT - GROUND_HEIGHT - 6) {
           if (moved.isAnswer) {
             sawCatch = true;
-            void finishGame('miss', activeToken);
+            handlePenaltyHit('miss', activeToken);
             break;
           }
           continue;
@@ -561,7 +618,7 @@ export default function BibleGamePage() {
     };
 
     rafRef.current = requestAnimationFrame(tick);
-  }, [clearLoopArtifacts, finishGame, handleCorrectCatch, syncElapsed, syncFallers]);
+  }, [clearLoopArtifacts, handleCorrectCatch, handlePenaltyHit, syncElapsed, syncFallers]);
 
   useEffect(() => {
     if (gameStatus === 'running') {
@@ -584,6 +641,7 @@ export default function BibleGamePage() {
     syncScore(0);
     syncElapsed(0);
     syncCorrectCount(0);
+    syncHearts(MAX_HEARTS);
     syncFallers([]);
     setFaceState('idle');
     setMouthOpen(false);
@@ -607,7 +665,7 @@ export default function BibleGamePage() {
       syncStatus('idle');
       setStatusText('문제를 불러오지 못했습니다. 다시 시도해 주세요.');
     }
-  }, [beginRound, clearLoopArtifacts, fetchQuestion, startBgm, syncCorrectCount, syncElapsed, syncFallers, syncPlayerX, syncScore, syncStatus]);
+  }, [beginRound, clearLoopArtifacts, fetchQuestion, startBgm, syncCorrectCount, syncElapsed, syncFallers, syncHearts, syncPlayerX, syncScore, syncStatus]);
 
   const movePlayerToClientX = useCallback(
     (clientX: number) => {
@@ -724,6 +782,19 @@ export default function BibleGamePage() {
                   <span style={{ ...stageQuestionRef, color: tierPalette.chipText, borderColor: tierPalette.border }}>{question?.reference ?? '랜덤 구절 준비 중'}</span>
                 </div>
                 <div style={stageQuestionVerse}>{question?.textWithBlank ?? '시작 버튼을 누르면 랜덤 성경 구절이 바로 여기 표시됩니다.'}</div>
+              </div>
+              <div style={stageHudRow}>
+                <div
+                  style={{
+                    ...stageQuickPill,
+                    color: hearts <= 1 ? '#b91c1c' : '#7c3aed',
+                    borderColor: hearts <= 1 ? 'rgba(239,68,68,0.26)' : 'rgba(168,85,247,0.24)',
+                    background: hearts <= 1 ? 'rgba(254,242,242,0.9)' : 'rgba(245,243,255,0.92)'
+                  }}
+                >
+                  {Array.from({ length: MAX_HEARTS }, (_, index) => (index < hearts ? '❤️' : '🤍')).join(' ')}
+                </div>
+                <div style={stageQuickPill}>남은 하트 {hearts}/{MAX_HEARTS}</div>
               </div>
             </div>
             {tierNotice ? <div style={{ ...tierNoticeBadge, color: tierPalette.chipText, borderColor: tierPalette.border }}>{tierNotice}</div> : null}
@@ -919,7 +990,8 @@ export default function BibleGamePage() {
               <RuleLine title="낙하" desc="오답 3개와 정답 1개가 시간차를 두고 위에서 떨어집니다." />
               <RuleLine title="조작" desc="스테이지를 터치하거나 드래그해 철수를 좌우로 움직입니다." />
               <RuleLine title="피드백" desc="정답은 초록 버스트, 오답과 놓침은 붉은 경고 이펙트로 즉시 표시됩니다." />
-              <RuleLine title="성장" desc="시간이 지날수록 철수가 커지고, 단어는 더 빨라지고 더 가까운 곳에서 시작합니다." />
+              <RuleLine title="하트" desc="하트 3개로 시작하며, 오답을 먹거나 정답을 놓칠 때마다 1개씩 차감됩니다." />
+              <RuleLine title="성장" desc="시간이 지날수록 철수가 커지고, 단어는 더 빨라지지만 판정은 너무 이르게 나지 않도록 더 타이트하게 조정됩니다." />
             </div>
           </Card>
         )}
