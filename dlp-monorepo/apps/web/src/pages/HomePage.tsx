@@ -296,6 +296,15 @@ export default function HomePage() {
     nav(`/bible-search?${new URLSearchParams({ tab: 'read', ref }).toString()}`);
   }
 
+  function openLatestRecentBibleRead() {
+    const latestRef = recentBibleReads[0];
+    if (latestRef) {
+      openRecentBibleRead(latestRef);
+      return;
+    }
+    nav('/bible-search?tab=read');
+  }
+
   function openBookmarkedBibleRead(ref: string) {
     nav(`/bible-search?${new URLSearchParams({ tab: 'read', ref }).toString()}`);
   }
@@ -466,44 +475,21 @@ export default function HomePage() {
               <div>
                 <div style={sectionEyebrow}>MY BOOKMARKS</div>
                 <div style={{ ...sectionHeadingSmall, ...homeBibleWidgetTitle }}>내 북마크</div>
-                <div style={bookmarkWidgetDesc} />
               </div>
-              <button type="button" style={bookmarkWidgetLinkBtn} onClick={() => nav('/bible-search?tab=read')}>
-                관리
-              </button>
             </div>
 
-            {homeBookmarks.length > 0 ? (
-              <div style={bookmarkWidgetList}>
-                {homeBookmarks.map((item, idx) => (
-                  <div
-                    key={`${item.ref}-${item.updatedAt}-${idx}`}
-                    style={{
-                      ...bookmarkItemBtn,
-                      ...(idx === 0 ? bookmarkItemBtnPrimary : null)
-                    }}
-                  >
-                    <div style={bookmarkItemTop}>
-                      <span style={{ ...bookmarkItemBadge, ...(idx === 0 ? bookmarkItemBadgePrimary : null) }}>
-                        {idx === 0 ? '대표' : '북마크'}
-                      </span>
-                      <div style={widgetActionInlineRow}>
-                        <span style={bookmarkItemDate}>{formatBookmarkUpdatedAt(item.updatedAt)}</span>
-                        <button type="button" style={widgetDeleteBtnPeach} onClick={() => deleteHomeBookmark(item.ref)}>
-                          삭제
-                        </button>
-                      </div>
-                    </div>
-                    <button type="button" style={widgetOpenBtn} onClick={() => openBookmarkedBibleRead(item.ref)}>
-                      <div style={bookmarkItemRef}>{item.ref}</div>
-                      {item.note ? <div style={bookmarkItemNote}>{item.note}</div> : <div style={bookmarkItemNoteMuted}>메모 없음</div>}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={emptyNote}>아직 저장한 북마크가 없어요. 본문 읽기 탭에서 북마크를 추가하면 여기에 표시됩니다.</div>
-            )}
+            <div style={bookmarkWidgetList}>
+              <Button
+                type="button"
+                variant="secondary"
+                size="lg"
+                wide
+                title={homeBookmarks.length > 0 ? `저장된 북마크 ${homeBookmarks.length}개 보기` : '북마크 페이지 열기'}
+                onClick={() => nav('/bible-bookmarks')}
+              >
+                북마크 보기
+              </Button>
+            </div>
           </Card>
 
           <Card pad style={recentBibleWidgetCard}>
@@ -511,41 +497,21 @@ export default function HomePage() {
               <div>
                 <div style={sectionEyebrow}>RECENT BIBLE</div>
                 <div style={{ ...sectionHeadingSmall, ...homeBibleWidgetTitle }}>최근 읽은 성경</div>
-                <div style={recentBibleWidgetDesc} />
               </div>
-              <button type="button" style={recentBibleWidgetLinkBtn} onClick={() => nav('/bible-search?tab=read')}>
-                열기
-              </button>
             </div>
 
-            {recentBibleReads.length > 0 ? (
-              <div style={recentBibleWidgetList}>
-                {recentBibleReads.map((item, idx) => (
-                  <div
-                    key={item}
-                    style={{
-                      ...recentBibleItemBtn,
-                      ...(idx === 0 ? recentBibleItemBtnPrimary : null)
-                    }}
-                  >
-                    <div style={recentBibleItemTop}>
-                      <span style={{ ...recentBibleItemBadge, ...(idx === 0 ? recentBibleItemBadgePrimary : null) }}>
-                        {idx === 0 ? '최신' : `최근 ${idx + 1}`}
-                      </span>
-                      <button type="button" style={widgetDeleteBtnMint} onClick={() => deleteRecentBibleRead(item)}>
-                        삭제
-                      </button>
-                    </div>
-                    <button type="button" style={widgetOpenBtn} onClick={() => openRecentBibleRead(item)}>
-                      <div style={recentBibleItemRef}>{item}</div>
-                      <div style={recentBibleItemArrow}>본문 바로 열기 ›</div>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={emptyNote}>최근 읽은 본문이 아직 없어요. 성경 검색에서 본문을 읽으면 여기에 자동으로 표시됩니다.</div>
-            )}
+            <div style={recentBibleWidgetList}>
+              <Button
+                type="button"
+                variant="secondary"
+                size="lg"
+                wide
+                title={recentBibleReads[0] ? `${recentBibleReads[0]} 본문 열기` : '최근 본문 열기'}
+                onClick={openLatestRecentBibleRead}
+              >
+                최근 본문 열기
+              </Button>
+            </div>
           </Card>
         </div>
 
