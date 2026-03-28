@@ -431,17 +431,18 @@ const input: CSSProperties = {
   width: '100%',
   minWidth: 0,
   maxWidth: '100%',
-  height: 52,
+  height: 46,
   borderRadius: 18,
   border: '1px solid rgba(221,228,233,0.95)',
   background: 'rgba(255,255,255,0.92)',
-  padding: '0 16px',
-  fontSize: 15,
+  padding: '0 14px',
+  fontSize: 14,
+  fontWeight: 700,
+  lineHeight: 1.2,
   color: '#24313a',
   outline: 'none',
   boxSizing: 'border-box',
-  WebkitAppearance: 'none',
-  appearance: 'none'
+  appearance: 'auto'
 };
 
 const statGrid: CSSProperties = {

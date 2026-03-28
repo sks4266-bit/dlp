@@ -1429,24 +1429,27 @@ const chapterStepBtn: CSSProperties = {
 
 const chapterNavRow: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '96px 1fr 96px',
+  gridTemplateColumns: '84px minmax(0, 1fr) 84px',
   gap: 8,
-  alignItems: 'center'
+  alignItems: 'stretch'
 };
 
 const chapterNavBtn: CSSProperties = {
   minHeight: 42,
+  minWidth: 0,
   borderRadius: 14,
   border: '1px solid rgba(210,220,228,0.95)',
   background: 'rgba(255,255,255,0.92)',
   color: '#4f6472',
-  fontSize: 13,
+  fontSize: 12.5,
   fontWeight: 800,
+  whiteSpace: 'nowrap',
   cursor: 'pointer'
 };
 
 const chapterNavLabel: CSSProperties = {
   minHeight: 42,
+  minWidth: 0,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -1454,10 +1457,14 @@ const chapterNavLabel: CSSProperties = {
   background: 'rgba(247,250,251,0.9)',
   border: '1px solid rgba(224,231,236,0.92)',
   color: '#5f6d75',
-  fontSize: 12,
+  fontSize: 13,
   fontWeight: 800,
   textAlign: 'center',
-  padding: '0 10px'
+  padding: '0 12px',
+  whiteSpace: 'nowrap',
+  wordBreak: 'keep-all',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis'
 };
 
 const chapterNavRowRead: CSSProperties = {
