@@ -385,7 +385,7 @@ export default function BibleGamePage() {
         isAnswer: word === nextQuestion.answer,
         x: laneXs[index],
         y: -40 + closenessOffset,
-        speed: 0.068 + index * 0.0048 + Math.min(0.026, elapsedRef.current / 340000),
+        speed: 0.072 + index * 0.0052 + Math.min(0.028, elapsedRef.current / 320000),
         spawnAt: now + ROUND_DELAYS[index]
       }));
 
@@ -1068,7 +1068,7 @@ function ChulsooAvatar({ faceState, mouthOpen }: { faceState: FaceState; mouthOp
 
 function getDifficulty(elapsedMs: number, correctCount: number) {
   return {
-    speedMultiplier: 0.68 + Math.min(0.56, elapsedMs / 94000 + correctCount * 0.009),
+    speedMultiplier: 0.74 + Math.min(0.58, elapsedMs / 92000 + correctCount * 0.0095),
     playerScale: 1 + Math.min(0.28, elapsedMs / 128000 + correctCount * 0.0065)
   };
 }
