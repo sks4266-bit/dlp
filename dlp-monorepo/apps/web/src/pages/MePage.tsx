@@ -16,7 +16,7 @@ type MeStats = {
   };
 };
 
-const weekLabels = ['월', '화', '수', '목', '금', '토', '일'];
+const weekLabels = ['', '', '', '', '', '', ''];
 
 export default function MePage() {
   const nav = useNavigate();
@@ -57,7 +57,7 @@ export default function MePage() {
 
   function handleLogout() {
     logout();
-    nav('/', { replace: true });
+    nav('', { replace: true });
   }
 
   async function saveProfile() {
@@ -79,9 +79,9 @@ export default function MePage() {
 
       if (!res.ok) throw new Error('SAVE_FAILED');
       await refreshMe();
-      window.alert('내정보가 저장되었습니다.');
+      window.alert('');
     } catch {
-      window.alert('저장에 실패했습니다.');
+      window.alert('');
     } finally {
       setSavingProfile(false);
     }
@@ -89,12 +89,12 @@ export default function MePage() {
 
   async function changePassword() {
     if (!curPw || !newPw) {
-      window.alert('비밀번호를 입력하세요.');
+      window.alert('');
       return;
     }
 
     if (newPw !== newPw2) {
-      window.alert('새 비밀번호 확인이 일치하지 않습니다.');
+      window.alert('');
       return;
     }
 
@@ -106,17 +106,17 @@ export default function MePage() {
       });
 
       if (res.status === 401) {
-        window.alert('현재 비밀번호가 올바르지 않습니다.');
+        window.alert('');
         return;
       }
 
       if (!res.ok) throw new Error('PW_CHANGE_FAILED');
 
-      window.alert('비밀번호가 변경되었습니다. 다시 로그인해 주세요.');
+      window.alert('');
       logout();
       goLogin('/me');
     } catch {
-      window.alert('비밀번호 변경에 실패했습니다.');
+      window.alert('');
     } finally {
       setSavingPw(false);
       setCurPw('');
@@ -127,11 +127,11 @@ export default function MePage() {
 
   async function deleteAccount() {
     if (!deletePw) {
-      window.alert('회원탈퇴를 위해 비밀번호를 입력하세요.');
+      window.alert('');
       return;
     }
 
-    const agreed = window.confirm('정말 회원탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.');
+    const agreed = window.confirm('');
     if (!agreed) return;
 
     setDeleting(true);
@@ -144,7 +144,7 @@ export default function MePage() {
       const data = await res.json().catch(() => ({}));
 
       if (res.status === 401) {
-        window.alert('비밀번호가 올바르지 않습니다.');
+        window.alert('');
         return;
       }
 
@@ -153,10 +153,10 @@ export default function MePage() {
       }
 
       logout();
-      window.alert('회원탈퇴가 완료되었습니다.');
-      nav('/', { replace: true });
+      window.alert('');
+      nav('', { replace: true });
     } catch {
-      window.alert('회원탈퇴에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      window.alert('');
     } finally {
       setDeleting(false);
       setDeletePw('');
@@ -178,55 +178,51 @@ export default function MePage() {
   return (
     <div style={page}>
       <div style={pageInner}>
-        <TopBar title="내정보" backTo="/" hideAuthActions />
+        <TopBar title="" backTo="" hideAuthActions />
 
         <Card pad style={heroCard}>
           <div style={heroTop}>
             <div style={heroCopy}>
               <div style={badgeMint}>MY ACCOUNT</div>
               <div style={heroTitle}>{me.name}</div>
-              <div style={heroDesc}>프로필, 출석 흐름, 보안 설정까지 홈 화면과 같은 폭·패딩·유리 질감 카드 톤으로 다시 정리했습니다.</div>
+              <div style={heroDesc}></div>
             </div>
             <div style={roleChip}>{me.isAdmin ? 'ADMIN' : 'MEMBER'}</div>
           </div>
 
           <div style={heroPillRow}>
             <span style={heroMintPill}>@{me.username}</span>
-            <span style={heroPeachPill}>{me.homeChurch || '출석교회 미등록'}</span>
+            <span style={heroPeachPill}>{me.homeChurch || ''}</span>
           </div>
 
           <div style={summaryGrid}>
-            <SummaryTile label="휴대폰" value={me.phone ?? '-'} tone="mint" />
-            <SummaryTile label="누적 출석" value={`${stats?.attendanceDays ?? 0}일`} tone="peach" />
-            <SummaryTile label="이번 주 DLP" value={stats ? `${stats.week.submittedCount}/7` : '-'} tone="mint" />
-            <SummaryTile label="역할" value={me.isAdmin ? '관리자' : '일반 사용자'} tone="peach" />
+            <SummaryTile label="" value={me.phone ?? ''} tone="mint" />
+            <SummaryTile label="" value={`${stats?.attendanceDays ?? 0}`} tone="peach" />
+            <SummaryTile label=" DLP" value={stats ? `${stats.week.submittedCount}/7` : ''} tone="mint" />
+            <SummaryTile label="" value={me.isAdmin ? '' : ''} tone="peach" />
           </div>
 
           <div style={heroActions}>
-            <Button variant="secondary" size="md" onClick={() => nav('/gratitude')}>
-              감사일기 보기
-            </Button>
-            <Button variant="ghost" size="md" onClick={handleLogout}>
-              로그아웃
-            </Button>
+            <Button variant="secondary" size="md" onClick={() => nav('/gratitude')}>{''}</Button>
+            <Button variant="ghost" size="md" onClick={handleLogout}>{''}</Button>
           </div>
         </Card>
 
         <Card pad style={sectionCard}>
-          <SectionHeader eyebrow="SUMMARY" title="신앙 생활 요약" desc="홈 성과 버튼과 같은 게이지 밀도로 출석과 주간 DLP 흐름을 한눈에 볼 수 있어요." />
+          <SectionHeader eyebrow="SUMMARY" title="" desc=" DLP ." />
 
           <div style={metricGrid}>
-            <GaugeMetricCard label="누적 출석" value={`${stats?.attendanceDays ?? 0}일`} percent={attendancePercent} hint="365일 기준" tone="mint" />
-            <GaugeMetricCard label="이번 주 DLP" value={stats ? `${stats.week.submittedCount}/7` : '-'} percent={weekPercent} hint="주간 제출 리듬" tone="peach" />
+            <GaugeMetricCard label="" value={`${stats?.attendanceDays ?? 0}`} percent={attendancePercent} hint="365 " tone="mint" />
+            <GaugeMetricCard label=" DLP" value={stats ? `${stats.week.submittedCount}/7` : ''} percent={weekPercent} hint="" tone="peach" />
           </div>
 
           <div style={weekPanel}>
             <div style={weekPanelTop}>
               <div>
-                <div style={panelTitle}>이번 주 제출 현황</div>
-                <div style={panelDesc}>{stats?.week.start ?? '—'} ~ {stats?.week.end ?? '—'}</div>
+                <div style={panelTitle}></div>
+                <div style={panelDesc}>{stats?.week.start ?? ''} ~ {stats?.week.end ?? ''}</div>
               </div>
-              <div style={panelChip}>{stats ? `${stats.week.submittedCount}일 체크` : '0일 체크'}</div>
+              <div style={panelChip}>{stats ? `${stats.week.submittedCount}` : '0 '}</div>
             </div>
 
             <div style={weekLabelRow}>
@@ -240,73 +236,73 @@ export default function MePage() {
             <div className="weekDots">
               {weekDays.map((dayItem, idx) => (
                 <div key={idx} style={weekDotWrapStyle}>
-                  <div className={['weekDot', dayItem.hasDlp ? 'weekDotOn' : ''].filter(Boolean).join(' ')} title={String(dayItem.date)} />
+                  <div className={['weekDot', dayItem.hasDlp ? 'weekDotOn' : ''].filter(Boolean).join('')} title={String(dayItem.date)} />
                 </div>
               ))}
             </div>
 
-            <div style={weekGuideStyle}>색이 채워진 날은 해당 날짜에 DLP가 제출된 날입니다.</div>
+            <div style={weekGuideStyle}> DLP .</div>
           </div>
         </Card>
 
         <Card pad style={sectionCard}>
-          <SectionHeader eyebrow="PROFILE" title="내정보 수정" desc="입력칸, 보조 설명, 버튼 높이까지 홈 톤에 맞춰 더 촘촘하고 안정적으로 정리했습니다." />
+          <SectionHeader eyebrow="PROFILE" title="" desc="" />
 
           <div style={formGrid}>
-            <Field label="이름(실명)">
+            <Field label="">
               <input value={editName} onChange={(e) => setEditName(e.target.value)} className="glassInput" />
             </Field>
-            <Field label="휴대폰">
+            <Field label="">
               <input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="glassInput" inputMode="tel" placeholder="010-0000-0000" />
             </Field>
-            <Field label="출석교회">
-              <input value={editChurch} onChange={(e) => setEditChurch(e.target.value)} className="glassInput" placeholder="출석교회 이름" />
+            <Field label="">
+              <input value={editChurch} onChange={(e) => setEditChurch(e.target.value)} className="glassInput" placeholder="" />
             </Field>
           </div>
 
           <div style={{ marginTop: 14 }}>
             <Button variant="primary" wide size="lg" disabled={savingProfile} onClick={saveProfile}>
-              {savingProfile ? '저장 중…' : '내정보 저장'}
+              {savingProfile ? '' : ''}
             </Button>
           </div>
         </Card>
 
         <Card pad style={sectionCard}>
-          <SectionHeader eyebrow="SECURITY" title="비밀번호 변경" desc="보안 카드도 홈과 같은 카드 밀도와 필드 리듬으로 다시 맞췄습니다." />
+          <SectionHeader eyebrow="SECURITY" title="" desc="" />
 
           <div style={formGrid}>
-            <Field label="현재 비밀번호">
+            <Field label="">
               <input value={curPw} onChange={(e) => setCurPw(e.target.value)} type="password" className="glassInput" />
             </Field>
-            <Field label="새 비밀번호(8자 이상)">
+            <Field label=" (8 )">
               <input value={newPw} onChange={(e) => setNewPw(e.target.value)} type="password" className="glassInput" />
             </Field>
-            <Field label="새 비밀번호 확인">
+            <Field label="">
               <input value={newPw2} onChange={(e) => setNewPw2(e.target.value)} type="password" className="glassInput" />
             </Field>
           </div>
 
           <div style={{ marginTop: 14 }}>
             <Button variant="primary" wide size="lg" disabled={savingPw} onClick={changePassword}>
-              {savingPw ? '변경 중…' : '비밀번호 변경'}
+              {savingPw ? '' : ''}
             </Button>
           </div>
         </Card>
 
         <Card pad style={sectionCard}>
-          <SectionHeader eyebrow="DANGER ZONE" title="회원탈퇴" desc="경고 메시지와 입력 영역을 과하게 크지 않게 줄이고, 홈 카드 톤으로 차분하게 정리했습니다." />
+          <SectionHeader eyebrow="DANGER ZONE" title="" desc="" />
 
-          <div style={dangerNoticeStyle}>탈퇴 후에는 내정보, 감사일기, DLP/맥체인 진행 기록이 함께 삭제되며 복구할 수 없습니다.</div>
+          <div style={dangerNoticeStyle}> , , DLP/ .</div>
 
           <div style={{ marginTop: 14 }}>
-            <Field label="현재 비밀번호 확인">
-              <input value={deletePw} onChange={(e) => setDeletePw(e.target.value)} type="password" className="glassInput" placeholder="회원탈퇴 확인용 비밀번호" />
+            <Field label="">
+              <input value={deletePw} onChange={(e) => setDeletePw(e.target.value)} type="password" className="glassInput" placeholder="" />
             </Field>
           </div>
 
           <div style={{ marginTop: 14 }}>
             <Button variant="danger" wide size="lg" disabled={deleting} onClick={deleteAccount}>
-              {deleting ? '탈퇴 처리 중…' : '회원탈퇴'}
+              {deleting ? '' : ''}
             </Button>
           </div>
         </Card>
@@ -373,7 +369,7 @@ function GaugeMetricCard({
   return (
     <div style={{ ...metricButton, border: `1px solid ${border}` }}>
       <div style={metricFillTrack}>
-        <div style={{ ...metricFillBar, width: `${clampPercent(percent)}%`, background: fill }} />
+        <div style={{ ...metricFillBar, width: `${clampPercent(percent)}`, background: fill }} />
       </div>
       <div style={metricContent}>
         <div style={metricTopRow}>

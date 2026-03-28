@@ -95,8 +95,8 @@ export default function McCheyneReadingPage() {
   }, [target]);
 
   const title = useMemo(() => {
-    if (!data) return target ? `맥체인 (${target.month}/${target.day})` : '맥체인 오늘';
-    return `맥체인 (${data.date.month}/${data.date.day})`;
+    if (!data) return target ? `${target.month}${target.day}` : '';
+    return `${data.date.month}${data.date.day}`;
   }, [data, target]);
 
   const viewMonth = data?.date.month ?? target?.month ?? null;
@@ -167,7 +167,7 @@ export default function McCheyneReadingPage() {
       setProgress(json);
     } catch (e: any) {
       setProgress(null);
-      setError((prev) => prev ?? `진행률을 불러오지 못했습니다: ${String(e?.message ?? e)}`);
+      setError((prev) => prev ?? `${String(e?.message ?? e)}`);
     } finally {
       setProgressLoading(false);
     }
@@ -220,7 +220,7 @@ export default function McCheyneReadingPage() {
       if (!res.ok) {
         const msg = await readErrorMessage(res);
         setProgress(prevProgress);
-        setError(`진행 저장 실패: ${msg}`);
+        setError(`${msg}`);
         return false;
       }
 
@@ -244,7 +244,7 @@ export default function McCheyneReadingPage() {
       return true;
     } catch (e: any) {
       setProgress(prevProgress);
-      setError(`진행 저장 실패: ${String(e?.message ?? e)}`);
+      setError(`${String(e?.message ?? e)}`);
       return false;
     }
   }
@@ -288,7 +288,7 @@ export default function McCheyneReadingPage() {
   return (
     <div style={page}>
       <div style={pageInner}>
-        <TopBar title={title} backTo="/" />
+        <TopBar title={title} backTo="" />
 
         {error ? <ErrorBox message={error} onRetry={load} /> : null}
 
@@ -296,15 +296,11 @@ export default function McCheyneReadingPage() {
           <Skeleton />
         ) : !data ? (
           <Card pad style={emptyCard}>
-            <div style={emptyTitle}>본문을 불러오지 못했습니다.</div>
-            <div style={emptyDesc}>잠시 후 다시 시도하거나 캘린더에서 날짜를 다시 선택해 주세요.</div>
+            <div style={emptyTitle}></div>
+            <div style={emptyDesc}></div>
             <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
-              <Button type="button" variant="secondary" size="lg" wide onClick={load}>
-                다시 시도
-              </Button>
-              <Button type="button" variant="ghost" size="lg" wide onClick={() => nav('/mcheyne-calendar')}>
-                캘린더로 이동
-              </Button>
+              <Button type="button" variant="secondary" size="lg" wide onClick={load}>{''}</Button>
+              <Button type="button" variant="ghost" size="lg" wide onClick={() => nav('/mcheyne-calendar')}>{''}</Button>
             </div>
           </Card>
         ) : (
@@ -314,16 +310,16 @@ export default function McCheyneReadingPage() {
                 <div style={heroCopy}>
                   <div style={badgeMint}>TODAY READING</div>
                   <CardTitle style={heroTitle}>
-                    {data.date.month}월 {data.date.day}일 맥체인
+                    {data.date.month}/{data.date.day}
                   </CardTitle>
                   <CardDesc style={heroDesc}>
-                    {isToday ? '오늘 읽을 본문과 진행 상태를 한 번에 확인할 수 있어요.' : '선택한 날짜의 본문과 진행 상태입니다.'}
+                    {isToday ? '' : ''}
                   </CardDesc>
 
                   {readingPlan.length > 0 ? (
                     <ul style={readingList}>
                       {readingPlan.map((reading, idx) => (
-                        <li key={`${reading}-${idx}`} style={readingItem}>
+                        <li key={`${reading}${idx}`} style={readingItem}>
                           <span style={bulletIconWrap}>
                             <BookIcon />
                           </span>
@@ -332,7 +328,7 @@ export default function McCheyneReadingPage() {
                       ))}
                     </ul>
                   ) : (
-                    <div style={emptyNote}>표시할 본문이 없습니다.</div>
+                    <div style={emptyNote}></div>
                   )}
                 </div>
 
@@ -345,16 +341,16 @@ export default function McCheyneReadingPage() {
                   >
                     <div style={progressRingInner}>
                       <div style={progressMain}>{todayCompleted}/4</div>
-                      <div style={progressLabel}>오늘 진행</div>
+                      <div style={progressLabel}></div>
                     </div>
                   </div>
 
                   <div style={progressSub}>
                     {progress?.summary
-                      ? `전체 ${progress.summary.completedReadings}/${progress.summary.totalReadings}`
+                      ? `${progress.summary.completedReadings}${progress.summary.totalReadings}`
                       : progressLoading
-                        ? '불러오는 중…'
-                        : '진행률 없음'}
+                        ? ''
+                        : ''}
                   </div>
                 </div>
               </div>
@@ -369,9 +365,7 @@ export default function McCheyneReadingPage() {
                     prevDay && nav(`/mcheyne-today?${buildDayQs(prevDay.month, prevDay.day)}`)
                   }
                   disabled={!prevDay}
-                >
-                  ← 이전날
-                </Button>
+                >{''}</Button>
 
                 <Button
                   type="button"
@@ -382,20 +376,14 @@ export default function McCheyneReadingPage() {
                     nextDay && nav(`/mcheyne-today?${buildDayQs(nextDay.month, nextDay.day)}`)
                   }
                   disabled={!nextDay}
-                >
-                  다음날 →
-                </Button>
+                >{''}</Button>
               </div>
 
               <div style={heroActions}>
-                <Button type="button" variant="primary" size="lg" wide onClick={() => nav('/mcheyne-calendar')}>
-                  캘린더 보기
-                </Button>
+                <Button type="button" variant="primary" size="lg" wide onClick={() => nav('/mcheyne-calendar')}>{''}</Button>
 
                 {!isToday ? (
-                  <Button type="button" variant="secondary" size="lg" wide onClick={() => nav('/mcheyne-today')}>
-                    오늘로 돌아가기
-                  </Button>
+                  <Button type="button" variant="secondary" size="lg" wide onClick={() => nav('/mcheyne-today')}>{''}</Button>
                 ) : null}
               </div>
             </Card>
@@ -406,7 +394,7 @@ export default function McCheyneReadingPage() {
               <div style={sectionHead}>
                 <div>
                   <div style={sectionEyebrow}>PROGRESS</div>
-                  <div style={sectionHeading}>오늘 진행 체크</div>
+                  <div style={sectionHeading}></div>
                 </div>
                 <div style={summaryText}>
                   {progress?.summary ? (
@@ -416,9 +404,9 @@ export default function McCheyneReadingPage() {
                       <span>{progress.summary.completedReadings}/{progress.summary.totalReadings}</span>
                     </>
                   ) : progressLoading ? (
-                    '불러오는 중…'
+                    ''
                   ) : (
-                    '진행률 없음'
+                    ''
                   )}
                 </div>
               </div>
@@ -438,10 +426,10 @@ export default function McCheyneReadingPage() {
                   }
                 }}
               >
-                {bulkSaving ? '저장 중…' : '오늘 4개 원클릭 완료'}
+                {bulkSaving ? '' : ' 4 '}
               </Button>
 
-              <div style={sectionHint}>원클릭 완료는 현재 날짜의 4개 체크 상태만 한 번에 저장합니다.</div>
+              <div style={sectionHint}> 4 .</div>
             </Card>
 
             <div style={{ height: 14 }} />
@@ -450,13 +438,13 @@ export default function McCheyneReadingPage() {
               <div style={sectionHead}>
                 <div>
                   <div style={sectionEyebrow}>READING PLAN</div>
-                  <div style={sectionHeading}>오늘 읽을 본문</div>
+                  <div style={sectionHeading}></div>
                 </div>
               </div>
 
               <div style={planList}>
                 {readingPlan.map((reading, idx) => (
-                  <div key={`${reading}-${idx}`} style={planItem}>
+                  <div key={`${reading}${idx}`} style={planItem}>
                     <span style={planIndex}>{idx + 1}</span>
                     <span style={planText}>{reading}</span>
                   </div>
@@ -478,7 +466,7 @@ export default function McCheyneReadingPage() {
                 const savingThis = savingKey === doneKey;
 
                 return (
-                  <Card key={`${reading.ref}-${idx}`} pad style={readingCard}>
+                  <Card key={`${reading.ref}${idx}`} pad style={readingCard}>
                     <div style={readingHead}>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={readingRef}>{reading.ref}</div>
@@ -491,7 +479,7 @@ export default function McCheyneReadingPage() {
                         size="md"
                         onClick={() => setOpenIdx(open ? null : idx)}
                       >
-                        {open ? '접기' : '펼치기'}
+                        {open ? '' : ''}
                       </Button>
                     </div>
 
@@ -510,18 +498,18 @@ export default function McCheyneReadingPage() {
                           }
                         }}
                       />
-                      <span>{savingThis ? '저장 중…' : '읽음 완료 체크'}</span>
+                      <span>{savingThis ? '' : ''}</span>
                     </label>
 
                     {!open ? (
                       <div style={previewBox}>
                         {previewLines.map((v) => (
-                          <div key={`${reading.ref}-${v.c}-${v.v}`} style={previewLine}>
+                          <div key={`${reading.ref}${v.c}${v.v}`} style={previewLine}>
                             <b style={verseNum}>{v.v}</b>
                             <span>{v.t}</span>
                           </div>
                         ))}
-                        <div style={previewHint}>미리보기: 앞부분 일부</div>
+                        <div style={previewHint}></div>
                       </div>
                     ) : (
                       <pre style={textBox}>{reading.text}</pre>
@@ -533,9 +521,7 @@ export default function McCheyneReadingPage() {
                       size="lg"
                       wide
                       onClick={() => nav(`/bible?${new URLSearchParams({ ref: reading.raw }).toString()}`)}
-                    >
-                      이 본문만 따로 보기
-                    </Button>
+                    >{''}</Button>
                   </Card>
                 );
               })}
@@ -555,12 +541,7 @@ function Skeleton() {
       <div style={{ ...skeletonBlock, height: 120 }} />
       <div style={{ ...skeletonBlock, height: 180 }} />
       <style>
-        {`
-          @keyframes mcheyneShimmer {
-            0% { background-position: 0% 0; }
-            100% { background-position: 200% 0; }
-          }
-        `}
+        {` @keyframes mcheyneShimmer { 0% { background-position: 0% 0; } 100% { background-position: 200% 0; } } `}
       </style>
     </div>
   );
@@ -569,12 +550,10 @@ function Skeleton() {
 function ErrorBox({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <Card pad style={errorCard}>
-      <div style={errorTitle}>불러오기 오류</div>
+      <div style={errorTitle}></div>
       <div style={errorText}>{message}</div>
       <div style={{ marginTop: 12 }}>
-        <Button type="button" variant="secondary" size="md" onClick={onRetry}>
-          다시 시도
-        </Button>
+        <Button type="button" variant="secondary" size="md" onClick={onRetry}>{''}</Button>
       </div>
     </Card>
   );

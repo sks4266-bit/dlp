@@ -16,7 +16,7 @@ export default function UrgentPrayerNewPage() {
   return (
     <div className="sanctuaryPage">
       <div className="sanctuaryPageInner">
-        <TopBar title="긴급기도 작성" backTo="/urgent-prayers" />
+        <TopBar title="" backTo="/urgent-prayers" />
 
         <Card className="glassHeroCard">
           <div style={heroHead}>
@@ -26,25 +26,22 @@ export default function UrgentPrayerNewPage() {
                 URGENT PRAYER
               </div>
 
-              <CardTitle>지금 필요한 한 가지 기도제목</CardTitle>
-              <CardDesc>
-                교회 전체가 함께 보게 되는 공용 게시판입니다. 짧고 분명하게 한 가지 제목만
-                작성해 주세요.
-              </CardDesc>
+              <CardTitle></CardTitle>
+              <CardDesc></CardDesc>
             </div>
 
             <div style={heroSide}>
               <div style={heroSideMain}>24h</div>
-              <div style={heroSideLabel}>노출 시간</div>
+              <div style={heroSideLabel}></div>
             </div>
           </div>
 
           <div className="stack12" />
 
           <div style={metaRow}>
-            <MetaChip icon={<ClockIcon />} label="등록 후 24시간 노출" tone="peach" />
-            <MetaChip icon={<PeopleIcon />} label="교회 공용 게시판" tone="mint" />
-            <MetaChip icon={<NameIcon />} label="작성자 실명 표시" tone="neutral" />
+            <MetaChip icon={<ClockIcon />} label=" 24 " tone="peach" />
+            <MetaChip icon={<PeopleIcon />} label="" tone="mint" />
+            <MetaChip icon={<NameIcon />} label="" tone="neutral" />
           </div>
         </Card>
 
@@ -53,10 +50,8 @@ export default function UrgentPrayerNewPage() {
         <Card>
           <div style={sectionTop}>
             <div>
-              <CardTitle>작성 폼</CardTitle>
-              <CardDesc>
-                긴급한 상황을 이해할 수 있도록 핵심만 간단히 적어 주세요.
-              </CardDesc>
+              <CardTitle></CardTitle>
+              <CardDesc></CardDesc>
             </div>
             <div style={sectionBadgePeach}>Compose</div>
           </div>
@@ -74,10 +69,8 @@ export default function UrgentPrayerNewPage() {
         <Card>
           <div style={sectionTop}>
             <div>
-              <CardTitle>작성 가이드</CardTitle>
-              <CardDesc>
-                아래 기준으로 적으면 다른 성도들이 더 빠르게 이해하고 함께 기도할 수 있어요.
-              </CardDesc>
+              <CardTitle></CardTitle>
+              <CardDesc></CardDesc>
             </div>
             <div style={sectionBadgeMint}>Guide</div>
           </div>
@@ -85,33 +78,24 @@ export default function UrgentPrayerNewPage() {
           <div className="stack10" />
 
           <div style={helperPanel}>
-            <div style={helperTitle}>좋은 예시</div>
-            <div style={helperDesc}>
-              “오늘 수술을 앞둔 가족을 위해 평안과 회복을 기도해 주세요.”
-            </div>
+            <div style={helperTitle}></div>
+            <div style={helperDesc}></div>
           </div>
 
           <div className="stack10" />
 
           <div style={helperPanel}>
-            <div style={helperTitle}>작성 팁</div>
-            <div style={helperDesc}>
-              너무 긴 배경 설명보다 <strong>지금 당장 함께 기도해야 할 핵심 한 가지</strong>를
-              적는 것이 좋습니다.
-            </div>
+            <div style={helperTitle}></div>
+            <div style={helperDesc}><strong></strong></div>
           </div>
 
           <div className="stack10" />
 
           <div style={helperPanel}>
-            <div style={helperTitle}>목록으로 돌아가기</div>
+            <div style={helperTitle}></div>
             <div style={helperDesc}>
-              이미 등록된 긴급기도를 다시 확인하려면{' '}
-              <Link to="/urgent-prayers" style={linkText}>
-                긴급기도 목록
-              </Link>
-              으로 돌아가세요.
-            </div>
+              {''}
+              <Link to="/urgent-prayers" style={linkText}></Link></div>
           </div>
         </Card>
       </div>
