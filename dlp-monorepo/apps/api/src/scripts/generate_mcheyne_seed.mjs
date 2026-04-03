@@ -22,10 +22,38 @@ function isReadingCell(v) {
   return /장|편|서|기|복음|행전|계시록|상|하|전|후|~|:/.test(t);
 }
 
+function parseBlock(block, currentMonth) {
+  const monthCell = block.find(isMonthCell);
+  const nextMonth = monthCell ? Number(monthCell.trim().replace('월', '')) : currentMonth;
+  const dayCell = block.find(isDayCell);
+
+  if (!dayCell || !nextMonth) {
+    return { currentMonth: nextMonth, row: null };
+  }
+
+  const day = Number(dayCell.trim().replace('일', ''));
+  const readings = block.filter(isReadingCell).map((x) => x.trim());
+  const uniq = [];
+
+  for (const t of readings) {
+    const cleaned = t.replace(/\s+/g, ' ').trim();
+    if (!cleaned) continue;
+    if (!uniq.includes(cleaned)) uniq.push(cleaned);
+  }
+
+  if (uniq.length < 4) {
+    return { currentMonth: nextMonth, row: null };
+  }
+
+  return {
+    currentMonth: nextMonth,
+    row: { month: nextMonth, day, readings: uniq.slice(0, 4) }
+  };
+}
+
 function parseWorkbook(filePath) {
   const buf = readFileSync(filePath);
   const wb = XLSX.read(buf, { type: 'buffer' });
-
   const rows = [];
 
   for (const sheetName of wb.SheetNames) {
@@ -34,33 +62,21 @@ function parseWorkbook(filePath) {
     const ws = wb.Sheets[sheetName];
     const grid = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
 
-    let currentMonth = null;
+    const monthByBlock = new Map();
 
     for (const r of grid) {
-      for (const cell of r) {
-        if (isMonthCell(cell)) {
-          currentMonth = Number(cell.trim().replace('월', ''));
-          break;
-        }
+      for (let start = 1; start < r.length; start += 6) {
+        const block = r.slice(start, start + 5);
+        if (!block.some(Boolean)) continue;
+
+        const parsed = parseBlock(block, monthByBlock.get(start) ?? null);
+        monthByBlock.set(start, parsed.currentMonth ?? null);
+        if (parsed.row) rows.push(parsed.row);
       }
-
-      const dayCell = r.find(isDayCell);
-      if (!dayCell || !currentMonth) continue;
-
-      const day = Number(dayCell.trim().replace('일', ''));
-      const readings = r.filter(isReadingCell).map((x) => x.trim());
-
-      const uniq = [];
-      for (const t of readings) {
-        const cleaned = t.replace(/\s+/g, ' ').trim();
-        if (!cleaned) continue;
-        if (!uniq.includes(cleaned)) uniq.push(cleaned);
-      }
-
-      if (uniq.length >= 4) rows.push({ month: currentMonth, day, readings: uniq.slice(0, 4) });
     }
   }
 
+  rows.sort((a, b) => a.month - b.month || a.day - b.day);
   return rows;
 }
 
