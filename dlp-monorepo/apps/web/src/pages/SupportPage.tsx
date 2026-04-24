@@ -5,6 +5,8 @@ import { useAuth } from '../auth/AuthContext';
 import { apiFetch } from '../lib/api';
 import Button from '../ui/Button';
 import { Card } from '../ui/Card';
+import PolicySupportHeaderNav from '../components/legal/PolicySupportHeaderNav';
+import PolicySupportFooter from '../components/legal/PolicySupportFooter';
 
 type SupportType = 'INQUIRY' | 'BUG' | 'ACCOUNT_DELETE' | 'PRIVACY_DELETE';
 
@@ -151,6 +153,7 @@ export default function SupportPage() {
     <div className="sanctuaryPage">
       <div className="sanctuaryPageInner">
         <TopBar title="문의 / 요청 접수" backTo="/" hideAuthActions />
+        <PolicySupportHeaderNav variant="support" />
 
         <Card pad style={heroCard}>
           <div style={eyebrow}>SUPPORT DESK</div>
@@ -288,6 +291,7 @@ export default function SupportPage() {
             </div>
           </div>
         </Card>
+       <PolicySupportFooter variant="support" />
       </div>
     </div>
   );

@@ -5,6 +5,9 @@ import TopBar from '../components/layout/TopBar';
 import { apiFetch } from '../lib/api';
 import Button from '../ui/Button';
 import { Card } from '../ui/Card';
+import PolicySupportHeaderNav from '../components/legal/PolicySupportHeaderNav';
+import PolicySupportFooter from '../components/legal/PolicySupportFooter';
+
 
 type SupportType = 'INQUIRY' | 'BUG' | 'ACCOUNT_DELETE' | 'PRIVACY_DELETE';
 type SupportStatus = 'NEW' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
@@ -166,6 +169,8 @@ export default function AdminSupportPage() {
           hideAuthActions
         />
 
+        <PolicySupportHeaderNav variant="admin-support" />
+
         <Card pad style={heroCard}>
           <div style={eyebrow}>SUPPORT INBOX</div>
           <div style={heroTitle}>문의·버그·탈퇴·개인정보 요청 운영 화면</div>
@@ -284,6 +289,8 @@ export default function AdminSupportPage() {
             </Card>
           ) : null}
         </div>
+
+       <PolicySupportFooter variant="admin-support" />
       </div>
     </div>
   );

@@ -1,6 +1,9 @@
 import { Link } from 'react-router-dom';
 import TopBar from '../components/layout/TopBar';
 import { Card } from '../ui/Card';
+import PolicySupportHeaderNav from '../components/legal/PolicySupportHeaderNav';
+import PolicySupportFooter from '../components/legal/PolicySupportFooter';
+
 
 const updatedAt = '2026.04.24';
 const contactEmail = 'sks4266@gmail.com';
@@ -100,6 +103,7 @@ export default function TermsPage() {
     <div className="sanctuaryPage">
       <div className="sanctuaryPageInner">
         <TopBar title="서비스 이용약관" backTo="/" hideAuthActions />
+        <PolicySupportHeaderNav variant="terms" />
 
         <Card pad style={heroCard}>
           <div style={eyebrow}>TERMS OF SERVICE</div>
@@ -126,6 +130,7 @@ export default function TermsPage() {
             </div>
           </Card>
         ))}
+       <PolicySupportFooter variant="public" />
       </div>
     </div>
   );

@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import TopBar from '../components/layout/TopBar';
 import { Card } from '../ui/Card';
+import PolicySupportHeaderNav from '../components/legal/PolicySupportHeaderNav';
+import PolicySupportFooter from '../components/legal/PolicySupportFooter';
 
 const updatedAt = '2026.04.24';
 const contactEmail = 'sks4266@gmail.com';
@@ -117,6 +119,7 @@ export default function PrivacyPage() {
     <div className="sanctuaryPage">
       <div className="sanctuaryPageInner">
         <TopBar title="개인정보 처리방침" backTo="/" hideAuthActions />
+        <PolicySupportHeaderNav variant="privacy" />
 
         <Card pad style={heroCard}>
           <div style={eyebrow}>PRIVACY POLICY</div>
@@ -143,6 +146,7 @@ export default function PrivacyPage() {
             </div>
           </Card>
         ))}
+       <PolicySupportFooter variant="public" />
       </div>
     </div>
   );
