@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import TopBar from '../components/layout/TopBar';
 import PolicySupportHeaderNav from '../components/legal/PolicySupportHeaderNav';
@@ -132,12 +131,8 @@ export default function PrivacyPage() {
           <div style={metaRow}>
             <span style={chip}>최종 업데이트 {updatedAt}</span>
             <span style={chipSoft}>문의 이메일 {contactEmail}</span>
-            <Link to="/terms" style={linkChip}>
-              이용약관
-            </Link>
-            <Link to="/support" style={linkChip}>
-              문의 / 요청 접수
-            </Link>
+            <Link to="/terms" style={linkChip}>이용약관</Link>
+            <Link to="/support" style={linkChip}>문의 / 요청 접수</Link>
           </div>
         </Card>
 
@@ -146,9 +141,7 @@ export default function PrivacyPage() {
             <div style={sectionTitle}>{section.title}</div>
             <div style={bodyStack}>
               {section.body.map((text) => (
-                <p key={text} style={paragraph}>
-                  {text}
-                </p>
+                <p key={text} style={paragraph}>{text}</p>
               ))}
             </div>
           </Card>
@@ -160,41 +153,41 @@ export default function PrivacyPage() {
   );
 }
 
-const heroCard: CSSProperties = {
+const heroCard = {
   marginBottom: 14,
   borderRadius: 24,
   background: 'linear-gradient(180deg, rgba(255,255,255,0.84), rgba(247,251,255,0.74))'
 };
 
-const eyebrow: CSSProperties = {
+const eyebrow = {
   fontSize: 11,
   fontWeight: 900,
   letterSpacing: '0.08em',
   color: '#6a8fc9'
 };
 
-const title: CSSProperties = {
+const title = {
   margin: '10px 0 0',
   fontSize: 28,
   lineHeight: 1.18,
   color: '#24313a'
 };
 
-const desc: CSSProperties = {
+const desc = {
   margin: '10px 0 0',
   fontSize: 14,
   lineHeight: 1.7,
   color: '#61717a'
 };
 
-const metaRow: CSSProperties = {
+const metaRow = {
   display: 'flex',
-  flexWrap: 'wrap',
+  flexWrap: 'wrap' as const,
   gap: 8,
   marginTop: 14
 };
 
-const chip: CSSProperties = {
+const chip = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 34,
@@ -207,7 +200,7 @@ const chip: CSSProperties = {
   border: '1px solid rgba(159,195,255,0.24)'
 };
 
-const chipSoft: CSSProperties = {
+const chipSoft = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 34,
@@ -220,7 +213,7 @@ const chipSoft: CSSProperties = {
   border: '1px solid rgba(255,255,255,0.56)'
 };
 
-const linkChip: CSSProperties = {
+const linkChip = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 34,
@@ -234,25 +227,25 @@ const linkChip: CSSProperties = {
   textDecoration: 'none'
 };
 
-const sectionCard: CSSProperties = {
+const sectionCard = {
   marginBottom: 12,
   borderRadius: 22
 };
 
-const sectionTitle: CSSProperties = {
+const sectionTitle = {
   fontSize: 19,
   lineHeight: 1.3,
   fontWeight: 800,
   color: '#24313a'
 };
 
-const bodyStack: CSSProperties = {
+const bodyStack = {
   display: 'grid',
   gap: 10,
   marginTop: 12
 };
 
-const paragraph: CSSProperties = {
+const paragraph = {
   margin: 0,
   fontSize: 14,
   lineHeight: 1.75,

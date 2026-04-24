@@ -8,13 +8,6 @@ import PolicySupportFooter from '../components/legal/PolicySupportFooter';
 import Button from '../ui/Button';
 import { Card, CardDesc, CardTitle } from '../ui/Card';
 
-type HomeBookmarkItem = {
-  ref: string;
-  note: string;
-  savedAt: number;
-  updatedAt: number;
-};
-
 type HomePayload = {
   urgentTicker: UrgentTickerItem[];
   mcheyneToday: null | {
@@ -42,106 +35,10 @@ type HomePayload = {
 
 const HOME_AD_IMAGE_URL = '/ads/albi-banner.png';
 const HOME_AD_TARGET_URL = 'https://albi.kr';
-const RECENT_BIBLE_READ_KEY = 'dlp_recent_bible_reads_v1';
-const BOOKMARK_BIBLE_READ_KEY = 'dlp_bible_read_bookmarks_v1';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
-}
-
-function loadRecentBibleReads() {
-  try {
-    const raw = localStorage.getItem(RECENT_BIBLE_READ_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.map((item) => String(item).trim()).filter(Boolean).slice(0, 6) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveRecentBibleReads(list: string[]) {
-  try {
-    localStorage.setItem(RECENT_BIBLE_READ_KEY, JSON.stringify(list.slice(0, 10)));
-  } catch {
-    // ignore
-  }
-}
-
-function removeRecentBibleReadItem(target: string) {
-  const next = loadRecentBibleReads().filter((item) => item !== target);
-  saveRecentBibleReads(next);
-  return next.slice(0, 6);
-}
-
-function normalizeHomeBookmarks(input: unknown): HomeBookmarkItem[] {
-  const now = Date.now();
-  if (!Array.isArray(input)) return [];
-
-  return input
-    .map((item, idx) => {
-      if (typeof item === 'string') {
-        const ref = item.trim();
-        if (!ref) return null;
-        const ts = now - idx;
-        return { ref, note: '', savedAt: ts, updatedAt: ts };
-      }
-
-      if (!item || typeof item !== 'object') return null;
-
-      const ref = String((item as any).ref ?? '').trim();
-      if (!ref) return null;
-
-      const savedAt = Number((item as any).savedAt ?? now - idx);
-      const updatedAt = Number((item as any).updatedAt ?? savedAt);
-      return {
-        ref,
-        note: String((item as any).note ?? '').trim(),
-        savedAt: Number.isFinite(savedAt) ? savedAt : now - idx,
-        updatedAt: Number.isFinite(updatedAt) ? updatedAt : savedAt
-      };
-    })
-    .filter((item): item is HomeBookmarkItem => Boolean(item))
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-    .slice(0, 6);
-}
-
-function loadHomeBookmarks() {
-  try {
-    const raw = localStorage.getItem(BOOKMARK_BIBLE_READ_KEY);
-    if (!raw) return [];
-    return normalizeHomeBookmarks(JSON.parse(raw));
-  } catch {
-    return [];
-  }
-}
-
-function saveHomeBookmarks(list: HomeBookmarkItem[]) {
-  try {
-    localStorage.setItem(BOOKMARK_BIBLE_READ_KEY, JSON.stringify(normalizeHomeBookmarks(list)));
-  } catch {
-    // ignore
-  }
-}
-
-function removeHomeBookmarkItem(targetRef: string) {
-  const next = loadHomeBookmarks().filter((item) => item.ref !== targetRef);
-  saveHomeBookmarks(next);
-  return next.slice(0, 6);
-}
-
-function formatBookmarkUpdatedAt(ts: number) {
-  try {
-    return new Intl.DateTimeFormat('ko-KR', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(new Date(ts));
-  } catch {
-    return '';
-  }
 }
 
 export default function HomePage() {
@@ -150,8 +47,6 @@ export default function HomePage() {
   const [installGuideOpen, setInstallGuideOpen] = useState(false);
   const [mcheyneBulkSaving, setMcheyneBulkSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [recentBibleReads, setRecentBibleReads] = useState<string[]>([]);
-  const [homeBookmarks, setHomeBookmarks] = useState<HomeBookmarkItem[]>([]);
   const deferredInstallPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
 
   const nav = useNavigate();
@@ -206,27 +101,6 @@ export default function HomePage() {
 
   useEffect(() => {
     loadHome();
-  }, []);
-
-  useEffect(() => {
-    const syncBibleWidgets = () => {
-      setRecentBibleReads(loadRecentBibleReads());
-      setHomeBookmarks(loadHomeBookmarks());
-    };
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') syncBibleWidgets();
-    };
-
-    syncBibleWidgets();
-    window.addEventListener('focus', syncBibleWidgets);
-    window.addEventListener('storage', syncBibleWidgets);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    return () => {
-      window.removeEventListener('focus', syncBibleWidgets);
-      window.removeEventListener('storage', syncBibleWidgets);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
   }, []);
 
   useEffect(() => {
@@ -291,31 +165,6 @@ export default function HomePage() {
     } finally {
       deferredInstallPromptRef.current = null;
     }
-  }
-
-  function openRecentBibleRead(ref: string) {
-    nav(`/bible-search?${new URLSearchParams({ tab: 'read', ref }).toString()}`);
-  }
-
-  function openLatestRecentBibleRead() {
-    const latestRef = recentBibleReads[0];
-    if (latestRef) {
-      openRecentBibleRead(latestRef);
-      return;
-    }
-    nav('/bible-search?tab=read');
-  }
-
-  function openBookmarkedBibleRead(ref: string) {
-    nav(`/bible-search?${new URLSearchParams({ tab: 'read', ref }).toString()}`);
-  }
-
-  function deleteHomeBookmark(ref: string) {
-    setHomeBookmarks(removeHomeBookmarkItem(ref));
-  }
-
-  function deleteRecentBibleRead(ref: string) {
-    setRecentBibleReads(removeRecentBibleReadItem(ref));
   }
 
   async function completeTodayAll() {
@@ -404,7 +253,7 @@ export default function HomePage() {
             <div style={heroCopy}>
               <div style={badgeMint}>TODAY READING</div>
               <CardTitle style={heroTitle}>맥체인 성경읽기</CardTitle>
-              <CardDesc style={heroDesc}></CardDesc>
+              <CardDesc style={heroDesc}>오늘 읽을 본문과 진행 상태를 한 번에 확인할 수 있어요.</CardDesc>
 
               {loading ? (
                 <div style={helperMuted}>불러오는 중…</div>
@@ -470,58 +319,12 @@ export default function HomePage() {
           ) : null}
         </Card>
 
-        <div style={bibleWidgetGrid}>
-          <Card pad style={bookmarkWidgetCard}>
-            <div style={bookmarkWidgetHead}>
-              <div>
-                <div style={sectionEyebrow}>MY BOOKMARKS</div>
-                <div style={{ ...sectionHeadingSmall, ...homeBibleWidgetTitle }}>내 북마크</div>
-              </div>
-            </div>
-
-            <div style={bookmarkWidgetList}>
-              <Button
-                type="button"
-                variant="secondary"
-                size="lg"
-                wide
-                title={homeBookmarks.length > 0 ? `저장된 북마크 ${homeBookmarks.length}개 보기` : '북마크 페이지 열기'}
-                onClick={() => nav('/bible-bookmarks')}
-              >
-                북마크 보기
-              </Button>
-            </div>
-          </Card>
-
-          <Card pad style={recentBibleWidgetCard}>
-            <div style={recentBibleWidgetHead}>
-              <div>
-                <div style={sectionEyebrow}>RECENT BIBLE</div>
-                <div style={{ ...sectionHeadingSmall, ...homeBibleWidgetTitle }}>최근 읽은 성경</div>
-              </div>
-            </div>
-
-            <div style={recentBibleWidgetList}>
-              <Button
-                type="button"
-                variant="secondary"
-                size="lg"
-                wide
-                title={recentBibleReads[0] ? `${recentBibleReads[0]} 본문 열기` : '최근 본문 열기'}
-                onClick={openLatestRecentBibleRead}
-              >
-                최근 본문 열기
-              </Button>
-            </div>
-          </Card>
-        </div>
-
         <Card pad style={statsCard}>
           <div style={statsHead}>
             <div>
               <div style={sectionEyebrow}>PERFORMANCE</div>
               <div style={sectionHeadingSmall}>성과 통계</div>
-              <div style={statsDesc}></div>
+              <div style={statsDesc}>퍼센트만큼 채워지는 버튼형 게이지로 이번 흐름을 바로 확인하고, 눌러서 상세 화면으로 이동할 수 있어요.</div>
             </div>
 
             <button type="button" style={statsLinkBtn} onClick={() => (me ? nav('/me') : goLogin('/me'))}>
@@ -536,7 +339,7 @@ export default function HomePage() {
                   label="누적 출석"
                   value={`${performance.attendanceDays}일`}
                   percent={attendancePercent}
-                  hint=""
+                  hint="365일 목표 기준"
                   tone="mint"
                   onClick={() => nav('/me')}
                 />
@@ -544,7 +347,7 @@ export default function HomePage() {
                   label="이번 주 DLP"
                   value={`${performance.weekSubmittedCount}/7`}
                   percent={weeklyPercent}
-                  hint=""
+                  hint="주간 제출 리듬"
                   tone="peach"
                   onClick={() => nav('/me')}
                 />
@@ -619,7 +422,7 @@ export default function HomePage() {
             icon={<ChurchIcon />}
             tone="peach"
             title="교회 채널"
-            desc=""
+            desc="공지 · 기도 · 댓글을 한곳에서"
             actionLabel="채널 보기"
             onClick={() => nav('/channels')}
           />
@@ -628,7 +431,7 @@ export default function HomePage() {
             icon={<BibleGameIcon />}
             tone="mint"
             title="바이블 게임"
-            desc=""
+            desc="랜덤 성경 구절 빈칸 맞히기 · 반응속도 랭킹전"
             actionLabel="입장하기"
             onClick={() => (me ? nav('/bible-game') : goLogin('/bible-game'))}
           />
@@ -647,7 +450,7 @@ export default function HomePage() {
               </div>
               <div style={installGuideBadge}>추천</div>
             </div>
-            <div style={installGuideLead}></div>
+            <div style={installGuideLead}>DLP는 웹앱이라서 홈화면에 추가하면 더 빠르게 실행되고, 예배/큐티/바이블 게임에 바로 들어갈 수 있어요.</div>
             <div style={guideShotGrid}>
               <div style={guideShotCard}>
                 <div style={guideShotTop}>iPhone · Safari</div>
@@ -1068,9 +871,8 @@ const urgentLabelWrap: CSSProperties = {
 const urgentTitleText: CSSProperties = {
   marginTop: 4,
   color: '#24313a',
-  fontSize: 16,
+  fontSize: 17,
   fontWeight: 800,
-  lineHeight: 1.22,
   letterSpacing: '-0.02em'
 };
 
@@ -1169,13 +971,12 @@ const heroCopy: CSSProperties = {
 };
 
 const heroTitle: CSSProperties = {
-  fontSize: 'clamp(20px, 5vw, 24px)',
+  fontSize: 'clamp(22px, 5.6vw, 25px)',
   fontWeight: 800,
   color: '#24313a',
   letterSpacing: '-0.03em',
-  lineHeight: 1.18,
-  whiteSpace: 'normal',
-  wordBreak: 'keep-all'
+  lineHeight: 1.15,
+  whiteSpace: 'nowrap'
 };
 
 const heroDesc: CSSProperties = {
@@ -1290,286 +1091,6 @@ const heroActions: CSSProperties = {
   marginTop: 18
 };
 
-const bibleWidgetGrid: CSSProperties = {
-  marginTop: 12,
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: 12,
-  alignItems: 'stretch'
-};
-
-const bookmarkWidgetCard: CSSProperties = {
-  borderRadius: 22,
-  background: 'linear-gradient(180deg, rgba(255,249,240,0.9), rgba(255,255,255,0.82))',
-  border: '1px solid rgba(243,180,156,0.28)',
-  boxShadow: '0 12px 28px rgba(77,90,110,0.08)',
-  height: '100%'
-};
-
-const bookmarkWidgetHead: CSSProperties = {
-  display: 'flex',
-  alignItems: 'flex-start',
-  justifyContent: 'space-between',
-  gap: 12
-};
-
-const homeBibleWidgetTitle: CSSProperties = {
-  fontSize: 16,
-  lineHeight: 1.28,
-  letterSpacing: '-0.03em',
-  wordBreak: 'keep-all'
-};
-
-const bookmarkWidgetDesc: CSSProperties = {
-  display: 'none'
-};
-
-const bookmarkWidgetLinkBtn: CSSProperties = {
-  border: 0,
-  background: 'rgba(255,255,255,0.82)',
-  color: '#9d6550',
-  minHeight: 30,
-  padding: '0 10px',
-  borderRadius: 999,
-  fontSize: 11,
-  fontWeight: 800,
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
-  boxShadow: 'inset 0 0 0 1px rgba(243,180,156,0.24)'
-};
-
-const bookmarkWidgetList: CSSProperties = {
-  marginTop: 14,
-  display: 'grid',
-  gridTemplateColumns: '1fr',
-  gap: 10
-};
-
-const bookmarkItemBtn: CSSProperties = {
-  width: '100%',
-  padding: '12px 12px 11px',
-  borderRadius: 18,
-  border: '1px solid rgba(236,223,214,0.92)',
-  background: 'rgba(255,255,255,0.9)',
-  textAlign: 'left',
-  display: 'grid',
-  gap: 10
-};
-
-const bookmarkItemBtnPrimary: CSSProperties = {
-  border: '1px solid rgba(243,180,156,0.34)',
-  background: 'linear-gradient(180deg, rgba(255,246,239,0.98), rgba(255,255,255,0.92))',
-  boxShadow: '0 10px 24px rgba(243,180,156,0.12)'
-};
-
-const bookmarkItemTop: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: 10
-};
-
-const bookmarkItemBadge: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: 22,
-  padding: '0 8px',
-  borderRadius: 999,
-  background: 'rgba(247,242,238,0.96)',
-  color: '#8a6a5a',
-  fontSize: 10,
-  fontWeight: 800
-};
-
-const bookmarkItemBadgePrimary: CSSProperties = {
-  background: 'rgba(243,180,156,0.18)',
-  color: '#9d6550'
-};
-
-const bookmarkItemDate: CSSProperties = {
-  color: '#95a0a7',
-  fontSize: 10,
-  fontWeight: 700,
-  whiteSpace: 'nowrap'
-};
-
-const bookmarkItemRef: CSSProperties = {
-  marginTop: 8,
-  color: '#24313a',
-  fontSize: 15,
-  fontWeight: 800,
-  lineHeight: 1.32,
-  letterSpacing: '-0.02em',
-  wordBreak: 'keep-all'
-};
-
-const bookmarkItemNote: CSSProperties = {
-  marginTop: 6,
-  color: '#6d7a83',
-  fontSize: 12,
-  lineHeight: 1.45,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  display: '-webkit-box',
-  WebkitLineClamp: 2,
-  WebkitBoxOrient: 'vertical',
-  wordBreak: 'keep-all'
-};
-
-const recentBibleWidgetCard: CSSProperties = {
-  borderRadius: 22,
-  background: 'linear-gradient(180deg, rgba(247,252,250,0.88), rgba(255,255,255,0.8))',
-  border: '1px solid rgba(214,231,224,0.92)',
-  boxShadow: '0 12px 28px rgba(77,90,110,0.08)',
-  height: '100%'
-};
-
-const recentBibleWidgetHead: CSSProperties = {
-  display: 'flex',
-  alignItems: 'flex-start',
-  justifyContent: 'space-between',
-  gap: 12
-};
-
-const recentBibleWidgetDesc: CSSProperties = {
-  display: 'none'
-};
-
-const recentBibleWidgetLinkBtn: CSSProperties = {
-  border: 0,
-  background: 'rgba(255,255,255,0.82)',
-  color: '#2f7f73',
-  minHeight: 30,
-  padding: '0 10px',
-  borderRadius: 999,
-  fontSize: 11,
-  fontWeight: 800,
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
-  boxShadow: 'inset 0 0 0 1px rgba(114,215,199,0.24)'
-};
-
-const recentBibleWidgetList: CSSProperties = {
-  marginTop: 14,
-  display: 'grid',
-  gridTemplateColumns: '1fr',
-  gap: 10
-};
-
-const recentBibleItemBtn: CSSProperties = {
-  width: '100%',
-  padding: '12px 12px 11px',
-  borderRadius: 18,
-  border: '1px solid rgba(224,231,236,0.9)',
-  background: 'rgba(255,255,255,0.86)',
-  display: 'grid',
-  gap: 10,
-  textAlign: 'left'
-};
-
-const recentBibleItemBtnPrimary: CSSProperties = {
-  border: '1px solid rgba(114,215,199,0.34)',
-  background: 'linear-gradient(180deg, rgba(236,253,248,0.96), rgba(255,255,255,0.92))',
-  boxShadow: '0 10px 24px rgba(114,215,199,0.12)'
-};
-
-const recentBibleItemTop: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: 8
-};
-
-const recentBibleItemLeft: CSSProperties = {
-  minWidth: 0,
-  display: 'grid',
-  gap: 8
-};
-
-const recentBibleItemBadge: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: 22,
-  width: 'fit-content',
-  padding: '0 8px',
-  borderRadius: 999,
-  background: 'rgba(244,247,249,0.92)',
-  color: '#73818a',
-  fontSize: 10,
-  fontWeight: 800
-};
-
-const recentBibleItemBadgePrimary: CSSProperties = {
-  background: 'rgba(114,215,199,0.16)',
-  color: '#2f7f73'
-};
-
-const recentBibleItemRef: CSSProperties = {
-  color: '#24313a',
-  fontSize: 15,
-  fontWeight: 800,
-  lineHeight: 1.32,
-  letterSpacing: '-0.02em',
-  wordBreak: 'keep-all'
-};
-
-const recentBibleItemArrow: CSSProperties = {
-  marginTop: 7,
-  color: '#7a8790',
-  fontSize: 11,
-  fontWeight: 800,
-  whiteSpace: 'nowrap'
-};
-
-const bookmarkItemNoteMuted: CSSProperties = {
-  marginTop: 6,
-  color: '#9aa4aa',
-  fontSize: 11,
-  fontWeight: 700,
-  wordBreak: 'keep-all'
-};
-
-const widgetActionInlineRow: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 6
-};
-
-const widgetOpenBtn: CSSProperties = {
-  width: '100%',
-  padding: 0,
-  border: 0,
-  background: 'transparent',
-  textAlign: 'left',
-  cursor: 'pointer'
-};
-
-const widgetDeleteBtnPeach: CSSProperties = {
-  border: 0,
-  minHeight: 22,
-  padding: '0 7px',
-  borderRadius: 999,
-  background: 'rgba(243,180,156,0.18)',
-  color: '#9d6550',
-  fontSize: 10,
-  fontWeight: 800,
-  cursor: 'pointer'
-};
-
-const widgetDeleteBtnMint: CSSProperties = {
-  border: 0,
-  minHeight: 22,
-  padding: '0 7px',
-  borderRadius: 999,
-  background: 'rgba(114,215,199,0.18)',
-  color: '#2f7f73',
-  fontSize: 10,
-  fontWeight: 800,
-  cursor: 'pointer'
-};
-
 const statsCard: CSSProperties = {
   marginTop: 14,
   borderRadius: 22,
@@ -1588,9 +1109,8 @@ const statsHead: CSSProperties = {
 const sectionHeadingSmall: CSSProperties = {
   marginTop: 6,
   color: '#24313a',
-  fontSize: 17,
+  fontSize: 18,
   fontWeight: 800,
-  lineHeight: 1.24,
   letterSpacing: '-0.02em'
 };
 
@@ -1721,21 +1241,18 @@ const sectionEyebrow: CSSProperties = {
 const sectionHeading: CSSProperties = {
   marginTop: 6,
   color: '#24313a',
-  fontSize: 19,
+  fontSize: 20,
   fontWeight: 800,
-  lineHeight: 1.24,
   letterSpacing: '-0.02em'
 };
 
 const quickGrid: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  gridTemplateColumns: '1fr 1fr',
   gap: 12
 };
 
 const quickBtn: CSSProperties = {
-  width: '100%',
-  minWidth: 0,
   padding: 0,
   border: 0,
   background: 'transparent',
@@ -1744,9 +1261,7 @@ const quickBtn: CSSProperties = {
 };
 
 const quickCard: CSSProperties = {
-  width: '100%',
-  minWidth: 0,
-  minHeight: 96,
+  minHeight: 86,
   borderRadius: 20,
   background: 'rgba(255,255,255,0.72)',
   border: '1px solid rgba(255,255,255,0.56)',
@@ -1754,19 +1269,17 @@ const quickCard: CSSProperties = {
 };
 
 const quickInner: CSSProperties = {
-  minHeight: 96,
+  minHeight: 86,
   display: 'flex',
   alignItems: 'center',
-  gap: 7,
-  padding: '13px 10px',
-  width: '100%',
-  boxSizing: 'border-box'
+  gap: 10,
+  padding: '14px 12px'
 };
 
 const quickIconWrap: CSSProperties = {
-  width: 34,
-  height: 34,
-  borderRadius: 11,
+  width: 40,
+  height: 40,
+  borderRadius: 14,
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -1780,23 +1293,17 @@ const quickTextWrap: CSSProperties = {
 
 const quickTitle: CSSProperties = {
   color: '#24313a',
-  fontSize: 11.5,
+  fontSize: 13,
   fontWeight: 800,
-  lineHeight: 1.26,
+  lineHeight: 1.2,
   letterSpacing: '-0.02em',
-  whiteSpace: 'normal',
-  wordBreak: 'break-word',
-  overflowWrap: 'anywhere',
-  overflow: 'hidden',
-  display: '-webkit-box',
-  WebkitLineClamp: 2,
-  WebkitBoxOrient: 'vertical'
+  whiteSpace: 'nowrap'
 };
 
 const quickDesc: CSSProperties = {
-  marginTop: 4,
+  marginTop: 3,
   color: '#69767e',
-  fontSize: 10.5,
+  fontSize: 11,
   fontWeight: 700,
   lineHeight: 1.2,
   whiteSpace: 'nowrap',
@@ -1806,10 +1313,9 @@ const quickDesc: CSSProperties = {
 
 const quickArrow: CSSProperties = {
   color: '#96a1a8',
-  fontSize: 14,
+  fontSize: 18,
   fontWeight: 700,
-  flex: '0 0 auto',
-  marginLeft: 0
+  flex: '0 0 auto'
 };
 
 const wideBtn: CSSProperties = {

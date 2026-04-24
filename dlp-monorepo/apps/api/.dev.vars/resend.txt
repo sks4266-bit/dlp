@@ -1,0 +1,4 @@
+RESEND_API_KEY="re_XQQFH63c_JfMBRBXCYc6StvHpGc2tGMoK"
+APP_SECRET="daily_life_plan"
+SUPPORT_TO_EMAIL="sks4266@gmail.com"
+SUPPORT_FROM_EMAIL="ChristianDLP <no-reply@mail.christiandlp.com>"

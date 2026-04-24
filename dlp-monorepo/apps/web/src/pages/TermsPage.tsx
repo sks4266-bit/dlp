@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import TopBar from '../components/layout/TopBar';
 import PolicySupportHeaderNav from '../components/legal/PolicySupportHeaderNav';
@@ -93,7 +92,7 @@ const sections = [
     title: '제12조 약관 변경 및 준거법',
     body: [
       '운영자는 법령 변경, 서비스 개편, 정책 조정이 필요한 경우 본 약관을 개정할 수 있으며, 중요한 내용은 서비스 내 관련 페이지에 공지합니다.',
-      `본 약관은 대한민국 법령을 준거법으로 하며, 서비스 이용과 관련한 문의는 /support 또는 이메일(${contactEmail})로 할 수 있습니다.`
+      '본 약관은 대한민국 법령을 준거법으로 하며, 서비스 이용과 관련한 문의는 /support 또는 이메일(sks4266@gmail.com)로 할 수 있습니다.'
     ]
   }
 ];
@@ -115,12 +114,8 @@ export default function TermsPage() {
           <div style={metaRow}>
             <span style={chip}>최종 업데이트 {updatedAt}</span>
             <span style={chipSoft}>문의 이메일 {contactEmail}</span>
-            <Link to="/privacy" style={linkChip}>
-              개인정보 처리방침
-            </Link>
-            <Link to="/support" style={linkChip}>
-              문의 / 요청 접수
-            </Link>
+            <Link to="/privacy" style={linkChip}>개인정보 처리방침</Link>
+            <Link to="/support" style={linkChip}>문의 / 요청 접수</Link>
           </div>
         </Card>
 
@@ -129,9 +124,7 @@ export default function TermsPage() {
             <div style={sectionTitle}>{section.title}</div>
             <div style={bodyStack}>
               {section.body.map((text) => (
-                <p key={text} style={paragraph}>
-                  {text}
-                </p>
+                <p key={text} style={paragraph}>{text}</p>
               ))}
             </div>
           </Card>
@@ -143,41 +136,41 @@ export default function TermsPage() {
   );
 }
 
-const heroCard: CSSProperties = {
+const heroCard = {
   marginBottom: 14,
   borderRadius: 24,
   background: 'linear-gradient(180deg, rgba(255,255,255,0.84), rgba(248,255,252,0.72))'
 };
 
-const eyebrow: CSSProperties = {
+const eyebrow = {
   fontSize: 11,
   fontWeight: 900,
   letterSpacing: '0.08em',
   color: '#5ea898'
 };
 
-const title: CSSProperties = {
+const title = {
   margin: '10px 0 0',
   fontSize: 28,
   lineHeight: 1.18,
   color: '#24313a'
 };
 
-const desc: CSSProperties = {
+const desc = {
   margin: '10px 0 0',
   fontSize: 14,
   lineHeight: 1.7,
   color: '#61717a'
 };
 
-const metaRow: CSSProperties = {
+const metaRow = {
   display: 'flex',
-  flexWrap: 'wrap',
+  flexWrap: 'wrap' as const,
   gap: 8,
   marginTop: 14
 };
 
-const chip: CSSProperties = {
+const chip = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 34,
@@ -190,7 +183,7 @@ const chip: CSSProperties = {
   border: '1px solid rgba(114,215,199,0.22)'
 };
 
-const chipSoft: CSSProperties = {
+const chipSoft = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 34,
@@ -203,7 +196,7 @@ const chipSoft: CSSProperties = {
   border: '1px solid rgba(255,255,255,0.56)'
 };
 
-const linkChip: CSSProperties = {
+const linkChip = {
   display: 'inline-flex',
   alignItems: 'center',
   minHeight: 34,
@@ -217,25 +210,25 @@ const linkChip: CSSProperties = {
   textDecoration: 'none'
 };
 
-const sectionCard: CSSProperties = {
+const sectionCard = {
   marginBottom: 12,
   borderRadius: 22
 };
 
-const sectionTitle: CSSProperties = {
+const sectionTitle = {
   fontSize: 19,
   lineHeight: 1.3,
   fontWeight: 800,
   color: '#24313a'
 };
 
-const bodyStack: CSSProperties = {
+const bodyStack = {
   display: 'grid',
   gap: 10,
   marginTop: 12
 };
 
-const paragraph: CSSProperties = {
+const paragraph = {
   margin: 0,
   fontSize: 14,
   lineHeight: 1.75,
