@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
-import TopBar from '../components/layout/TopBar';
-import PolicySupportHeaderNav from '../components/legal/PolicySupportHeaderNav';
+import SimplePageHeader from '../components/legal/SimplePageHeader';
 import PolicySupportFooter from '../components/legal/PolicySupportFooter';
 import { Card } from '../ui/Card';
 
@@ -101,8 +100,7 @@ export default function TermsPage() {
   return (
     <div className="sanctuaryPage">
       <div className="sanctuaryPageInner">
-        <TopBar title="서비스 이용약관" backTo="/" hideAuthActions />
-        <PolicySupportHeaderNav variant="terms" />
+        <SimplePageHeader title="서비스 이용약관" />
 
         <Card pad style={heroCard}>
           <div style={eyebrow}>TERMS OF SERVICE</div>

@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import TopBar from '../components/layout/TopBar';
-import PolicySupportHeaderNav from '../components/legal/PolicySupportHeaderNav';
+import SimplePageHeader from '../components/legal/SimplePageHeader';
 import PolicySupportFooter from '../components/legal/PolicySupportFooter';
 import { apiFetch } from '../lib/api';
 import Button from '../ui/Button';
@@ -157,17 +156,7 @@ export default function AdminSupportPage() {
   return (
     <div className="sanctuaryPage">
       <div className="sanctuaryPageInner">
-        <TopBar
-          title="문의 접수함"
-          backTo="/admin"
-          right={
-            <Button variant="ghost" onClick={() => void loadAll()} disabled={loading}>
-              {loading ? '불러오는 중…' : '새로고침'}
-            </Button>
-          }
-          hideAuthActions
-        />
-        <PolicySupportHeaderNav variant="admin-support" />
+        <SimplePageHeader title="문의 접수함" backTo="/admin" />
 
         <Card pad style={heroCard}>
           <div style={eyebrow}>SUPPORT INBOX</div>

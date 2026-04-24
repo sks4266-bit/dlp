@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
-import TopBar from '../components/layout/TopBar';
-import PolicySupportHeaderNav from '../components/legal/PolicySupportHeaderNav';
+import SimplePageHeader from '../components/legal/SimplePageHeader';
 import PolicySupportFooter from '../components/legal/PolicySupportFooter';
 import { Card } from '../ui/Card';
 
@@ -118,8 +117,7 @@ export default function PrivacyPage() {
   return (
     <div className="sanctuaryPage">
       <div className="sanctuaryPageInner">
-        <TopBar title="개인정보 처리방침" backTo="/" hideAuthActions />
-        <PolicySupportHeaderNav variant="privacy" />
+        <SimplePageHeader title="개인정보 처리방침" />
 
         <Card pad style={heroCard}>
           <div style={eyebrow}>PRIVACY POLICY</div>

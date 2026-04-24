@@ -1,7 +1,6 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import TopBar from '../components/layout/TopBar';
-import PolicySupportHeaderNav from '../components/legal/PolicySupportHeaderNav';
+import SimplePageHeader from '../components/legal/SimplePageHeader';
 import PolicySupportFooter from '../components/legal/PolicySupportFooter';
 import { useAuth } from '../auth/AuthContext';
 import { apiFetch } from '../lib/api';
@@ -152,8 +151,7 @@ export default function SupportPage() {
   return (
     <div className="sanctuaryPage">
       <div className="sanctuaryPageInner">
-        <TopBar title="문의 / 요청 접수" backTo="/" hideAuthActions />
-        <PolicySupportHeaderNav variant="support" />
+        <SimplePageHeader title="문의 / 요청 접수" />
 
         <Card pad style={heroCard}>
           <div style={eyebrow}>SUPPORT DESK</div>
