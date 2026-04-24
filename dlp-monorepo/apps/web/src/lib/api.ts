@@ -9,9 +9,9 @@ export function setToken(token: string | null) {
 
 const API_BASE = (() => {
   try {
-    return String((import.meta as any)?.env?.VITE_API_BASE ?? 'https://dlp.albi260128.workers.dev').trim();
+    return String((import.meta as any)?.env?.VITE_API_BASE ?? 'https://dlp-api.albi260128.workers.dev').trim();
   } catch {
-    return 'https://dlp.albi260128.workers.dev';
+    return 'https://dlp-api.albi260128.workers.dev';
   }
 })();
 

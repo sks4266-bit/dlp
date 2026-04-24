@@ -15,6 +15,7 @@ import { bibleRoutes } from './routes/bible';
 import { bibleGameRoutes } from './routes/bible_game';
 import { mcheyneTextRoutes } from './routes/mcheyne_text';
 import { mcheyneProgressRoutes } from './routes/mcheyne_progress';
+import { supportRoutes } from './routes/support';
 
 // Durable Object export (required by Wrangler)
 export { RateLimiter } from './durable/RateLimiter';
@@ -45,6 +46,7 @@ app.route('/api/gratitude', gratitudeRoutes);
 app.route('/api/channels', channelRoutes);
 app.route('/api/bible', bibleRoutes);
 app.route('/api/bible-game', bibleGameRoutes);
+app.route('/api/support', supportRoutes);
 
 export default app;
 
