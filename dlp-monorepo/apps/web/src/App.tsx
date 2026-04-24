@@ -5,7 +5,6 @@ import { UiPrefsProvider } from './ui/UiPrefsContext';
 import AdminPage from './pages/AdminPage';
 import BibleGamePage from './pages/BibleGamePage';
 import BiblePage from './pages/BiblePage';
-import BibleBookmarksPage from './pages/BibleBookmarksPage';
 import BibleSearchPage from './pages/BibleSearchPage';
 import ChannelDetailPage from './pages/ChannelDetailPage';
 import ChannelsPage from './pages/ChannelsPage';
@@ -15,9 +14,13 @@ import HomePage from './pages/HomePage';
 import McCheyneReadingPage from './pages/McCheyneReadingPage';
 import McheyneCalendarPage from './pages/McheyneCalendarPage';
 import MePage from './pages/MePage';
+import PrivacyPage from './pages/PrivacyPage';
 import QtPage from './pages/QtPage';
+import SupportPage from './pages/SupportPage';
+import TermsPage from './pages/TermsPage';
 import UrgentPrayerNewPage from './pages/UrgentPrayerNewPage';
 import UrgentPrayersPage from './pages/UrgentPrayersPage';
+import AdminSupportPage from './pages/AdminSupportPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 
@@ -41,6 +44,9 @@ export default function App() {
                 />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
+                <Route path="/terms" element={<TermsPage />} />
+                <Route path="/privacy" element={<PrivacyPage />} />
+                <Route path="/support" element={<SupportPage />} />
 
                 <Route
                   path="/me"
@@ -63,6 +69,14 @@ export default function App() {
                   element={
                     <ProtectedRoute>
                       <AdminPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/support"
+                  element={
+                    <ProtectedRoute>
+                      <AdminSupportPage />
                     </ProtectedRoute>
                   }
                 />
@@ -109,7 +123,6 @@ export default function App() {
                 <Route path="/mcheyne-calendar" element={<McheyneCalendarPage />} />
                 <Route path="/bible" element={<BiblePage />} />
                 <Route path="/bible-search" element={<BibleSearchPage />} />
-                <Route path="/bible-bookmarks" element={<BibleBookmarksPage />} />
                 <Route
                   path="/bible-game"
                   element={
