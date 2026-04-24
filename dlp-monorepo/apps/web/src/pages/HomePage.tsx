@@ -4,6 +4,7 @@ import { apiFetch } from '../lib/api';
 import UrgentPrayerTicker, { type UrgentTickerItem } from '../components/UrgentPrayerTicker';
 import { useAuth } from '../auth/AuthContext';
 import UrgentPrayerComposer from '../components/urgent/UrgentPrayerComposer';
+import PolicySupportFooter from '../components/legal/PolicySupportFooter';
 import Button from '../ui/Button';
 import { Card, CardDesc, CardTitle } from '../ui/Card';
 
@@ -634,6 +635,8 @@ export default function HomePage() {
 
           <PromoBannerCard />
         </div>
+
+        <PolicySupportFooter variant="public" />
 
         <BottomSheet open={installGuideOpen} onClose={() => setInstallGuideOpen(false)}>
           <div>

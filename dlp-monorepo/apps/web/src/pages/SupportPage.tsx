@@ -1,12 +1,12 @@
-import { useMemo, useState, type CSSProperties } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { Link } from 'react-router-dom';
 import TopBar from '../components/layout/TopBar';
+import PolicySupportHeaderNav from '../components/legal/PolicySupportHeaderNav';
+import PolicySupportFooter from '../components/legal/PolicySupportFooter';
 import { useAuth } from '../auth/AuthContext';
 import { apiFetch } from '../lib/api';
 import Button from '../ui/Button';
 import { Card } from '../ui/Card';
-import PolicySupportHeaderNav from '../components/legal/PolicySupportHeaderNav';
-import PolicySupportFooter from '../components/legal/PolicySupportFooter';
 
 type SupportType = 'INQUIRY' | 'BUG' | 'ACCOUNT_DELETE' | 'PRIVACY_DELETE';
 
@@ -27,7 +27,8 @@ const typeConfig: Record<
     label: '일반 문의',
     shortLabel: '문의',
     titlePlaceholder: '예: 회원 정보 수정 방법이 궁금합니다',
-    messagePlaceholder: '문의 내용을 자세히 적어 주세요. 회신이 필요하면 이름 또는 이메일을 함께 남겨 주세요.',
+    messagePlaceholder:
+      '문의 내용을 자세히 적어 주세요. 회신이 필요하면 이름 또는 이메일을 함께 남겨 주세요.',
     successMessage: '문의가 정상적으로 접수되었습니다.',
     hint: '서비스 사용법, 정책 문의, 기록 처리 문의 등을 남길 수 있어요.'
   },
@@ -35,7 +36,8 @@ const typeConfig: Record<
     label: '버그 리포트',
     shortLabel: '버그',
     titlePlaceholder: '예: 4월 맥체인 불러오기가 안 됩니다',
-    messagePlaceholder: '언제, 어느 화면에서, 어떤 기기/브라우저에서, 어떤 문제가 발생했는지 자세히 적어 주세요.',
+    messagePlaceholder:
+      '언제, 어느 화면에서, 어떤 기기/브라우저에서, 어떤 문제가 발생했는지 자세히 적어 주세요.',
     successMessage: '버그 리포트가 접수되었습니다. 확인 후 반영하겠습니다.',
     hint: '오류 화면, 재현 순서, 사용 기기 정보를 함께 적으면 처리 속도가 빨라집니다.'
   },
@@ -43,7 +45,8 @@ const typeConfig: Record<
     label: '계정 탈퇴 요청',
     shortLabel: '탈퇴',
     titlePlaceholder: '예: 계정 탈퇴 및 기록 처리 요청',
-    messagePlaceholder: '탈퇴 요청 사유와 함께 본인 확인에 필요한 최소 정보, 남기고 싶은 문의 사항을 적어 주세요.',
+    messagePlaceholder:
+      '탈퇴 요청 사유와 함께 본인 확인에 필요한 최소 정보, 남기고 싶은 문의 사항을 적어 주세요.',
     successMessage: '계정 탈퇴 요청이 접수되었습니다. 확인 후 안내드리겠습니다.',
     hint: '로그인 가능한 경우 내정보 페이지에서 직접 탈퇴할 수 있고, 추가 안내가 필요하면 여기에서 요청할 수 있어요.'
   },
@@ -51,7 +54,8 @@ const typeConfig: Record<
     label: '개인정보 삭제 요청',
     shortLabel: '개인정보',
     titlePlaceholder: '예: 개인정보 삭제 및 보관 정보 확인 요청',
-    messagePlaceholder: '삭제를 원하는 정보 범위와 요청 사유를 적어 주세요. 필요 시 본인 확인 절차가 진행될 수 있습니다.',
+    messagePlaceholder:
+      '삭제를 원하는 정보 범위와 요청 사유를 적어 주세요. 필요 시 본인 확인 절차가 진행될 수 있습니다.',
     successMessage: '개인정보 삭제 요청이 접수되었습니다. 확인 후 안내드리겠습니다.',
     hint: '계정 탈퇴와 별도로 개인정보 삭제·처리정지 요청을 남길 수 있어요.'
   }
@@ -63,18 +67,23 @@ function isEmailLike(value: string) {
 }
 
 export default function SupportPage() {
-  const nav = useNavigate();
   const { me } = useAuth();
 
   const [type, setType] = useState<SupportType>('INQUIRY');
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
-  const [contactName, setContactName] = useState(me?.name ?? '');
+  const [contactName, setContactName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [privacyConsent, setPrivacyConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (me?.name) {
+      setContactName((prev) => prev || me.name);
+    }
+  }, [me?.name]);
 
   const active = typeConfig[type];
   const emailValid = isEmailLike(contactEmail);
@@ -83,7 +92,7 @@ export default function SupportPage() {
   const helperText = useMemo(() => {
     if (type === 'ACCOUNT_DELETE') {
       return me
-        ? '현재 로그인 중이면 내정보 페이지에서 즉시 회원탈퇴할 수 있고, 별도 기록 처리 문의는 여기에서 남길 수 있습니다.'
+        ? '현재 로그인 중이면 내정보 페이지에서 직접 회원탈퇴할 수 있고, 별도 기록 처리 문의는 여기에서 남길 수 있습니다.'
         : '로그인하지 않은 탈퇴 요청은 본인 확인을 위해 회신 가능한 이메일 입력이 필요합니다.';
     }
     if (type === 'PRIVACY_DELETE') {
@@ -157,34 +166,40 @@ export default function SupportPage() {
 
         <Card pad style={heroCard}>
           <div style={eyebrow}>SUPPORT DESK</div>
-          <div style={heroTitle}>문의, 버그 리포트, 탈퇴 요청, 개인정보 삭제 요청을 한 곳에서 접수할 수 있어요</div>
+          <div style={heroTitle}>
+            문의, 버그 리포트, 탈퇴 요청, 개인정보 삭제 요청을 한 곳에서 접수할 수 있어요
+          </div>
           <div style={heroDesc}>
             회원 여부와 관계없이 접수할 수 있습니다. 회신이 필요한 경우 이름 또는 이메일을 남겨 주세요.
             개인정보/계정 요청은 확인 절차 후 처리됩니다.
           </div>
+
           <div style={heroChips}>
-            <Link to="/terms" style={linkChip}>이용약관</Link>
-            <Link to="/privacy" style={linkChip}>개인정보 처리방침</Link>
-            <a href={`mailto:${supportEmail}`} style={linkChip}>{supportEmail}</a>
+            <Link to="/terms" style={linkChip}>
+              이용약관
+            </Link>
+            <Link to="/privacy" style={linkChip}>
+              개인정보 처리방침
+            </Link>
+            <a href={`mailto:${supportEmail}`} style={linkChip}>
+              {supportEmail}
+            </a>
             {me ? (
-              <button type="button" style={linkButton} onClick={() => nav('/me')}>
+              <Link to="/me" style={linkChip}>
                 내정보 / 탈퇴
-              </button>
-            ) : null}
-            {me?.isAdmin ? (
-              <button type="button" style={linkButton} onClick={() => nav('/admin/support')}>
-                관리자 접수함
-              </button>
+              </Link>
             ) : null}
           </div>
         </Card>
 
         <Card pad style={sectionCard}>
           <div style={sectionTitle}>접수 유형</div>
+
           <div style={typeGrid}>
             {(Object.keys(typeConfig) as SupportType[]).map((item) => {
               const config = typeConfig[item];
               const activeType = item === type;
+
               return (
                 <button
                   key={item}
@@ -258,6 +273,12 @@ export default function SupportPage() {
 
             {!emailValid ? <div style={errorBox}>이메일 형식이 올바르지 않습니다.</div> : null}
 
+            {needsReplyChannel ? (
+              <div style={warnBox}>
+                로그인하지 않은 탈퇴/개인정보 삭제 요청은 회신 가능한 이메일 입력이 필요합니다.
+              </div>
+            ) : null}
+
             <label style={consentBox}>
               <input
                 type="checkbox"
@@ -267,7 +288,9 @@ export default function SupportPage() {
               />
               <span style={consentText}>
                 문의/버그 처리 및 요청 확인 목적의 개인정보 수집·이용에 동의합니다. 자세한 내용은{' '}
-                <Link to="/privacy" style={textLink}>개인정보 처리방침</Link>
+                <Link to="/privacy" style={textLink}>
+                  개인정보 처리방침
+                </Link>
                 에서 확인할 수 있습니다.
               </span>
             </label>
@@ -291,7 +314,8 @@ export default function SupportPage() {
             </div>
           </div>
         </Card>
-       <PolicySupportFooter variant="support" />
+
+        <PolicySupportFooter variant="support" />
       </div>
     </div>
   );
@@ -346,20 +370,6 @@ const linkChip: CSSProperties = {
   textDecoration: 'none'
 };
 
-const linkButton: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  minHeight: 36,
-  padding: '0 12px',
-  borderRadius: 999,
-  background: 'rgba(114,215,199,0.12)',
-  border: '1px solid rgba(114,215,199,0.22)',
-  color: '#2b7b70',
-  fontSize: 12,
-  fontWeight: 800,
-  cursor: 'pointer'
-};
-
 const sectionCard: CSSProperties = {
   borderRadius: 22
 };
@@ -407,60 +417,59 @@ const typeCardDesc: CSSProperties = {
 
 const guideBox: CSSProperties = {
   marginTop: 14,
-  padding: '14px 16px',
-  borderRadius: 18,
-  background: 'rgba(247,252,255,0.78)',
-  border: '1px solid rgba(195, 220, 236, 0.5)'
+  padding: '13px 14px',
+  borderRadius: 16,
+  background: 'rgba(246, 250, 255, 0.92)',
+  border: '1px solid rgba(215,227,245,0.72)'
 };
 
 const guideTitle: CSSProperties = {
-  fontSize: 13,
-  fontWeight: 900,
-  color: '#4f739d'
+  fontSize: 14,
+  fontWeight: 800,
+  color: '#31414a'
 };
 
 const guideText: CSSProperties = {
-  marginTop: 8,
+  marginTop: 6,
   fontSize: 13,
   lineHeight: 1.7,
-  color: '#566671'
+  color: '#61717a'
 };
 
 const formStack: CSSProperties = {
   display: 'grid',
-  gap: 14,
-  marginTop: 16
+  gap: 12,
+  marginTop: 14
 };
 
 const field: CSSProperties = {
   display: 'grid',
-  gap: 8
+  gap: 6
 };
 
 const fieldLabel: CSSProperties = {
   fontSize: 13,
   fontWeight: 800,
-  color: '#42535c'
+  color: '#304048'
 };
 
 const textarea: CSSProperties = {
-  width: '100%',
   minHeight: 180,
-  resize: 'vertical',
-  border: '1px solid rgba(255,255,255,0.58)',
-  borderRadius: 18,
-  background: 'rgba(255,255,255,0.82)',
+  borderRadius: 16,
+  border: '1px solid rgba(255,255,255,0.6)',
+  background: 'rgba(255,255,255,0.72)',
   padding: '14px 16px',
-  outline: 'none',
+  fontSize: 14,
+  lineHeight: 1.7,
   color: '#24313a',
-  lineHeight: 1.6,
-  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.55)'
+  resize: 'vertical',
+  outline: 'none'
 };
 
 const grid2: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-  gap: 12
+  gap: 10
 };
 
 const consentBox: CSSProperties = {
@@ -469,8 +478,8 @@ const consentBox: CSSProperties = {
   gap: 10,
   padding: '12px 14px',
   borderRadius: 16,
-  background: 'rgba(255,255,255,0.62)',
-  border: '1px solid rgba(255,255,255,0.48)'
+  background: 'rgba(255,255,255,0.72)',
+  border: '1px solid rgba(255,255,255,0.56)'
 };
 
 const checkbox: CSSProperties = {
@@ -480,44 +489,54 @@ const checkbox: CSSProperties = {
 const consentText: CSSProperties = {
   fontSize: 13,
   lineHeight: 1.7,
-  color: '#566671'
+  color: '#52616a'
 };
 
 const textLink: CSSProperties = {
-  color: '#547bb0',
+  color: '#4e73b4',
   fontWeight: 800,
   textDecoration: 'none'
 };
 
 const tipBox: CSSProperties = {
-  padding: '14px 16px',
-  borderRadius: 18,
-  background: 'rgba(255,249,240,0.74)',
-  border: '1px solid rgba(244,217,181,0.45)'
+  padding: '13px 14px',
+  borderRadius: 16,
+  background: 'rgba(248,250,252,0.92)',
+  border: '1px solid rgba(230,236,242,0.82)'
 };
 
 const tipTitle: CSSProperties = {
-  fontSize: 13,
-  fontWeight: 900,
-  color: '#9a664f'
+  fontSize: 14,
+  fontWeight: 800,
+  color: '#31414a'
 };
 
 const tipList: CSSProperties = {
   margin: '8px 0 0',
   paddingLeft: 18,
-  color: '#6a5d56',
   fontSize: 13,
-  lineHeight: 1.7
+  lineHeight: 1.75,
+  color: '#61717a'
+};
+
+const warnBox: CSSProperties = {
+  padding: '12px 14px',
+  borderRadius: 16,
+  background: 'rgba(255,248,234,0.94)',
+  color: '#8b6437',
+  fontSize: 13,
+  lineHeight: 1.65,
+  border: '1px solid rgba(238,214,164,0.85)'
 };
 
 const okBox: CSSProperties = {
   padding: '13px 14px',
   borderRadius: 16,
-  background: 'rgba(236,252,247,0.92)',
-  color: '#27695f',
-  border: '1px solid rgba(114,215,199,0.25)',
-  fontSize: 14,
-  fontWeight: 700
+  background: 'rgba(240,255,248,0.96)',
+  color: '#2f7b62',
+  fontSize: 13,
+  lineHeight: 1.65,
+  border: '1px solid rgba(170,229,200,0.7)'
 };
 
 const errorBox: CSSProperties = {
@@ -525,9 +544,9 @@ const errorBox: CSSProperties = {
   borderRadius: 16,
   background: 'rgba(255,240,240,0.92)',
   color: '#a14d4d',
-  border: '1px solid rgba(241,180,180,0.32)',
-  fontSize: 14,
-  fontWeight: 700
+  fontSize: 13,
+  lineHeight: 1.65,
+  border: '1px solid rgba(244,204,204,0.7)'
 };
 
 const actionRow: CSSProperties = {

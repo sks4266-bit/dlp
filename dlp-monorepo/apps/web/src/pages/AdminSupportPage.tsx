@@ -2,12 +2,11 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import TopBar from '../components/layout/TopBar';
+import PolicySupportHeaderNav from '../components/legal/PolicySupportHeaderNav';
+import PolicySupportFooter from '../components/legal/PolicySupportFooter';
 import { apiFetch } from '../lib/api';
 import Button from '../ui/Button';
 import { Card } from '../ui/Card';
-import PolicySupportHeaderNav from '../components/legal/PolicySupportHeaderNav';
-import PolicySupportFooter from '../components/legal/PolicySupportFooter';
-
 
 type SupportType = 'INQUIRY' | 'BUG' | 'ACCOUNT_DELETE' | 'PRIVACY_DELETE';
 type SupportStatus = 'NEW' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
@@ -168,7 +167,6 @@ export default function AdminSupportPage() {
           }
           hideAuthActions
         />
-
         <PolicySupportHeaderNav variant="admin-support" />
 
         <Card pad style={heroCard}>
@@ -290,7 +288,7 @@ export default function AdminSupportPage() {
           ) : null}
         </div>
 
-       <PolicySupportFooter variant="admin-support" />
+        <PolicySupportFooter variant="admin-support" />
       </div>
     </div>
   );
