@@ -65,6 +65,7 @@ const sections = [
     title: '8. 개인정보 처리위탁 및 인프라 이용',
     body: [
       '서비스는 원활한 운영을 위해 클라우드 기반 인프라를 사용할 수 있으며, 현재 서비스 구조상 Cloudflare Workers, D1, R2 등 기술 인프라가 사용될 수 있습니다.',
+      '문의 접수 알림 메일 전송을 위해 이메일 전송 서비스 연동이 사용될 수 있으며, 이는 문의 처리 및 운영 알림 목적 범위 내에서만 활용됩니다.',
       '이러한 인프라 이용은 서비스 제공, 저장, 전송, 보안 유지 등 기술적 처리 범위 내에서만 이루어집니다.'
     ]
   },
@@ -128,7 +129,7 @@ export default function PrivacyPage() {
             <span style={chip}>최종 업데이트 {updatedAt}</span>
             <span style={chipSoft}>문의 이메일 {contactEmail}</span>
             <Link to="/terms" style={linkChip}>이용약관</Link>
-            <Link to="/support" style={linkChip}>문의하기</Link>
+            <Link to="/support" style={linkChip}>문의 / 요청 접수</Link>
           </div>
         </Card>
 

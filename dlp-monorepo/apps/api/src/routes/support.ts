@@ -4,6 +4,7 @@ import type { Env } from '../env';
 import { dbAll, dbGet, dbRun } from '../db';
 import { requireAdmin, requireUser } from '../middleware/auth';
 import { rateLimit } from '../middleware/rateLimit';
+import { sendSupportNotificationEmail } from '../lib/supportMailer';
 
 export const supportRoutes = new Hono<{ Bindings: Env; Variables: { userId: string } }>();
 
@@ -100,6 +101,8 @@ supportRoutes.post(
       : null;
 
     const email = normalizeText(body.contactEmail);
+    const contactName = normalizeText(body.contactName);
+    const pageUrl = normalizeText(body.pageUrl);
     const type = body.type as SupportType;
     const needsReplyChannel = !userId && (type === 'ACCOUNT_DELETE' || type === 'PRIVACY_DELETE');
 
@@ -138,16 +141,34 @@ supportRoutes.post(
         type,
         body.title.trim(),
         body.message.trim(),
-        normalizeText(body.contactName),
+        contactName,
         email,
         userId,
         user?.name ?? null,
-        normalizeText(body.pageUrl),
+        pageUrl,
         1,
         now,
         now
       ]
     );
+
+    try {
+      await sendSupportNotificationEmail(c.env, {
+        id,
+        type,
+        typeLabel: labelType(type),
+        title: body.title.trim(),
+        message: body.message.trim(),
+        contactName,
+        contactEmail: email,
+        userId,
+        userName: user?.name ?? null,
+        pageUrl,
+        createdAt: now
+      });
+    } catch (err) {
+      console.error('Failed to send support notification email', err);
+    }
 
     return c.json({
       ok: true,

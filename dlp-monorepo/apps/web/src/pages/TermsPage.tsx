@@ -112,7 +112,7 @@ export default function TermsPage() {
             <span style={chip}>최종 업데이트 {updatedAt}</span>
             <span style={chipSoft}>문의 이메일 {contactEmail}</span>
             <Link to="/privacy" style={linkChip}>개인정보 처리방침</Link>
-            <Link to="/support" style={linkChip}>문의하기</Link>
+            <Link to="/support" style={linkChip}>문의 / 요청 접수</Link>
           </div>
         </Card>
 

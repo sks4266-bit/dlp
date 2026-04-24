@@ -4,6 +4,8 @@ compatibility_date = "2026-03-20"
 
 [vars]
 APP_SECRET = "CHANGE_ME_TO_A_LONG_RANDOM_SECRET"
+SUPPORT_TO_EMAIL = "sks4266@gmail.com"
+SUPPORT_FROM_EMAIL = "ChristianDLP <no-reply@christiandlp.com>"
 
 [[d1_databases]]
 binding = "DB"
@@ -14,7 +16,6 @@ database_id = "2dc13104-d286-41c0-83d5-3970094e76a7"
 binding = "R2"
 bucket_name = "dlp-uploads"
 
-
 [[durable_objects.bindings]]
 name = "RATE_LIMITER"
 class_name = "RateLimiter"
@@ -22,7 +23,6 @@ class_name = "RateLimiter"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["RateLimiter"]
-
 
 [triggers]
 crons = ["0 * * * *"]
